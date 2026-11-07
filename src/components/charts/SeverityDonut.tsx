@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { PieChart, Pie, Tooltip, ResponsiveContainer } from "recharts";
 import type { SeverityCounts } from "../../types/nessus";
 
@@ -33,7 +34,7 @@ interface Props {
   emptyText?: string;
 }// Props
 
-export default function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No data" }: Props) {
+function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No data" }: Props) {
   const data = SLICES.map((s) => ({ ...s, fill: s.color, value: counts[s.key] })).filter((s) => s.value > 0);
   const total = data.reduce((s, d) => s + d.value, 0);
 
@@ -60,6 +61,8 @@ export default function SeverityDonut({ counts, size = 160, showLegend = false, 
               nameKey="label"
               strokeWidth={2}
               stroke="transparent"
+              animationBegin={0}
+              animationDuration={800}
             />
             <Tooltip
               content={<DonutTooltip />}
@@ -96,3 +99,11 @@ export default function SeverityDonut({ counts, size = 160, showLegend = false, 
     </div>
   );
 }// SeverityDonut
+
+// recharts restarts the animation on every render, so only re-render when something shown changes
+const sameCounts = (a: SeverityCounts, b: SeverityCounts) =>
+  a.critical === b.critical && a.high === b.high && a.medium === b.medium && a.low === b.low && a.info === b.info;
+
+export default memo(SeverityDonut, (prev, next) =>
+  sameCounts(prev.counts, next.counts) && prev.size === next.size && prev.showLegend === next.showLegend && prev.emptyText === next.emptyText
+);

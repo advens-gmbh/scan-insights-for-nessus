@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, Plus, Minus, Equal, ChevronDown, ChevronUp, Server, CircleHelp } from "lucide-react";
+import { ArrowRight, Plus, Minus, Equal, Server, CircleHelp } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import { severityCounts, visibleCounts } from "../types/nessus";
@@ -11,7 +11,11 @@ import { compareHosts } from "../utils/ip";
 import SeverityBadge from "../components/common/SeverityBadge";
 import SeverityDonut from "../components/charts/SeverityDonut";
 import SpacerRow from "../components/common/SpacerRow";
+import TableHead from "../components/common/TableHead";
+import { useTableColumns } from "../hooks/useTableColumns";
+import { useTableSort } from "../hooks/useTableSort";
 import { useVirtualRows } from "../hooks/useVirtualRows";
+import type { TableColumn } from "../utils/tableColumns";
 import FileDetailPanel from "../panels/FileDetailPanel";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 
@@ -229,7 +233,7 @@ function ScanSummaryCard({ file, label, onFileClick }: { file: NessusFile; label
         </h3>
         <ScanName file={file} />
       </div>
-      <div className="flex items-center gap-4">
+      <div className={`flex items-center gap-4 ${showInfo ? "min-h-[150px]" : "min-h-[124px]"}`}>
         <SeverityDonut counts={visibleCounts(counts, showInfo)} size={110} emptyText={counts.info > 0 ? "Only Info findings" : undefined} />
         <div className="flex flex-col gap-1.5 text-sm">
           <div className="flex items-center gap-2">
@@ -276,21 +280,16 @@ function DeltaCard({ icon, label, count, desc, color, bg }: {icon: React.ReactNo
 }// DeltaCard
 
 type DeltaSortKey = "severity" | "name" | "ip";
-type DeltaSortDir = "asc" | "desc";
+
+const DELTA_COLUMNS: TableColumn<DeltaSortKey>[] = [
+  { key: "severity", label: "Severity",    width: 112, required: true },
+  { key: "name",     label: "Plugin Name", width: 200, stretch: true, required: true },
+  { key: "ip",       label: "Host IP",     width: 208, required: true },
+];// DELTA_COLUMNS
 
 function DeltaTable({ title, items, itemMap, rowClass, onOpen }: {title: string; items: DeltaItem[]; itemMap: Map<number, { name: string; severity: number }>; rowClass: string; onOpen: (id: number) => void;}) {
-  const [sortKey, setSortKey] = useState<DeltaSortKey>("severity");
-  const [sortDir, setSortDir] = useState<DeltaSortDir>("desc");
-
-  const toggleSort = (key: DeltaSortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    }
-    else { 
-      setSortKey(key); 
-      setSortDir(key === "severity" ? "desc" : "asc"); 
-    }
-  };
+  const table = useTableColumns("compare", DELTA_COLUMNS);
+  const { sortKey, sortDir, toggleSort } = useTableSort(table.visible, "severity", "desc", ["name", "ip"]);
 
   const sorted = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -321,14 +320,8 @@ function DeltaTable({ title, items, itemMap, rowClass, onOpen }: {title: string;
         </h3>
       </div>
       <div ref={scrollRef} className="overflow-x-auto max-h-72 overflow-y-auto">
-        <table className="w-full table-fixed">
-          <thead className="sticky top-0">
-            <tr>
-              <DTh label="Severity" col="severity" current={sortKey} dir={sortDir} onSort={toggleSort} width="w-28" />
-              <DTh label="Plugin Name" col="name" current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <DTh label="Host IP" col="ip" current={sortKey} dir={sortDir} onSort={toggleSort} width="w-52" />
-            </tr>
-          </thead>
+        <table style={table.style}>
+          <TableHead table={table} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
             <SpacerRow height={paddingTop} colSpan={3} />
             {rows.map((row) => {
@@ -351,7 +344,7 @@ function DeltaTable({ title, items, itemMap, rowClass, onOpen }: {title: string;
                       <span className="block text-[10px] text-amber-600 dark:text-amber-400">{item.note}</span>
                     )}
                   </td>
-                  <td className="table-cell font-mono text-sm text-violet-600 dark:text-violet-400">
+                  <td className="table-cell text-violet-600 dark:text-violet-400">
                     {item.ip}
                     {item.port > 0 && (
                       <span className="text-xs text-slate-400"> {item.port}/{item.protocol}</span>
@@ -367,23 +360,3 @@ function DeltaTable({ title, items, itemMap, rowClass, onOpen }: {title: string;
     </div>
   );
 }// DeltaTable
-
-function DTh({ label, col, current, dir, onSort, width = "" }: {label: string; col: DeltaSortKey; current: DeltaSortKey; dir: DeltaSortDir; onSort: (k: DeltaSortKey) => void; width?: string;}) {
-  const active = current === col;
-  
-  return (
-    <th
-      className={`px-4 py-3 text-xs uppercase tracking-wider text-left select-none cursor-pointer transition-colors ${width} ${
-        active
-          ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 font-bold"
-          : "bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold hover:text-slate-700 dark:hover:text-slate-200"
-      }`}
-      onClick={() => onSort(col)}
-    >
-      <span className="flex items-center gap-1">
-        {label}
-        {active ? (dir === "desc" ? <ChevronDown size={12} /> : <ChevronUp size={12} />) : <ChevronDown size={12} className="opacity-30" />}
-      </span>
-    </th>
-  );
-}// DTh

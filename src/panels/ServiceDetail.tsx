@@ -9,6 +9,7 @@ import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 
 const ROWS_PAGE = 200;
+const HOSTS_COLLAPSED = 24; // 6 rows of 4 at the panel's full width
 
 interface Props {
   service: ServiceEntry;
@@ -19,7 +20,7 @@ interface Props {
 
 export default function ServiceDetail({ service, files, fileId, onClose }: Props) {
   const { openVulnPanel, showInfo } = useUiStore();
-  const [visibleHosts, setVisibleHosts] = useState(ROWS_PAGE);
+  const [showAllHosts, setShowAllHosts] = useState(false);
   const [visibleFindings, setVisibleFindings] = useState(ROWS_PAGE);
 
   const hostnames = useMemo(
@@ -28,6 +29,7 @@ export default function ServiceDetail({ service, files, fileId, onClose }: Props
   );
 
   const findings = showInfo ? service.findings : service.findings.filter((f) => f.severity > 0);
+  const hostIps = showAllHosts ? service.host_ips : service.host_ips.slice(0, HOSTS_COLLAPSED);
 
   return (
     <>
@@ -59,15 +61,18 @@ export default function ServiceDetail({ service, files, fileId, onClose }: Props
               <CopyButton text={service.host_ips.join("\n")} label="Copy All IPs" />
               <CopyButton text={service.host_ips.map((ip) => `${ip}:${service.port}`).join("\n")} label="Copy All IP:Ports" />
             </div>
-            <div className="space-y-0.5">
-              {service.host_ips.slice(0, visibleHosts).map((ip) => (
-                <div key={ip} className="flex items-center gap-3 px-3 py-1.5">
-                  <IpLink ip={ip} fileId={fileId} />
-                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{hostnames.get(ip)}</span>
+            <div className="grid gap-x-3 gap-y-2 px-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+              {hostIps.map((ip) => (
+                <div key={ip} title={hostnames.get(ip) ?? undefined}>
+                  <IpLink ip={ip} fileId={fileId} className="text-left break-all" />
                 </div>
               ))}
-              <ShowMore shown={visibleHosts} total={service.host_ips.length} onClick={() => setVisibleHosts((n) => n + ROWS_PAGE)} />
             </div>
+            {service.host_ips.length > HOSTS_COLLAPSED && (
+              <button onClick={() => setShowAllHosts((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+                {showAllHosts ? "Show less" : `Show all ${service.host_ips.length}`}
+              </button>
+            )}
           </div>
 
           {/* Findings */}

@@ -1,47 +1,47 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { ChevronUp, ChevronDown, SlidersHorizontal, Check, Copy, AlertTriangle } from "lucide-react";
+import { ChevronDown, Check, Copy, AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { buildHostEntries, SEVERITY_ORDER, SEVERITY_LABELS } from "../types/nessus";
+import { buildHostEntries } from "../types/nessus";
 import type { HostEntry } from "../types/nessus";
 import { compareHosts } from "../utils/ip";
+import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { spreadsheetCell } from "../utils/spreadsheet";
 import IpLink from "../components/common/IpLink";
 import SearchBar from "../components/common/SearchBar";
 import SpacerRow from "../components/common/SpacerRow";
+import ColumnPicker from "../components/common/ColumnPicker";
+import SeverityPills from "../components/common/SeverityPills";
+import TableHead from "../components/common/TableHead";
+import { useSeverityFilter } from "../hooks/useSeverityFilter";
+import { useTableColumns } from "../hooks/useTableColumns";
+import { useTableSort } from "../hooks/useTableSort";
 import { useVirtualRows } from "../hooks/useVirtualRows";
+import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 
 type ColKey = "ip" | "hostname" | "os" | "system_type" | "netbios" | "mac" | "credentialed" |
               "critical" | "high" | "medium" | "low" | "info" | "ports";
-type SortDir = "asc" | "desc";
 
-interface ColDef {
-  key: ColKey;
-  label: string;
-  required: boolean;
-  defaultVisible: boolean;
-  defaultWidth: number;
-  align: "left" | "center";
-}// ColDef
+type ColDef = TableColumn<ColKey>;
 
 const COLUMNS: ColDef[] = [
-  { key: "ip",           label: "IP Address",  required: true,  defaultVisible: true,  defaultWidth: 130, align: "left"   },
-  { key: "hostname",     label: "Hostname",     required: true,  defaultVisible: true,  defaultWidth: 220, align: "left"   },
-  { key: "os",           label: "OS",           required: false, defaultVisible: true,  defaultWidth: 200, align: "left"   },
-  { key: "system_type",  label: "System Type",  required: false, defaultVisible: false, defaultWidth: 140, align: "left"   },
-  { key: "netbios",      label: "NetBIOS",      required: false, defaultVisible: false, defaultWidth: 140, align: "left"   },
-  { key: "mac",          label: "MAC Address",  required: false, defaultVisible: false, defaultWidth: 155, align: "left"   },
-  { key: "credentialed", label: "Credentialed", required: false, defaultVisible: false, defaultWidth: 110, align: "center" },
-  { key: "critical",     label: "Critical",     required: false, defaultVisible: true,  defaultWidth: 80,  align: "center" },
-  { key: "high",         label: "High",         required: false, defaultVisible: true,  defaultWidth: 70,  align: "center" },
-  { key: "medium",       label: "Medium",       required: false, defaultVisible: true,  defaultWidth: 80,  align: "center" },
-  { key: "low",          label: "Low",          required: false, defaultVisible: true,  defaultWidth: 70,  align: "center" },
-  { key: "info",         label: "Info",         required: false, defaultVisible: true,  defaultWidth: 70,  align: "center" },
-  { key: "ports",        label: "Open Ports",   required: false, defaultVisible: true,  defaultWidth: 200, align: "left"   },
+  { key: "ip",           label: "IP Address",   width: 130, required: true },
+  { key: "hostname",     label: "Hostname",     width: 220, required: true },
+  { key: "os",           label: "OS",           width: 200 },
+  { key: "system_type",  label: "System Type",  width: 140, defaultHidden: true },
+  { key: "netbios",      label: "NetBIOS",      width: 140, defaultHidden: true },
+  { key: "mac",          label: "MAC Address",  width: 155, defaultHidden: true },
+  { key: "credentialed", label: "Credentialed", width: 110, defaultHidden: true, align: "center" },
+  { key: "critical",     label: "Critical",     width: 80,  align: "center" },
+  { key: "high",         label: "High",         width: 70,  align: "center" },
+  { key: "medium",       label: "Medium",       width: 80,  align: "center" },
+  { key: "low",          label: "Low",          width: 70,  align: "center" },
+  { key: "info",         label: "Info",         width: 70,  align: "center", defaultHidden: true },
+  { key: "ports",        label: "Open Ports",   width: 200 },
 ];// COLUMNS
 
 const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbios", "mac"];
@@ -50,79 +50,18 @@ const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbio
 
 export default function Hosts() {
   const files = useScanStore((s) => s.files);
-  const { openHostPanel, showInfo, toggleShowInfo } = useUiStore();
+  const openHostPanel = useUiStore((s) => s.openHostPanel);
   const location = useLocation();
 
   const [search, setSearch] = useState("");
   const [fileFilter, setFileFilter] = useState<string>(
     (location.state as { fileFilter?: string } | null)?.fileFilter ?? "all"
   );
-  const [severityFilter, setSeverityFilter] = useState<Set<number>>(new Set([4, 3, 2, 1]));
-  const [sortKey, setSortKey] = useState<ColKey>("critical");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("hosts");
 
-  const [hiddenCols, setHiddenCols] = useState<Set<ColKey>>(
-    () => new Set(COLUMNS.filter((c) => !c.defaultVisible).map((c) => c.key))
-  );
-  const [showColPicker, setShowColPicker] = useState(false);
-  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(
-    () => Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultWidth])) as Record<ColKey, number>
-  );
-
-  const availableCols = useMemo(() => COLUMNS.filter((c) => c.key !== "info" || showInfo), [showInfo]);
-  const visibleCols = useMemo(() => availableCols.filter((c) => !hiddenCols.has(c.key)), [availableCols, hiddenCols]);
-  // Info column can be hidden while it is the sort column
-  const activeSort = sortKey === "info" && !showInfo ? "critical" : sortKey;
-  const resizeRef = useRef<{ col: ColKey; startX: number; startW: number } | null>(null);
-  const colWidthsRef = useRef(colWidths);
-  useEffect(() => { colWidthsRef.current = colWidths; }, [colWidths]);
-  const wasResizingRef = useRef(false);
-  const colPickerRef = useRef<HTMLDivElement>(null);
-
-  // Resize mouse handlers
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!resizeRef.current) return;
-      wasResizingRef.current = true;
-      const { col, startX, startW } = resizeRef.current;
-      setColWidths((prev) => ({ ...prev, [col]: Math.max(50, startW + e.clientX - startX) }));
-    };
-    const onUp = () => {
-      resizeRef.current = null;
-      // Reset after the click event fires
-      if (wasResizingRef.current) setTimeout(() => { wasResizingRef.current = false; }, 0);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-    return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-  }, []);
-
-  const startResize = useCallback((col: ColKey, e: React.MouseEvent) => {
-    resizeRef.current = { col, startX: e.clientX, startW: colWidthsRef.current[col] };
-  }, []);
-
-  // Close column picker on outside click
-  useEffect(() => {
-    if (!showColPicker) {
-      return;
-    }
-
-    const handler = (e: MouseEvent) => {
-      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
-        setShowColPicker(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showColPicker]);
-
-  const toggleCol = (key: ColKey) => {
-    if (COLUMNS.find((c) => c.key === key)?.required) {
-      return;
-    }
-    setHiddenCols((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
-  };
+  const table = useTableColumns("hosts", COLUMNS);
+  const visibleCols = table.visible;
+  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort(visibleCols, "critical", "desc", TEXT_SORT_KEYS);
 
   // ── Data pipeline ───────────────────────────────────────────────────────────
 
@@ -136,9 +75,7 @@ export default function Hosts() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return allHosts.filter((h) => {
-      // hiding Info findings must not hide hosts. Most of the hosts have nothing else only info findings. Customer expects to find here
-      const allRatingsOn = severityFilter.size === 4;
-      if (!allRatingsOn && !h.items.some((i) => (i.severity === 0 ? showInfo : severityFilter.has(i.severity)))) {
+      if (!matchesSeverity(severitiesOf(h.severity_counts))) {
         return false;
       }
       if (!q) {
@@ -155,7 +92,7 @@ export default function Hosts() {
         h.open_ports.some((p) => p.includes(q))
       );
     });
-  }, [allHosts, search, severityFilter, showInfo]);
+  }, [allHosts, search, matchesSeverity]);
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     let cmp = 0;
@@ -179,19 +116,6 @@ export default function Hosts() {
   }), [filtered, activeSort, sortDir]);
 
   const { scrollRef, rows, paddingTop, paddingBottom, measureRow } = useVirtualRows(sorted.length);
-
-  const toggleSort = (key: ColKey) => {
-    if (wasResizingRef.current) {
-      return;
-    }
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    }
-    else { 
-      setSortKey(key); 
-      setSortDir(TEXT_SORT_KEYS.includes(key) ? "asc" : "desc"); 
-    }
-  };
 
   const [copied, setCopied] = useState(false);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
@@ -227,7 +151,7 @@ export default function Hosts() {
             case "os":           return h.os ?? "";
             case "system_type":  return h.system_type ?? "";
             case "netbios":      return h.netbios ?? "";
-            case "mac":          return h.mac?.split(/[\n,]+/)[0].trim() ?? "";
+            case "mac":          return macAddresses(h.mac).join(", ");
             case "credentialed": return h.credentialed_scan ? "Yes" : "No";
             case "critical":     return h.severity_counts.critical.toString();
             case "high":         return h.severity_counts.high.toString();
@@ -248,27 +172,10 @@ export default function Hosts() {
     });
   }, [sorted, visibleCols]);
 
-  const toggleSeverity = (sev: number) => {
-    if (sev === 0) {
-      toggleShowInfo();
-      return;
-    }
-
-    setSeverityFilter((prev) => { const n = new Set(prev); n.has(sev) ? n.delete(sev) : n.add(sev); return n; });
-  };
-
-  const countBySev = useMemo(() => {
-    const c: Record<number, number> = { 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
-    for (const h of allHosts) {
-      if (h.severity_counts.critical > 0) c[4]++;
-      if (h.severity_counts.high     > 0) c[3]++;
-      if (h.severity_counts.medium   > 0) c[2]++;
-      if (h.severity_counts.low      > 0) c[1]++;
-      if (h.severity_counts.info     > 0) c[0]++;
-    }
-
-    return c;
-  }, [allHosts]);
+  const severityCounts = useMemo(
+    () => countBySeverity(allHosts.map((h) => severitiesOf(h.severity_counts))),
+    [allHosts]
+  );
 
   if (files.length === 0) {
     return <EmptyFilesNotice />;
@@ -280,26 +187,7 @@ export default function Hosts() {
     <div className="h-full flex flex-col gap-4">
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3 shrink-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {SEVERITY_ORDER.map((sev) => {
-            const count = countBySev[sev] ?? 0;
-            if (count === 0) return null;
-            const active = sev === 0 ? showInfo : severityFilter.has(sev);
-            const colors = {
-              4: active ? "bg-critical text-white" : "bg-critical/10 text-critical",
-              3: active ? "bg-high text-white"     : "bg-high/10 text-high",
-              2: active ? "bg-medium text-white"   : "bg-medium/10 text-medium",
-              1: active ? "bg-low text-white"      : "bg-low/10 text-low",
-              0: active ? "bg-info text-white"     : "bg-info/10 text-info",
-            }[sev];
-            return (
-              <button key={sev} onClick={() => toggleSeverity(sev)}
-                className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${colors}`}>
-                {SEVERITY_LABELS[sev]} {count}
-              </button>
-            );
-          })}
-        </div>
+        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} />
 
         {files.length > 1 && (
           <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)}
@@ -311,45 +199,7 @@ export default function Hosts() {
 
         <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-1 min-w-48" />
 
-        {/* Column picker */}
-        <div className="relative" ref={colPickerRef}>
-          <button
-            onClick={() => setShowColPicker((v) => !v)}
-            title="Choose columns"
-            className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${
-              showColPicker ? "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200" : ""
-            }`}
-          >
-            <SlidersHorizontal size={13} />
-            Columns
-          </button>
-          {showColPicker && (
-            <div className="absolute right-0 top-full mt-1 z-50 card p-1.5 w-44 shadow-xl">
-              {availableCols.map((col) => {
-                const visible = !hiddenCols.has(col.key);
-                return (
-                  <button
-                    key={col.key}
-                    onClick={() => toggleCol(col.key)}
-                    disabled={col.required}
-                    className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-sm text-left transition-colors ${
-                      col.required
-                        ? "opacity-40 cursor-not-allowed"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                      visible ? "bg-violet-500 border-violet-500" : "border-slate-300 dark:border-slate-600"
-                    }`}>
-                      {visible && <Check size={10} className="text-white" strokeWidth={3} />}
-                    </div>
-                    <span className="text-slate-700 dark:text-slate-300">{col.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <ColumnPicker table={table} />
 
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-slate-400">{sorted.length} hosts</span>
@@ -381,26 +231,8 @@ export default function Hosts() {
       {/* Table */}
       <div className="card flex-1 overflow-hidden">
         <div ref={scrollRef} className="overflow-auto h-full">
-          <table style={{ tableLayout: "fixed", width: "100%" }}>
-            <colgroup>
-              {visibleCols.map((col) => (
-                <col key={col.key} style={{ width: colWidths[col.key] }} />
-              ))}
-            </colgroup>
-            <thead className="sticky top-0 z-10">
-              <tr>
-                {visibleCols.map((col) => (
-                  <Th
-                    key={col.key}
-                    col={col}
-                    current={activeSort}
-                    dir={sortDir}
-                    onSort={toggleSort}
-                    onResizeStart={startResize}
-                  />
-                ))}
-              </tr>
-            </thead>
+          <table style={table.style}>
+            <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               <SpacerRow height={paddingTop} colSpan={visibleCols.length} />
               {rows.map((row) => {
@@ -447,6 +279,7 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
   const sc = host.severity_counts;
   const portSample = host.open_ports.map((p) => p.split("/")[0]).slice(0, 8).join(", ");
   const extra = host.open_ports.length > 8 ? ` +${host.open_ports.length - 8}` : "";
+  const macs = macAddresses(host.mac);
 
   return (
     <tr ref={measureRow} data-index={index} className="table-row" onClick={onClick}>
@@ -514,8 +347,11 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
 
           case "mac":
             return (
-              <td key="mac" className="table-cell font-mono text-xs text-slate-500">
-                <span className="truncate block">{host.mac?.split(/[\n,]+/)[0].trim() ?? "-"}</span>
+              <td key="mac" className="table-cell text-slate-500" title={macs.length > 1 ? macs.join("\n") : undefined}>
+                <span className="truncate block">
+                  {macs[0] ?? "-"}
+                  {macs.length > 1 && ` +${macs.length - 1}`}
+                </span>
               </td>
             );
 
@@ -536,7 +372,7 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
 
           case "ports":
             return (
-              <td key="ports" className="table-cell font-mono text-xs text-slate-500">
+              <td key="ports" className="table-cell text-slate-500">
                 <span className="truncate block">{portSample}{extra}</span>
               </td>
             );
@@ -548,6 +384,10 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
   );
 }// HostRow
 
+function macAddresses(mac: string | null): string[] {
+  return mac ? mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
+}// macAddresses
+
 function SevCount({ value, sev }: { value: number; sev: number }) {
   const color = { 4: "text-critical", 3: "text-high", 2: "text-medium", 1: "text-low", 0: "text-info" }[sev] ?? "text-info";
   return <span className={`font-semibold text-sm ${color}`}>{value}</span>;
@@ -556,43 +396,6 @@ function SevCount({ value, sev }: { value: number; sev: number }) {
 function Dash() {
   return <span className="text-slate-300 dark:text-slate-600">-</span>;
 }// Dash
-
-function Th({ col, current, dir, onSort, onResizeStart }: {
-  col: ColDef;
-  current: ColKey;
-  dir: SortDir;
-  onSort: (k: ColKey) => void;
-  onResizeStart: (col: ColKey, e: React.MouseEvent) => void;
-}) {
-  const active = current === col.key;
-  return (
-    <th
-      className={`relative px-4 py-3 text-xs uppercase tracking-wider select-none cursor-pointer transition-colors overflow-hidden ${
-        col.align === "center" ? "text-center" : "text-left"
-      } ${
-        active
-          ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 font-bold"
-          : "bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold hover:text-slate-700 dark:hover:text-slate-200"
-      }`}
-      onClick={() => onSort(col.key)}
-    >
-      <span className={`flex items-center gap-1 ${col.align === "center" ? "justify-center" : ""}`}>
-        {col.label}
-        {active
-          ? (dir === "desc" ? <ChevronDown size={12} /> : <ChevronUp size={12} />)
-          : <ChevronDown size={12} className="opacity-30" />}
-      </span>
-      {/* Resize handle - always shows a subtle line, highlights on hover */}
-      <div
-        className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group z-10"
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onResizeStart(col.key, e); }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-px h-4 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-violet-500 group-hover:w-0.5 transition-all" />
-      </div>
-    </th>
-  );
-}// Th
 
 function CopyMenuItem({ label, sub, onClick }: { label: string; sub: string; onClick: () => void }) {
   return (

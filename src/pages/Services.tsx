@@ -1,32 +1,53 @@
 import { useMemo, useState } from "react";
-import { ChevronUp, ChevronDown } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
-import { useUiStore } from "../stores/uiStore";
-import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import { buildServiceEntries } from "../types/nessus";
 import type { ServiceEntry } from "../types/nessus";
 import ServiceDetail from "../panels/ServiceDetail";
 import SearchBar from "../components/common/SearchBar";
 import SpacerRow from "../components/common/SpacerRow";
+import ColumnPicker from "../components/common/ColumnPicker";
+import SeverityPills from "../components/common/SeverityPills";
+import TableHead from "../components/common/TableHead";
+import { useSeverityFilter } from "../hooks/useSeverityFilter";
+import { useTableColumns } from "../hooks/useTableColumns";
+import { countBySeverity, severitiesOf } from "../utils/severityFilter";
+import { useTableSort } from "../hooks/useTableSort";
 import { useVirtualRows } from "../hooks/useVirtualRows";
+import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 
-type SortKey = "port" | "protocol" | "service" | "hosts" | "critical" | "high" | "medium" | "low" | "info" | "exploit";
-type SortDir = "asc" | "desc";
+type SortKey = "port" | "protocol" | "service" | "hosts" | "findings" | "critical" | "high" | "medium" | "low" | "info" | "exploit";
+type ColDef = TableColumn<SortKey>;
 type Protocol = "all" | "tcp" | "udp";
 
 const ASCENDING_FIRST: SortKey[] = ["port", "protocol", "service"];
 
+const COLUMNS: ColDef[] = [
+  { key: "port",     label: "Port",     width: 96, required: true },
+  { key: "protocol", label: "Protocol", width: 112 },
+  { key: "service",  label: "Service",  width: 240, stretch: true },
+  { key: "hosts",    label: "Hosts",    width: 96 },
+  { key: "findings", label: "Findings", width: 112, defaultHidden: true },
+  { key: "critical", label: "Critical", width: 112 },
+  { key: "high",     label: "High",     width: 80 },
+  { key: "medium",   label: "Medium",   width: 112 },
+  { key: "low",      label: "Low",      width: 80 },
+  { key: "info",     label: "Info",     width: 80, defaultHidden: true },
+  { key: "exploit",  label: "Exploit",  width: 112 },
+];// COLUMNS
+
+
 export default function Services() {
   const files = useScanStore((s) => s.files);
-  const showInfo = useUiStore((s) => s.showInfo);
 
   const [search, setSearch] = useState("");
   const [protocol, setProtocol] = useState<Protocol>("all");
   const [fileFilter, setFileFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("port");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("services");
+
+  const table = useTableColumns("services", COLUMNS);
+  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort(table.visible, "port", "asc", ASCENDING_FIRST);
 
   const activeFile = files.some((f) => f.id === fileFilter) ? fileFilter : "all";
   const filteredFiles = useMemo(
@@ -41,13 +62,19 @@ export default function Services() {
       if (protocol !== "all" && s.protocol !== protocol) {
         return false;
       }
+      if (!matchesSeverity(severitiesOf(s.severity_counts))) {
+        return false;
+      }
 
       return !q || s.key.includes(q) || s.svc_names.some((n) => n.toLowerCase().includes(q)) || s.host_ips.some((ip) => ip.includes(q));
     });
-  }, [services, search, protocol]);
+  }, [services, search, protocol, matchesSeverity]);
 
-  // the Info column can be hidden while it is the sort column
-  const activeSort = sortKey === "info" && !showInfo ? "port" : sortKey;
+  const severityCounts = useMemo(
+    () => countBySeverity(services.map((s) => severitiesOf(s.severity_counts))),
+    [services]
+  );
+
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     let cmp = 0;
     switch (activeSort) {
@@ -55,6 +82,7 @@ export default function Services() {
       case "protocol": cmp = a.protocol.localeCompare(b.protocol); break;
       case "service":  cmp = a.svc_names.join().localeCompare(b.svc_names.join()); break;
       case "hosts":    cmp = a.host_ips.length - b.host_ips.length; break;
+      case "findings": cmp = a.findings.length - b.findings.length; break;
       case "critical": cmp = a.severity_counts.critical - b.severity_counts.critical; break;
       case "high":     cmp = a.severity_counts.high - b.severity_counts.high; break;
       case "medium":   cmp = a.severity_counts.medium - b.severity_counts.medium; break;
@@ -68,27 +96,19 @@ export default function Services() {
 
   const { scrollRef, rows, paddingTop, paddingBottom, measureRow } = useVirtualRows(sorted.length);
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(ASCENDING_FIRST.includes(key) ? "asc" : "desc");
-    }
-  };
-
   if (files.length === 0) {
     return <EmptyFilesNotice />;
   }
 
   const selected = services.find((s) => s.key === selectedKey);
-  const th = { current: activeSort, dir: sortDir, onSort: toggleSort };
-  const columnCount = showInfo ? 10 : 9;
+  const columnCount = table.visible.length;
 
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} />
+
         <div className="flex items-center gap-1.5">
           {(["all", "tcp", "udp"] as const).map((p) => (
             <button
@@ -118,7 +138,7 @@ export default function Services() {
 
         <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-1 min-w-48" />
 
-        <ShowInfoCheckbox />
+        <ColumnPicker table={table} />
 
         <span className="text-xs text-slate-400 shrink-0">
           {sorted.length.toLocaleString()} services
@@ -128,21 +148,8 @@ export default function Services() {
       {/* Table - fills remaining height, scrolls internally so thead stays sticky */}
       <div className="card flex-1 overflow-hidden">
         <div ref={scrollRef} className="overflow-auto h-full">
-          <table className="w-full min-w-[65rem] table-fixed">
-            <thead className="sticky top-0 z-10">
-              <tr>
-                <Th label="Port"     sortKey="port"     width="w-24" {...th} />
-                <Th label="Protocol" sortKey="protocol" width="w-28" {...th} />
-                <Th label="Service"  sortKey="service"  {...th} />
-                <Th label="Hosts"    sortKey="hosts"    width="w-24" {...th} />
-                <Th label="Critical" sortKey="critical" width="w-28" {...th} />
-                <Th label="High"     sortKey="high"     width="w-20" {...th} />
-                <Th label="Medium"   sortKey="medium"   width="w-28" {...th} />
-                <Th label="Low"      sortKey="low"      width="w-20" {...th} />
-                {showInfo && <Th label="Info" sortKey="info" width="w-20" {...th} />}
-                <Th label="Exploit"  sortKey="exploit"  width="w-28" {...th} />
-              </tr>
-            </thead>
+          <table style={table.style}>
+            <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               <SpacerRow height={paddingTop} colSpan={columnCount} />
               {rows.map((row) => {
@@ -151,7 +158,7 @@ export default function Services() {
                   <ServiceRow
                     key={s.key}
                     service={s}
-                    showInfo={showInfo}
+                    visibleCols={table.visible}
                     index={row.index}
                     measureRow={measureRow}
                     onClick={() => setSelectedKey(s.key)}
@@ -184,9 +191,9 @@ export default function Services() {
   );
 }// Services
 
-function ServiceRow({ service, showInfo, index, measureRow, onClick }: {
+function ServiceRow({ service, visibleCols, index, measureRow, onClick }: {
   service: ServiceEntry;
-  showInfo: boolean;
+  visibleCols: ColDef[];
   index: number;
   measureRow: (el: HTMLTableRowElement | null) => void;
   onClick: () => void;
@@ -196,20 +203,38 @@ function ServiceRow({ service, showInfo, index, measureRow, onClick }: {
 
   return (
     <tr ref={measureRow} data-index={index} className="table-row" onClick={onClick}>
-      <td className="table-cell font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">{service.port}</td>
-      <td className="table-cell font-mono text-xs uppercase text-slate-500 dark:text-slate-400 truncate" title={service.protocol}>{service.protocol}</td>
-      <td className="table-cell text-slate-700 dark:text-slate-300 truncate" title={names}>{names || "-"}</td>
-      <td className="table-cell font-semibold text-slate-700 dark:text-slate-200">{service.host_ips.length}</td>
-      <Count value={sc.critical} color="text-critical" />
-      <Count value={sc.high} color="text-high" />
-      <Count value={sc.medium} color="text-medium" />
-      <Count value={sc.low} color="text-low" />
-      {showInfo && <Count value={sc.info} color="text-info" />}
-      <td className="table-cell">
-        {service.exploit_available && (
-          <span className="pill bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs">EXPLOIT</span>
-        )}
-      </td>
+      {visibleCols.map((col) => {
+        switch (col.key) {
+          case "port":
+            return <td key={col.key} className="table-cell font-semibold text-slate-800 dark:text-slate-200">{service.port}</td>;
+          case "protocol":
+            return <td key={col.key} className="table-cell uppercase text-slate-500 dark:text-slate-400 truncate" title={service.protocol}>{service.protocol}</td>;
+          case "service":
+            return <td key={col.key} className="table-cell text-slate-700 dark:text-slate-300 truncate" title={names}>{names || "-"}</td>;
+          case "hosts":
+            return <td key={col.key} className="table-cell font-semibold text-slate-700 dark:text-slate-200">{service.host_ips.length}</td>;
+          case "findings":
+            return <td key={col.key} className="table-cell font-semibold text-slate-700 dark:text-slate-200">{service.findings.length}</td>;
+          case "critical":
+            return <Count key={col.key} value={sc.critical} color="text-critical" />;
+          case "high":
+            return <Count key={col.key} value={sc.high} color="text-high" />;
+          case "medium":
+            return <Count key={col.key} value={sc.medium} color="text-medium" />;
+          case "low":
+            return <Count key={col.key} value={sc.low} color="text-low" />;
+          case "info":
+            return <Count key={col.key} value={sc.info} color="text-info" />;
+          case "exploit":
+            return (
+              <td key={col.key} className="table-cell">
+                {service.exploit_available && (
+                  <span className="pill bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs">EXPLOIT</span>
+                )}
+              </td>
+            );
+        }
+      })}
     </tr>
   );
 }// ServiceRow
@@ -223,33 +248,3 @@ function Count({ value, color }: { value: number; color: string }) {
     </td>
   );
 }// Count
-
-function Th({ label, sortKey, current, dir, onSort, width = "" }: {
-  label: string;
-  sortKey: SortKey;
-  current: SortKey;
-  dir: SortDir;
-  onSort: (k: SortKey) => void;
-  width?: string;
-}) {
-  const active = current === sortKey;
-  return (
-    <th
-      className={`px-4 py-3 text-xs uppercase tracking-wider text-left select-none cursor-pointer transition-colors ${width} ${
-        active
-          ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 font-bold"
-          : "bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold hover:text-slate-700 dark:hover:text-slate-200"
-      }`}
-      onClick={() => onSort(sortKey)}
-    >
-      <span className="flex items-center gap-1">
-        {label}
-        {active ? (
-          dir === "desc" ? <ChevronDown size={12} /> : <ChevronUp size={12} />
-        ) : (
-          <ChevronDown size={12} className="opacity-30" />
-        )}
-      </span>
-    </th>
-  );
-}// Th

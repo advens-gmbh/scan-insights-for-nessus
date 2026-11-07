@@ -1,33 +1,23 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { TriangleAlert } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
-import { useUiStore } from "../stores/uiStore";
 import { buildHostEntries, SEVERITY_ORDER, SEVERITY_LABELS, SEVERITY_COLORS } from "../types/nessus";
 import NetworkGraph from "../components/topology/NetworkGraph";
+import SeverityPills from "../components/common/SeverityPills";
+import { useSeverityFilter } from "../hooks/useSeverityFilter";
+import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+
+const ALL_SEVERITIES = new Set<number>(SEVERITY_ORDER);
+// hosts with only info findings would bury the rest of the graph
+const START_SELECTED = [4, 3, 2, 1];
 
 export default function Topology() {
   const files = useScanStore((s) => s.files);
-  const [severityFilter, setSeverityFilter] = useState<Set<number>>(new Set([4, 3, 2, 1]));
-  const { showInfo, toggleShowInfo } = useUiStore();
+  const { selected, toggle } = useSeverityFilter("topology", START_SELECTED);
   const hosts = useMemo(() => buildHostEntries(files), [files]);
-  const activeSeverities = useMemo(
-    () => (showInfo ? new Set([...severityFilter, 0]) : severityFilter),
-    [severityFilter, showInfo]
-  );
-
-  const toggleSeverity = (sev: number) => {
-    if (sev === 0) {
-      toggleShowInfo();
-      return;
-    }
-
-    setSeverityFilter((prev) => {
-      const n = new Set(prev);
-      n.has(sev) ? n.delete(sev) : n.add(sev);
-      return n;
-    });
-  };
+  const shown = useMemo(() => (selected.length === 0 ? ALL_SEVERITIES : new Set(selected)), [selected]);
+  const severityCounts = useMemo(() => countBySeverity(hosts.map((h) => severitiesOf(h.severity_counts))), [hosts]);
 
   if (files.length === 0) {
     return <EmptyFilesNotice />;
@@ -41,21 +31,8 @@ export default function Topology() {
         <p className="text-xs text-slate-400">
           Subnet-inferred topology - hosts grouped by /24 subnet, colored by worst severity.
         </p>
-        <div className="flex items-center gap-2 ml-auto">
-          {SEVERITY_ORDER.map((sev) => {
-            const active = activeSeverities.has(sev);
-            const color = SEVERITY_COLORS[sev]?.hex ?? "#6b7280";
-            return (
-              <button
-                key={sev}
-                onClick={() => toggleSeverity(sev)}
-                className={`pill px-3 py-1 text-sm font-semibold transition-opacity cursor-pointer ${active ? "opacity-100" : "opacity-30"}`}
-                style={{ backgroundColor: color + "22", color }}
-              >
-                {SEVERITY_LABELS[sev]}
-              </button>
-            );
-          })}
+        <div className="ml-auto">
+          <SeverityPills counts={severityCounts} selected={selected} onToggle={toggle} />
         </div>
       </div>
 
@@ -114,10 +91,10 @@ export default function Topology() {
       {/* Graph */}
       <div className="card flex-1 overflow-hidden">
         <NetworkGraph
-          key={[...severityFilter].join(",")}
+          key={selected.join(",")}
           hosts={hosts}
           files={files}
-          severityFilter={activeSeverities}
+          severityFilter={shown}
         />
       </div>
 

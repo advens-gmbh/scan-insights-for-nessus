@@ -63,7 +63,7 @@ export default function Dashboard() {
               </div>
 
               {/* Stats + donut */}
-              <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-4 ${showInfo ? "min-h-[150px]" : "min-h-[124px]"}`}>
                 <SeverityDonut counts={visibleCounts(counts, showInfo)} size={110} emptyText={counts.info > 0 ? "Only Info findings" : undefined} />
                 <div className="flex flex-col gap-1.5 text-sm">
                   <div className="flex items-center gap-2">
