@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,} from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, usePlotArea,} from "recharts";
 
 export interface TrendPoint {
   label: string;
@@ -22,13 +22,15 @@ const LINE_COLORS: Record<string, string> = {
   Info: "#3b82f6",
 };// LINE_COLORS
 
-function TrendTooltip({ active, payload, coordinate, viewBox }: any) {
+function TrendTooltip({ active, payload, coordinate }: any) {
+  const plotArea = usePlotArea();
+
   if (!active || !payload?.length) {
     return null;
   }
 
   const d = payload[0].payload as TrendPoint;
-  const flipLeft = coordinate && viewBox && coordinate.x > viewBox.width * 0.55;
+  const flipLeft = coordinate && plotArea && coordinate.x > plotArea.width * 0.55;
   const sevRows = payload.filter((p: any) => p.name !== "Total");
   const hasTotal = payload.some((p: any) => p.name === "Total");
   const visibleTotal = sevRows.reduce((sum: number, p: any) => sum + (p.value ?? 0), 0);
@@ -77,7 +79,7 @@ export default function TrendLine({ data, height = 220, showInfo = false }: Prop
         <XAxis dataKey="date" tick={{ fontSize: 11 }} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip content={<TrendTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ zIndex: 50 }} />
-        <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 13 }} />
+        <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 13 }} itemSorter={null} />
         <Line type="monotone" dataKey="total"    stroke="#a78bfa" strokeWidth={2} dot={{ r: 4 }} name="Total" />
         <Line type="monotone" dataKey="critical" stroke="#dc2626" strokeWidth={2} dot={{ r: 4 }} name="Critical" />
         <Line type="monotone" dataKey="high"     stroke="#f97316" strokeWidth={2} dot={{ r: 4 }} name="High" />

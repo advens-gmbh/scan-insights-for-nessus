@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Tooltip, ResponsiveContainer } from "recharts";
 import type { SeverityCounts } from "../../types/nessus";
 
 const SLICES = [
@@ -34,7 +34,7 @@ interface Props {
 }// Props
 
 export default function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No data" }: Props) {
-  const data = SLICES.map((s) => ({ ...s, value: counts[s.key] })).filter((s) => s.value > 0);
+  const data = SLICES.map((s) => ({ ...s, fill: s.color, value: counts[s.key] })).filter((s) => s.value > 0);
   const total = data.reduce((s, d) => s + d.value, 0);
 
   if (total === 0) {
@@ -60,11 +60,7 @@ export default function SeverityDonut({ counts, size = 160, showLegend = false, 
               nameKey="label"
               strokeWidth={2}
               stroke="transparent"
-            >
-              {data.map((entry) => (
-                <Cell key={entry.key} fill={entry.color} />
-              ))}
-            </Pie>
+            />
             <Tooltip
               content={<DonutTooltip />}
               allowEscapeViewBox={{ x: true, y: true }}

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.recharts-wrapper g[tabindex="-1"]:focus {
+  outline: none;
+}
+
 @layer base {
   :root {
     --sidebar-w: 240px;

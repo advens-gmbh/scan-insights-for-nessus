@@ -14,6 +14,8 @@ export default tseslint.config(
     plugins: { "react-hooks": reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // This only reports what React Compiler would skip, and the project doesn't use the compiler.
+      "react-hooks/incompatible-library": "off",
       // Recharts' custom tooltip props are untyped in this project.
       "@typescript-eslint/no-explicit-any": "off",
       // `set.has(x) ? set.delete(x) : set.add(x)` is the toggle idiom used throughout.

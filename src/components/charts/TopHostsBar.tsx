@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,} from "recharts";
 import type { HostEntry } from "../../types/nessus";
 import { useUiStore } from "../../stores/uiStore";
 
@@ -68,7 +68,16 @@ export default function TopHostsBar({ hosts, limit = 15, showInfo = false }: Pro
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
-        onClick={(d) => d?.activePayload?.[0] && openHostPanel((d.activePayload[0].payload as { ip: string }).ip)}
+        onClick={(d) => {
+          if (d?.activeTooltipIndex == null) {
+            return;
+          }
+
+          const host = data[Number(d.activeTooltipIndex)];
+          if (host) {
+            openHostPanel(host.ip);
+          }
+        }}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
         <XAxis dataKey="ip" tick={{ fontSize: 11 }} />
@@ -78,9 +87,7 @@ export default function TopHostsBar({ hosts, limit = 15, showInfo = false }: Pro
         <Bar dataKey="Low"    stackId="a" fill="#22c55e" />
         <Bar dataKey="Medium" stackId="a" fill="#eab308" />
         <Bar dataKey="High"   stackId="a" fill="#f97316" />
-        <Bar dataKey="Critical" stackId="a" fill="#dc2626" radius={[3, 3, 0, 0]}>
-          {data.map((_, i) => <Cell key={i} cursor="pointer" />)}
-        </Bar>
+        <Bar dataKey="Critical" stackId="a" fill="#dc2626" radius={[3, 3, 0, 0]} cursor="pointer" />
       </BarChart>
     </ResponsiveContainer>
   );
