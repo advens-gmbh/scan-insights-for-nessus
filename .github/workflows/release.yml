@@ -1,0 +1,90 @@
+name: Release
+
+# Pushing a tag such as v0.1.0 builds every package and adds them to a draft release.
+# Nobody else sees the release until it is published on GitHub.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  create-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Creating a release needs write access, so only the jobs that do so get it.
+    permissions:
+      contents: write
+    steps:
+      # Actions are pinned to exact commits, since a tag can be moved to different code.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # The installers take their version from tauri.conf.json, not from the tag.
+      - name: Check the tag matches the app version
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in tauri.conf.json"
+            exit 1
+          fi
+      - run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    needs: create-release
+    strategy:
+      # A draft missing one system's files is easy to spot, and that job can be re-run alone.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bundles: msi,nsis
+          - os: ubuntu-24.04
+            bundles: deb,rpm,appimage
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # No build caches here, so that nothing from an earlier run can end up in a release.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      # The libraries Tauri compiles against, plus what the AppImage tooling needs to run.
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev file xdg-utils libfuse2t64
+      - run: npm ci
+      - run: npm run tauri build -- --bundles ${{ matrix.bundles }}
+
+      - name: Upload the Windows files
+        if: runner.os == 'Windows'
+        shell: bash
+        working-directory: src-tauri/target/release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          portable="scan-insights-for-nessus_${GITHUB_REF_NAME#v}_x64_portable.exe"
+          cp scan-insights-for-nessus.exe "$portable"
+          gh release upload "$GITHUB_REF_NAME" --clobber bundle/msi/*.msi bundle/nsis/*-setup.exe "$portable"
+
+      # No plain Linux binary: it fails without WebKitGTK installed, and the AppImage covers that use.
+      - name: Upload the Linux files
+        if: runner.os == 'Linux'
+        working-directory: src-tauri/target/release/bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" --clobber deb/*.deb rpm/*.rpm appimage/*.AppImage

@@ -1,0 +1,23 @@
+# Build output
+dist/
+target/
+node_modules/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+Nessus TestFiles/
+
+# Env
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
