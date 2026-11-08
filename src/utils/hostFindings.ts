@@ -1,3 +1,4 @@
+import { compareHosts } from "./ip";
 import type { ReportItem } from "../types/nessus";
 
 export interface PortGroup {
@@ -60,3 +61,42 @@ export function openPorts(items: ReportItem[]): { tcp: number[]; udp: number[] }
 
   return { tcp: ports("tcp"), udp: ports("udp") };
 }// openPorts
+
+export interface HostGroup {
+  key: string;
+  ip: string;
+  hostname: string | null;
+  items: ReportItem[];
+  counts: [number, number, number, number, number];
+  worst: number;
+}// HostGroup
+
+export function groupByHost(
+  hosts: { ip: string; hostname: string | null; netbios: string | null; items: ReportItem[] }[],
+  port: number,
+  protocol: string,
+  include: (item: ReportItem) => boolean,
+): HostGroup[] {
+  const groups: HostGroup[] = [];
+  for (const host of hosts) {
+    const items = host.items.filter((i) => i.port === port && i.protocol === protocol && include(i)).sort(bySeverityThenName);
+    if (items.length === 0) {
+      continue;
+    }
+    const counts: HostGroup["counts"] = [0, 0, 0, 0, 0];
+    for (const i of items) {
+      counts[i.severity]++;
+    }
+    groups.push({ key: host.ip, ip: host.ip, hostname: host.hostname ?? host.netbios, items, counts, worst: items[0].severity });
+  }
+
+  return groups.sort((a, b) => {
+    for (let s = 4; s >= 0; s--) {
+      if (a.counts[s] !== b.counts[s]) {
+        return b.counts[s] - a.counts[s];
+      }
+    }
+
+    return compareHosts(a.ip, b.ip);
+  });
+}// groupByHost

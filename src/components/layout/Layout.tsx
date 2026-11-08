@@ -6,12 +6,13 @@ import TopBar from "./TopBar";
 import Notifications from "./Notifications";
 import VulnDetail from "../../panels/VulnDetail";
 import HostDetail from "../../panels/HostDetail";
+import ServiceDetail from "../../panels/ServiceDetail";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 
 export default function Layout() {
-  const { vulnPanelId, hostPanelIp } = useUiStore();
+  const { vulnPanelId, hostPanelIp, servicePanelKey } = useUiStore();
   const loadFile = useScanStore((s) => s.loadFile);
 
   // lives here so files can be dropped on any page
@@ -49,6 +50,7 @@ export default function Layout() {
       {/* Global slide-in panels */}
       {vulnPanelId !== null && <VulnDetail pluginId={vulnPanelId} />}
       {hostPanelIp !== null && <HostDetail ip={hostPanelIp} />}
+      {servicePanelKey !== null && <ServiceDetail serviceKey={servicePanelKey} />}
 
       {/* Toast notifications */}
       <Notifications />

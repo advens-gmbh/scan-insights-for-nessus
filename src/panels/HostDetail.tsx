@@ -1,33 +1,17 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { X, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { buildHostEntries, ratedScore, SEVERITY_COLORS } from "../types/nessus";
+import { buildHostEntries } from "../types/nessus";
 import type { ReportItem } from "../types/nessus";
 import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
 import { groupByPort, openPorts, sortFindings } from "../utils/hostFindings";
-import type { PortGroup } from "../utils/hostFindings";
 import SeverityBadge from "../components/common/SeverityBadge";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import { Section, Tag, useEscape } from "./PanelParts";
-
-const COUNTS = [
-  { sev: 4, label: "Critical", key: "critical" },
-  { sev: 3, label: "High",     key: "high" },
-  { sev: 2, label: "Medium",   key: "medium" },
-  { sev: 1, label: "Low",      key: "low" },
-  { sev: 0, label: "Info",     key: "info" },
-] as const;
-
-const CHIP: Record<number, string> = {
-  4: "bg-critical text-critical-on",
-  3: "bg-high text-high-on",
-  2: "bg-medium text-medium-on",
-  1: "bg-low text-low-on",
-  0: "bg-info text-info-on",
-};
+import { CountBoxes, Cvss, FindingGroups, FindingName, itemScore } from "./FindingParts";
 
 interface Props {
   ip: string;
@@ -91,17 +75,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
             {[host.hostname ?? host.netbios, osValues[0]].filter(Boolean).join(" · ")}
           </p>
         )}
-        <div className="flex flex-wrap gap-2">
-          {COUNTS.map((c) => {
-            const n = host.severity_counts[c.key];
-            return (
-              <div key={c.sev} className="flex flex-col gap-0.5 min-w-[4.5rem] px-2.5 py-1.5 rounded-md border border-ink-200 dark:border-ink-700">
-                <span className={`text-lg font-bold leading-tight tabular-nums ${n > 0 ? SEVERITY_COLORS[c.sev].text : "text-ink-300 dark:text-ink-600"}`}>{n}</span>
-                <span className="text-[11px] font-semibold text-ink-500 dark:text-ink-400">{c.label}</span>
-              </div>
-            );
-          })}
-        </div>
+        <CountBoxes counts={host.severity_counts} />
       </div>
 
       {/* Body */}
@@ -187,7 +161,18 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
           {findings.length === 0 ? (
             <p className="text-ink-500 dark:text-ink-400 text-center py-4">No findings above Info on this host.</p>
           ) : grouped ? (
-            <PortGroups groups={groupByPort(findings)} fileId={scopeFileId} showInfo={showInfo} />
+            <FindingGroups
+              groups={groupByPort(findings)}
+              noun={["port", "ports"]}
+              fileId={scopeFileId}
+              showInfo={showInfo}
+              header={(g) => (
+                <>
+                  <span className="w-20 shrink-0 font-semibold tabular-nums text-ink-900 dark:text-ink-50">{g.port > 0 ? `${g.port}/${g.protocol}` : "General"}</span>
+                  <span className="truncate text-ink-500 dark:text-ink-400">{g.port > 0 ? g.service : "not tied to a port"}</span>
+                </>
+              )}
+            />
           ) : (
             <FindingList items={sortFindings(findings)} fileId={scopeFileId} />
           )}
@@ -228,26 +213,6 @@ function FileChip({ active, onClick, title, children }: { active: boolean; onCli
   );
 }// FileChip
 
-function itemScore(i: ReportItem) {
-  return ratedScore({ cvss4: i.cvss4_base_score, cvss3: i.cvss3_base_score, cvss2: i.cvss_base_score, severity: i.severity });
-}// itemScore
-
-function Cvss({ item }: { item: ReportItem }) {
-  const cvss = itemScore(item);
-  if (!cvss) {
-    return <span className="text-ink-300 dark:text-ink-600">-</span>;
-  }
-
-  return (
-    <span className="whitespace-nowrap">
-      <span className={`${SEVERITY_COLORS[item.severity].text} ${item.severity >= 3 ? "font-semibold" : ""}`}>
-        {cvss.score.toFixed(1)}
-      </span>
-      <span className="ml-1 text-[10px] text-ink-400" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
-    </span>
-  );
-}// Cvss
-
 function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }) {
   const openVulnPanel = useUiStore((s) => s.openVulnPanel);
 
@@ -277,10 +242,10 @@ function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }
             >
               <td className="px-3 py-1.5"><SeverityBadge severity={item.severity} size="sm" /></td>
               <td className="px-3 py-1.5 truncate">
-                <FindingName item={item} fileId={fileId} />
+                <FindingName pluginId={item.plugin_id} name={item.plugin_name} fileId={fileId} />
               </td>
               <td className="px-3 py-1.5 truncate text-ink-500 dark:text-ink-400">{item.port > 0 ? `${item.port}/${item.protocol}` : "-"}</td>
-              <td className="px-3 py-1.5 text-right"><Cvss item={item} /></td>
+              <td className="px-3 py-1.5 text-right"><Cvss score={itemScore(item)} severity={item.severity} /></td>
             </tr>
           ))}
         </tbody>
@@ -288,86 +253,3 @@ function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }
     </div>
   );
 }// FindingList
-
-function FindingName({ item, fileId }: { item: ReportItem; fileId?: string }) {
-  const openVulnPanel = useUiStore((s) => s.openVulnPanel);
-
-  return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        openVulnPanel(item.plugin_id, fileId);
-      }}
-      title={item.plugin_name}
-      className="max-w-full truncate text-left text-ink-800 dark:text-ink-100 hover:underline"
-    >
-      {item.plugin_name}
-    </button>
-  );
-}// FindingName
-
-function PortGroups({ groups, fileId, showInfo }: { groups: PortGroup[]; fileId?: string; showInfo: boolean }) {
-  const [open, setOpen] = useState<Set<string>>(() => new Set(groups.filter((g) => g.worst >= 3).map((g) => g.key)));
-  const allOpen = groups.every((g) => open.has(g.key));
-
-  const toggle = (key: string) => {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-
-      return next;
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between text-[13px] text-ink-500 dark:text-ink-400">
-        <span>{groups.length} {groups.length === 1 ? "port" : "ports"}</span>
-        <button onClick={() => setOpen(allOpen ? new Set() : new Set(groups.map((g) => g.key)))} className="btn-ghost h-7 px-2 text-xs">
-          {allOpen ? "Collapse all" : "Expand all"}
-        </button>
-      </div>
-      {groups.map((g) => {
-        const expanded = open.has(g.key);
-        return (
-          <div key={g.key} className="rounded-md border border-ink-200 dark:border-ink-700 overflow-hidden">
-            <button
-              onClick={() => toggle(g.key)}
-              aria-expanded={expanded}
-              className="w-full grid grid-cols-[6rem_minmax(0,1fr)_auto_1rem] items-center gap-3 px-3 py-2 text-left bg-ink-50 dark:bg-ink-800 hover:bg-ink-100 dark:hover:bg-ink-700/70"
-            >
-              <span className="font-semibold tabular-nums text-ink-900 dark:text-ink-50">{g.port > 0 ? `${g.port}/${g.protocol}` : "General"}</span>
-              <span className="truncate text-ink-500 dark:text-ink-400">{g.port > 0 ? g.service : "not tied to a port"}</span>
-              <span className="flex gap-1 tabular-nums text-xs font-semibold">
-                {COUNTS.filter((c) => showInfo || c.sev > 0).map((c) => (
-                  <span key={c.sev} className={`w-7 py-0.5 rounded text-center ${g.counts[c.sev] > 0 ? CHIP[c.sev] : ""}`} title={g.counts[c.sev] > 0 ? `${g.counts[c.sev]} ${c.label}` : undefined}>
-                    {g.counts[c.sev] > 0 ? g.counts[c.sev] : ""}
-                  </span>
-                ))}
-              </span>
-              {expanded ? <ChevronDown size={14} className="text-ink-500" /> : <ChevronRight size={14} className="text-ink-500" />}
-            </button>
-            {expanded && (
-              <ul>
-                {g.items.map((item) => (
-                  <li
-                    key={`${item.plugin_id}-${item.port}-${item.protocol}`}
-                    className="grid grid-cols-[4.25rem_minmax(0,1fr)_4rem] items-center gap-3 px-3 py-1.5 border-t border-ink-100 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800"
-                  >
-                    <SeverityBadge severity={item.severity} size="sm" />
-                    <span className="truncate"><FindingName item={item} fileId={fileId} /></span>
-                    <span className="text-right tabular-nums"><Cvss item={item} /></span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}// PortGroups

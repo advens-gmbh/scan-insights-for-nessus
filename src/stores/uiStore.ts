@@ -10,6 +10,10 @@ interface UiStore {
   vulnPanelFileId: string | null;   // null = show all files
   hostPanelIp: string | null;
   hostPanelFileId: string | null;   // null = show merged across all files
+  servicePanelKey: string | null;   // port/protocol
+  servicePanelFileId: string | null;
+  openServicePanel: (key: string, fileId?: string) => void;
+  closeServicePanel: () => void;
   openVulnPanel: (pluginId: number, fileId?: string) => void;
   openHostPanel: (ip: string, fileId?: string) => void;
   closeVulnPanel: () => void;
@@ -19,6 +23,10 @@ interface UiStore {
   toggleShowInfo: () => void;
   groupHostFindings: boolean;
   toggleGroupHostFindings: () => void;
+  groupServiceFindings: boolean;
+  toggleGroupServiceFindings: () => void;
+  groupServices: boolean;
+  toggleGroupServices: () => void;
   // Theme
   toggleTheme: () => void;
   setTheme: (t: "light" | "dark") => void;
@@ -37,14 +45,22 @@ export const useUiStore = create<UiStore>((set, get) => ({
   vulnPanelFileId: null,
   hostPanelIp: null,
   hostPanelFileId: null,
+  servicePanelKey: null,
+  servicePanelFileId: null,
   showInfo: false,
 
   toggleShowInfo: () => set((s) => ({ showInfo: !s.showInfo })),
   groupHostFindings: false,
   toggleGroupHostFindings: () => set((s) => ({ groupHostFindings: !s.groupHostFindings })),
+  groupServiceFindings: false,
+  toggleGroupServiceFindings: () => set((s) => ({ groupServiceFindings: !s.groupServiceFindings })),
+  groupServices: false,
+  toggleGroupServices: () => set((s) => ({ groupServices: !s.groupServices })),
 
-  openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null }),
-  openHostPanel: (ip, fileId) => set({ hostPanelIp: ip, hostPanelFileId: fileId ?? null, vulnPanelId: null }),
+  openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null, servicePanelKey: null }),
+  openHostPanel: (ip, fileId) => set({ hostPanelIp: ip, hostPanelFileId: fileId ?? null, vulnPanelId: null, servicePanelKey: null }),
+  openServicePanel: (key, fileId) => set({ servicePanelKey: key, servicePanelFileId: fileId ?? null, vulnPanelId: null, hostPanelIp: null }),
+  closeServicePanel: () => set({ servicePanelKey: null, servicePanelFileId: null }),
   closeVulnPanel: () => set({ vulnPanelId: null, vulnPanelFileId: null }),
   closeHostPanel: () => set({ hostPanelIp: null, hostPanelFileId: null }),
 

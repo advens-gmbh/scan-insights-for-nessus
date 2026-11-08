@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { X, ExternalLink, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { isWebUrl, metasploitSearchUrl, openExternal } from "../utils/openExternal";
 import { formatNessusDate } from "../utils/format";
+import { httpUrl, httpsUrl } from "../utils/webUrls";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
 import { buildVulnEntries, cvssSeverity, isPlainHttp, isHttps, ratingDifferences, SEVERITY_COLORS, SEVERITY_LABELS } from "../types/nessus";
@@ -307,14 +308,6 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
     </>
   );
 }// VulnContent
-
-function httpUrl(ip: string, port: number): string {
-  return `http://${ip}${port !== 80 ? `:${port}` : ""}`;
-}// httpUrl
-
-function httpsUrl(ip: string, port: number): string {
-  return `https://${ip}${port !== 443 ? `:${port}` : ""}`;
-}// httpsUrl
 
 // a host's row, and its plugin output underneath when open
 function HostRows({ open, columns, output, children }: { open: boolean; columns: number; output: string | null; children: ReactNode }) {
