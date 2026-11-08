@@ -21,15 +21,15 @@ export default function Sidebar() {
   return (
     <aside
       style={{ width: sidebarCollapsed ? "64px" : "240px" }}
-      className="flex flex-col bg-slate-900 text-slate-300 transition-all duration-200 overflow-hidden shrink-0"
+      className="flex flex-col bg-ink-900 text-ink-300 transition-all duration-200 overflow-hidden shrink-0"
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-700/50 shrink-0">
+      <div className="flex items-center gap-3 px-4 h-14 border-b border-ink-700/50 shrink-0">
         <img src={logo} alt="" className="w-7 h-7 rounded-lg shrink-0" />
         {!sidebarCollapsed && (
           <div className="overflow-hidden">
             <p className="text-white font-semibold text-sm leading-tight truncate">Scan Insights</p>
-            <p className="text-slate-500 text-[10px] leading-tight truncate">for Nessus</p>
+            <p className="text-ink-500 text-[10px] leading-tight truncate">for Nessus</p>
           </div>
         )}
       </div>
@@ -57,7 +57,7 @@ export default function Sidebar() {
       {/* Collapse toggle */}
       <button
         onClick={toggleSidebar}
-        className="flex items-center justify-center h-10 border-t border-slate-700/50 text-slate-500 hover:text-slate-300 transition-colors"
+        className="flex items-center justify-center h-10 border-t border-ink-700/50 text-ink-500 hover:text-ink-300 transition-colors"
         title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

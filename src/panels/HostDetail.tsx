@@ -47,28 +47,28 @@ export default function HostDetail({ ip }: Props) {
       <div className="panel-overlay" onClick={closeHostPanel} />
       <div className="panel-drawer">
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="px-5 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Monitor size={18} className="text-violet-500 shrink-0" />
-                <h2 className="font-mono font-bold text-xl text-slate-900 dark:text-slate-100">{host.ip}</h2>
+                <Monitor size={18} className="text-accent-500 shrink-0" />
+                <h2 className="font-mono font-bold text-xl text-ink-900 dark:text-ink-100">{host.ip}</h2>
                 <CopyButton text={host.ip} variant="icon" label="Copy IP" />
               </div>
               {host.file_ids.length > 1 ? (
                 <div className="mt-1 space-y-0.5">
                   {host.filenames.map((name, i) => (
-                    <p key={i} className="text-xs text-slate-400 flex items-center gap-1">
+                    <p key={i} className="text-xs text-ink-400 flex items-center gap-1">
                       <FileText size={11} className="shrink-0" />
                       {name}
                     </p>
                   ))}
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 italic pl-4">
+                  <p className="text-[10px] text-ink-400 dark:text-ink-500 italic pl-4">
                     findings deduplicated across {host.file_ids.length} files
                   </p>
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                <p className="text-xs text-ink-400 mt-0.5 flex items-center gap-1">
                   <FileText size={11} className="shrink-0" />
                   {host.filename}
                 </p>
@@ -104,7 +104,7 @@ export default function HostDetail({ ip }: Props) {
             )}
             {host.alt_hostnames.length > 0 && (
               <div className="card p-3">
-                <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400 dark:text-slate-500 mb-1">
+                <div className="flex items-center justify-between gap-1.5 text-xs text-ink-400 dark:text-ink-500 mb-1">
                   <div className="flex items-center gap-1.5">
                     <Link size={14} />
                     <span>Alt. Hostnames{host.alt_hostnames.length > 1 ? ` (${host.alt_hostnames.length})` : ""}</span>
@@ -112,7 +112,7 @@ export default function HostDetail({ ip }: Props) {
                   <CopyButton text={host.alt_hostnames.join("\n")} variant="icon" label="Copy" />
                 </div>
                 {host.alt_hostnames.map((name, i) => (
-                  <p key={i} className="text-sm text-slate-700 dark:text-slate-200 font-medium leading-5">
+                  <p key={i} className="text-sm text-ink-700 dark:text-ink-200 font-medium leading-5">
                     {name}
                   </p>
                 ))}
@@ -120,7 +120,7 @@ export default function HostDetail({ ip }: Props) {
             )}
             {osValues.length > 0 && (
               <div className="card p-3">
-                <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400 dark:text-slate-500 mb-1">
+                <div className="flex items-center justify-between gap-1.5 text-xs text-ink-400 dark:text-ink-500 mb-1">
                   <div className="flex items-center gap-1.5">
                     <Cpu size={14} />
                     <span>Operating System{osValues.length > 1 ? ` (${osValues.length})` : ""}</span>
@@ -128,7 +128,7 @@ export default function HostDetail({ ip }: Props) {
                   <CopyButton text={host.os!} variant="icon" label="Copy OS" />
                 </div>
                 {osValues.map((os, i) => (
-                  <p key={i} className="text-sm text-slate-700 dark:text-slate-200 font-medium leading-5">
+                  <p key={i} className="text-sm text-ink-700 dark:text-ink-200 font-medium leading-5">
                     {os}
                   </p>
                 ))}
@@ -139,7 +139,7 @@ export default function HostDetail({ ip }: Props) {
             )}
             {macAddresses.length > 0 && (
               <div className="card p-3">
-                <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400 dark:text-slate-500 mb-1">
+                <div className="flex items-center justify-between gap-1.5 text-xs text-ink-400 dark:text-ink-500 mb-1">
                   <div className="flex items-center gap-1.5">
                     <Wifi size={14} />
                     <span>MAC Address</span>
@@ -147,7 +147,7 @@ export default function HostDetail({ ip }: Props) {
                   <CopyButton text={macAddresses.join("\n")} variant="icon" label="Copy MAC" />
                 </div>
                 {macAddresses.map((m, i) => (
-                  <p key={i} className="text-sm text-slate-700 dark:text-slate-200 font-medium font-mono leading-5">
+                  <p key={i} className="text-sm text-ink-700 dark:text-ink-200 font-medium font-mono leading-5">
                     {m}
                   </p>
                 ))}
@@ -172,7 +172,7 @@ export default function HostDetail({ ip }: Props) {
           {/* Open ports */}
           {(tcpPorts.length > 0 || udpPorts.length > 0) && (
             <div className="card p-3">
-              <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400 dark:text-slate-500 mb-2">
+              <div className="flex items-center justify-between gap-1.5 text-xs text-ink-400 dark:text-ink-500 mb-2">
                 <span className="font-semibold uppercase tracking-wider">
                   Open Ports ({tcpPorts.length + udpPorts.length})
                 </span>
@@ -184,16 +184,16 @@ export default function HostDetail({ ip }: Props) {
               </div>
               {tcpPorts.length > 0 && (
                 <div className="mb-1.5">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 mr-1.5">TCP</span>
-                  <span className="text-xs font-mono text-slate-700 dark:text-slate-200 leading-relaxed">
+                  <span className="text-[10px] font-bold uppercase text-ink-400 mr-1.5">TCP</span>
+                  <span className="text-xs font-mono text-ink-700 dark:text-ink-200 leading-relaxed">
                     {tcpPorts.join(", ")}
                   </span>
                 </div>
               )}
               {udpPorts.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 mr-1.5">UDP</span>
-                  <span className="text-xs font-mono text-slate-700 dark:text-slate-200 leading-relaxed">
+                  <span className="text-[10px] font-bold uppercase text-ink-400 mr-1.5">UDP</span>
+                  <span className="text-xs font-mono text-ink-700 dark:text-ink-200 leading-relaxed">
                     {udpPorts.join(", ")}
                   </span>
                 </div>
@@ -222,23 +222,23 @@ export default function HostDetail({ ip }: Props) {
           {/* Vulnerabilities */}
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-400 dark:text-ink-500">
                 Vulnerabilities ({sortedItems.length})
               </h3>
               <ShowInfoCheckbox />
             </div>
             <div className="space-y-1">
               {sortedItems.length === 0 && (
-                <p className="text-sm text-slate-400 px-3 py-2">No findings above Info on this host.</p>
+                <p className="text-sm text-ink-400 px-3 py-2">No findings above Info on this host.</p>
               )}
               {sortedItems.map((item, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-700/50 cursor-pointer transition-colors border border-transparent hover:border-ink-200 dark:hover:border-ink-700"
                   onClick={() => openVulnPanel(item.plugin_id, hostPanelFileId ?? undefined)}
                 >
                   <SeverityBadge severity={item.severity} size="sm" />
-                  <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 min-w-0 truncate">
+                  <span className="text-sm text-ink-700 dark:text-ink-300 flex-1 min-w-0 truncate">
                     {item.plugin_name}
                   </span>
                 </div>
@@ -254,14 +254,14 @@ export default function HostDetail({ ip }: Props) {
 function InfoCard({icon, label, value,}: {icon: React.ReactNode; label: string; value: string;}) {
   return (
     <div className="card p-3">
-      <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400 dark:text-slate-500 mb-1">
+      <div className="flex items-center justify-between gap-1.5 text-xs text-ink-400 dark:text-ink-500 mb-1">
         <div className="flex items-center gap-1.5">
           {icon}
           <span>{label}</span>
         </div>
         <CopyButton text={value} variant="icon" label="Copy" />
       </div>
-      <p className="text-sm text-slate-700 dark:text-slate-200 font-medium truncate" title={value}>
+      <p className="text-sm text-ink-700 dark:text-ink-200 font-medium truncate" title={value}>
         {value}
       </p>
     </div>

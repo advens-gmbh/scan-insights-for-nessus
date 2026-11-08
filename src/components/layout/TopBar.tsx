@@ -17,14 +17,14 @@ export default function TopBar() {
   );
 
   return (
-    <header className="h-14 px-5 flex items-center gap-4 border-b border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-900 shrink-0">
+    <header className="h-14 px-5 flex items-center gap-4 border-b border-ink-200 dark:border-ink-700/50 bg-white dark:bg-ink-900 shrink-0">
       {/* stats */}
       {files.length > 0 && (
-        <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-4 text-sm text-ink-500 dark:text-ink-400">
           <Stat label="files" value={files.length} />
-          <span className="text-slate-300 dark:text-slate-600">·</span>
+          <span className="text-ink-300 dark:text-ink-600">·</span>
           <Stat label="hosts" value={totalHosts} />
-          <span className="text-slate-300 dark:text-slate-600">·</span>
+          <span className="text-ink-300 dark:text-ink-600">·</span>
           <Stat label="findings" value={totalVulns} />
         </div>
       )}
@@ -67,7 +67,7 @@ export default function TopBar() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <span>
-      <strong className="text-slate-700 dark:text-slate-200 font-semibold">
+      <strong className="text-ink-700 dark:text-ink-200 font-semibold">
         {value.toLocaleString()}
       </strong>{" "}
       {label}

@@ -1,3 +1,20 @@
+import plugin from "tailwindcss/plugin";
+import { accent, ink, severity } from "./src/theme/colors.js";
+
+const levels = Object.keys(severity);
+
+// bg-critical (fill), text-critical-on (text on the fill), text-critical-fg (coloured text, follows the theme)
+const severityColors = Object.fromEntries(
+  levels.map((k) => [k, { DEFAULT: severity[k].fill, on: severity[k].on, fg: `var(--sev-${k}-fg)` }])
+);
+
+const severityVariables = plugin(({ addBase }) => {
+  addBase({
+    ":root": Object.fromEntries(levels.map((k) => [`--sev-${k}-fg`, severity[k].fg.light])),
+    ".dark": Object.fromEntries(levels.map((k) => [`--sev-${k}-fg`, severity[k].fg.dark])),
+  });
+});
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
@@ -5,11 +22,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        critical: { DEFAULT: "#dc2626", light: "#fee2e2", dark: "#7f1d1d" },
-        high:     { DEFAULT: "#f97316", light: "#ffedd5", dark: "#7c2d12" },
-        medium:   { DEFAULT: "#eab308", light: "#fef9c3", dark: "#713f12" },
-        low:      { DEFAULT: "#22c55e", light: "#dcfce7", dark: "#14532d" },
-        info:     { DEFAULT: "#3b82f6", light: "#dbeafe", dark: "#1e3a8a" },
+        ink,
+        accent,
+        ...severityColors,
       },
       fontFamily: {
         sans: ["Inter Variable", "system-ui", "sans-serif"],
@@ -30,5 +45,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [severityVariables],
 };

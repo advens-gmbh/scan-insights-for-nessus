@@ -1,13 +1,14 @@
 import { memo } from "react";
 import { PieChart, Pie, Tooltip, ResponsiveContainer } from "recharts";
 import type { SeverityCounts } from "../../types/nessus";
+import { severity } from "../../theme/colors";
 
 const SLICES = [
-  { key: "critical", label: "Critical", color: "#dc2626" },
-  { key: "high",     label: "High",     color: "#f97316" },
-  { key: "medium",   label: "Medium",   color: "#eab308" },
-  { key: "low",      label: "Low",      color: "#22c55e" },
-  { key: "info",     label: "Info",     color: "#3b82f6" },
+  { key: "critical", label: "Critical", color: severity.critical.fill },
+  { key: "high",     label: "High",     color: severity.high.fill },
+  { key: "medium",   label: "Medium",   color: severity.medium.fill },
+  { key: "low",      label: "Low",      color: severity.low.fill },
+  { key: "info",     label: "Info",     color: severity.info.fill },
 ] as const;
 
 function DonutTooltip({ active, payload }: any) {
@@ -17,11 +18,11 @@ function DonutTooltip({ active, payload }: any) {
 
   const entry = payload[0];
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg px-3 py-1.5 text-xs">
+    <div className="bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg shadow-lg px-3 py-1.5 text-xs">
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: entry.payload.color }} />
-        <span className="text-slate-600 dark:text-slate-300">{entry.name}:</span>
-        <strong className="text-slate-900 dark:text-white">{entry.value.toLocaleString()}</strong>
+        <span className="text-ink-600 dark:text-ink-300">{entry.name}:</span>
+        <strong className="text-ink-900 dark:text-white">{entry.value.toLocaleString()}</strong>
       </div>
     </div>
   );
@@ -40,7 +41,7 @@ function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No
 
   if (total === 0) {
     return (
-      <div className="flex items-center justify-center text-center text-slate-400 text-xs" style={{ width: size, height: size }}>
+      <div className="flex items-center justify-center text-center text-ink-400 text-xs" style={{ width: size, height: size }}>
         {emptyText}
       </div>
     );
@@ -73,10 +74,10 @@ function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No
         </ResponsiveContainer>
         {size >= 80 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="font-bold text-slate-800 dark:text-slate-100" style={{ fontSize: Math.max(12, size * 0.14) }}>
+            <span className="font-bold text-ink-800 dark:text-ink-100" style={{ fontSize: Math.max(12, size * 0.14) }}>
               {total.toLocaleString()}
             </span>
-            <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: Math.max(10, size * 0.10) }}>findings</span>
+            <span className="text-ink-500 dark:text-ink-400" style={{ fontSize: Math.max(10, size * 0.10) }}>findings</span>
           </div>
         )}
       </div>
@@ -89,7 +90,7 @@ function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No
             return (
               <div key={s.key} className="flex items-center gap-2 text-xs">
                 <div className="w-[13px] h-[13px] rounded-full shrink-0" style={{ background: s.color }} />
-                <span className="text-slate-600 dark:text-slate-400 w-14">{s.label}</span>
+                <span className="text-ink-600 dark:text-ink-400 w-14">{s.label}</span>
                 <span className="font-semibold" style={{ color: s.color }}>{v.toLocaleString()}</span>
               </div>
             );

@@ -75,14 +75,14 @@ export default function Export() {
   return (
     <div className="max-w-4xl mx-auto space-y-5">
       <div>
-        <h2 className="font-semibold text-slate-700 dark:text-slate-200">Export</h2>
-        <p className="text-xs text-slate-400">Combine and filter scan files for export.</p>
+        <h2 className="font-semibold text-ink-700 dark:text-ink-200">Export</h2>
+        <p className="text-xs text-ink-400">Combine and filter scan files for export.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Files to export */}
         <div className="card p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Files to Export</h3>
+          <h3 className="text-sm font-semibold text-ink-600 dark:text-ink-300">Files to Export</h3>
           <div className="space-y-2">
             {files.map((f) => {
               const checked = !excludedIds.has(f.id);
@@ -90,19 +90,19 @@ export default function Export() {
               return (
                 <label
                   key={f.id}
-                  className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border border-slate-100 dark:border-slate-700"
+                  className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors border border-ink-100 dark:border-ink-700"
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleFile(f.id)}
-                    className="w-4 h-4 rounded accent-violet-600"
+                    className="w-4 h-4 rounded accent-accent-600"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
+                    <p className="text-sm font-medium text-ink-700 dark:text-ink-300 truncate">
                       {f.filename}
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-ink-400">
                       {f.hosts.length} hosts · {f.hosts.reduce((s, h) => s + h.items.length, 0).toLocaleString()} findings
                     </p>
                   </div>
@@ -115,8 +115,8 @@ export default function Export() {
 
         {/* Severity filter */}
         <div className="card p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Severity Filter</h3>
-          <p className="text-xs text-slate-400">Only include findings with these severity levels.</p>
+          <h3 className="text-sm font-semibold text-ink-600 dark:text-ink-300">Severity Filter</h3>
+          <p className="text-xs text-ink-400">Only include findings with these severity levels.</p>
           <div className="space-y-2">
             {SEVERITY_ORDER.map((sev) => {
               const checked = severities.has(sev);
@@ -130,7 +130,7 @@ export default function Export() {
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleSeverity(sev)}
-                    className="w-4 h-4 rounded accent-violet-600"
+                    className="w-4 h-4 rounded accent-accent-600"
                   />
                   <span
                     className="pill text-xs font-semibold"
@@ -177,7 +177,7 @@ export default function Export() {
         </button>
       </div>
 
-      <p className="text-xs text-slate-400 text-center">
+      <p className="text-xs text-ink-400 text-center">
         {selectedIds.length} file(s) selected · {severities.size} severity level(s) included
       </p>
     </div>

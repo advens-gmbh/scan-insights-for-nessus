@@ -4,6 +4,7 @@ import type { HostEntry, NessusFile } from "../../types/nessus";
 import { SEVERITY_COLORS, SEVERITY_ORDER } from "../../types/nessus";
 import { useUiStore } from "../../stores/uiStore";
 import { isIpv4 } from "../../utils/ip";
+import { accent, ink } from "../../theme/colors";
 
 interface Props {
   hosts: HostEntry[];
@@ -359,11 +360,11 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
           selector: "node[type='subnet']",
           style: {
             shape: "round-rectangle",
-            "background-color": isDark ? "#1e293b" : "#e2e8f0",
-            "border-color": isDark ? "#475569" : "#94a3b8",
+            "background-color": isDark ? ink[800] : ink[200],
+            "border-color": isDark ? ink[600] : ink[400],
             "border-width": 1,
             label: "data(label)",
-            color: isDark ? "#94a3b8" : "#475569",
+            color: isDark ? ink[400] : ink[600],
             "font-size": 10,
             "text-valign": "center",
             "text-halign": "center",
@@ -375,15 +376,15 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
           selector: "node[type='host']",
           style: {
             shape: "ellipse",
-            "background-color": isDark ? "#1a2235" : "#e2e8f0",
+            "background-color": isDark ? ink[900] : ink[200],
             "border-width": 1.5,
-            "border-color": "#64748b",
+            "border-color": ink[500],
             label: "data(label)",
-            color: isDark ? "#94a3b8" : "#475569",
+            color: isDark ? ink[400] : ink[600],
             "font-size": 10,
             "text-valign": "bottom",
             "text-margin-y": 6,
-            "text-background-color": isDark ? "#0f172a" : "#f8fafc",
+            "text-background-color": isDark ? ink[950] : ink[50],
             "text-background-opacity": 0.9,
             "text-background-padding": "2px",
             "text-background-shape": "roundrectangle",
@@ -395,7 +396,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
         {
           selector: "edge",
           style: {
-            "line-color": "#334155",
+            "line-color": ink[700],
             width: 1,
             "curve-style": "bezier",
           },
@@ -403,7 +404,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
         {
           selector: "edge[type='inter-subnet']",
           style: {
-            "line-color": "#64748b",
+            "line-color": ink[500],
             width: 1.5,
             "line-style": "dashed",
             "line-dash-pattern": [8, 4],
@@ -414,7 +415,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
         {
           selector: "edge[type='gateway-edge']",
           style: {
-            "line-color": "rgb(20,184,166)",
+            "line-color": accent[500],
             width: 2,
             "curve-style": "bezier",
             opacity: 0.85,
@@ -422,7 +423,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
         },
         {
           selector: "node[type='host']:selected",
-          style: { "border-color": "#a78bfa", "border-width": 2.5 } as any,
+          style: { "border-color": accent[400], "border-width": 2.5 } as any,
         },
       ],
     });
@@ -447,7 +448,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
 
       const ctx = canvas.getContext("2d")!;
       const darkMode = document.documentElement.classList.contains("dark");
-      const nodeFill = darkMode ? "#1a2235" : "#e2e8f0";
+      const nodeFill = darkMode ? ink[900] : ink[200];
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, rect.width, rect.height);
 
@@ -456,7 +457,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
       cy.nodes("[type='host']").forEach((node) => {
         const pos = node.renderedPosition();
         const sev = node.data("severity") as number;
-        const hex = SEVERITY_COLORS[sev]?.hex ?? "#6b7280";
+        const hex = SEVERITY_COLORS[sev]?.hex ?? ink[500];
         const { r, g, b } = hexToRgb(hex);
         const isGateway = node.data("isGateway")   as boolean;
         const isMultiHomed = node.data("isMultiHomed") as boolean;
@@ -488,7 +489,7 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
         if (isMultiHomed) {
           ctx.beginPath();
           ctx.arc(pos.x, pos.y, sr + 5 * zoom, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(20,184,166,0.85)`;
+          ctx.strokeStyle = accent[500];
           ctx.lineWidth   = Math.max(1, 1.5 * zoom);
           ctx.setLineDash([4 * zoom, 3 * zoom]);
           ctx.stroke();
@@ -520,14 +521,14 @@ export default function NetworkGraph({ hosts, files, severityFilter }: Props) {
     const onThemeChange = () => {
       const dark = document.documentElement.classList.contains("dark");
       cy.nodes("[type='host']").style({
-        "background-color": dark ? "#1a2235" : "#e2e8f0",
-        color: dark ? "#94a3b8" : "#475569",
-        "text-background-color": dark ? "#0f172a" : "#f8fafc",
+        "background-color": dark ? ink[900] : ink[200],
+        color: dark ? ink[400] : ink[600],
+        "text-background-color": dark ? ink[950] : ink[50],
       });
       cy.nodes("[type='subnet']").style({
-        "background-color": dark ? "#1e293b" : "#e2e8f0",
-        "border-color": dark ? "#475569" : "#94a3b8",
-        color: dark ? "#94a3b8" : "#475569",
+        "background-color": dark ? ink[800] : ink[200],
+        "border-color": dark ? ink[600] : ink[400],
+        color: dark ? ink[400] : ink[600],
       });
     };
     const themeObserver = new MutationObserver(onThemeChange);

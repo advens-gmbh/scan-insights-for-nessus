@@ -1,144 +1,318 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Trash2, ShieldAlert, Server, Clock, FileX } from "lucide-react";
+import { FolderOpen, Trash2, Clock, FileX, ShieldAlert, Server, Layers } from "lucide-react";
+import type { ReactNode } from "react";
 import { useScanStore } from "../stores/scanStore";
-import { severityCounts, buildHostEntries, visibleCounts } from "../types/nessus";
+import { useSeverityStore } from "../stores/severityStore";
+import { severityCounts, buildHostEntries, buildVulnEntries, visibleCounts, ratedScore, SEVERITY_LABELS } from "../types/nessus";
 import { useUiStore } from "../stores/uiStore";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import ScanName from "../components/common/ScanName";
-import type { NessusFile } from "../types/nessus";
-import { formatDate } from "../utils/format";
+import IpLink from "../components/common/IpLink";
+import SeverityBadge from "../components/common/SeverityBadge";
+import type { NessusFile, SeverityCounts } from "../types/nessus";
+import { formatDuration, rankHosts, scanWindow, topVulnerabilities } from "../utils/dashboard";
 import SeverityDonut from "../components/charts/SeverityDonut";
-import TopHostsBar from "../components/charts/TopHostsBar";
+import SeverityBar from "../components/charts/SeverityBar";
 import FileDetailPanel from "../panels/FileDetailPanel";
+import TableHead from "../components/common/TableHead";
+import { useTableColumns } from "../hooks/useTableColumns";
+import { useTableSort } from "../hooks/useTableSort";
+import type { TableColumn } from "../utils/tableColumns";
 import logo from "../../src-tauri/icons/128x128.png";
+
+const TOP_HOSTS = 10;
+const TOP_VULNS = 8;
+
+const LEVELS = [
+  { key: "critical", sev: 4, fg: "text-critical-fg", bg: "bg-critical" },
+  { key: "high",     sev: 3, fg: "text-high-fg",     bg: "bg-high" },
+  { key: "medium",   sev: 2, fg: "text-medium-fg",   bg: "bg-medium" },
+  { key: "low",      sev: 1, fg: "text-low-fg",      bg: "bg-low" },
+  { key: "info",     sev: 0, fg: "text-info-fg",     bg: "bg-info" },
+] as const;
+
+type FileCol = "file" | "scanned" | "hosts" | "critical" | "high" | "medium" | "low" | "info" | "distribution" | "actions";
+
+const FILE_COLUMNS: TableColumn<FileCol>[] = [
+  { key: "file",         label: "File",         width: 200, stretch: true, required: true },
+  { key: "scanned",      label: "Scanned",      width: 160 },
+  { key: "hosts",        label: "Hosts",        width: 84,  align: "center" },
+  { key: "critical",     label: "Critical",     width: 96, align: "center" },
+  { key: "high",         label: "High",         width: 76,  align: "center" },
+  { key: "medium",       label: "Medium",       width: 96, align: "center" },
+  { key: "low",          label: "Low",          width: 72,  align: "center" },
+  { key: "info",         label: "Info",         width: 72,  align: "center" },
+  { key: "distribution", label: "Distribution", width: 120, sortable: false },
+  { key: "actions",      label: "",             width: 140, sortable: false },
+];// FILE_COLUMNS
+
+const total = (c: SeverityCounts) => c.critical + c.high + c.medium + c.low + c.info;
+
+function formatScanStart(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}// formatScanStart
 
 export default function Dashboard() {
   const { files, recentFiles, openFiles, loadFile, unloadFile } = useScanStore();
   const navigate = useNavigate();
-  const showInfo = useUiStore((s) => s.showInfo);
+  const { showInfo, openVulnPanel } = useUiStore();
   const [detailFile, setDetailFile] = useState<NessusFile | null>(null);
 
   const allHosts = useMemo(() => buildHostEntries(files), [files]);
-  const combinedCounts = useMemo(() => severityCounts(allHosts), [allHosts]);
+  const allVulns = useMemo(() => buildVulnEntries(files), [files]);
+  const combined = useMemo(() => severityCounts(allHosts), [allHosts]);
+  const shown = visibleCounts(combined, showInfo);
+
+  const affectedHosts = useMemo(() => {
+    const c: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    for (const h of allHosts) {
+      for (const l of LEVELS) {
+        if (h.severity_counts[l.key] > 0) c[l.key]++;
+      }
+    }
+
+    return c;
+  }, [allHosts]);
+
+  // counted like the severity tiles: each finding on each host
+  const exploits = useMemo(() => {
+    let findings = 0, metasploit = 0;
+    const hosts = new Set<string>();
+    for (const h of allHosts) {
+      for (const item of h.items) {
+        if (item.exploit_available) {
+          findings++;
+          hosts.add(h.ip);
+        }
+        if (item.metasploit_available) metasploit++;
+      }
+    }
+
+    return { findings, metasploit, hosts: hosts.size };
+  }, [allHosts]);
+  const seriousCount = allVulns.filter((v) => v.severity >= 3).length;
+  const topVulns = useMemo(() => topVulnerabilities(allVulns, TOP_VULNS), [allVulns]);
+
+  const topHosts = useMemo(() => rankHosts(allHosts, showInfo, TOP_HOSTS), [allHosts, showInfo]);
+  const hostMax = Math.max(0, ...topHosts.map((h) => total(visibleCounts(h.severity_counts, showInfo))));
+
+  const fileRows = useMemo(() => files.map((file) => {
+    const counts = severityCounts(file.hosts);
+    return { file, counts, window: scanWindow(file.hosts) };
+  }), [files]);
+  const fileMax = Math.max(0, ...fileRows.map((r) => total(visibleCounts(r.counts, showInfo))));
+
+  const fileTable = useTableColumns("dashboard-files", FILE_COLUMNS);
+  const fileSort = useTableSort(fileTable.visible, "scanned", "desc", ["file"]);
+  const sortedFiles = useMemo(() => [...fileRows].sort((a, b) => {
+    let cmp = 0;
+    switch (fileSort.sortKey) {
+      case "file":    cmp = a.file.filename.localeCompare(b.file.filename); break;
+      case "scanned": cmp = (a.window.start?.getTime() ?? 0) - (b.window.start?.getTime() ?? 0); break;
+      case "hosts":   cmp = a.file.hosts.length - b.file.hosts.length; break;
+      case "critical": case "high": case "medium": case "low": case "info":
+        cmp = a.counts[fileSort.sortKey] - b.counts[fileSort.sortKey]; break;
+    }
+
+    return fileSort.sortDir === "desc" ? -cmp : cmp;
+  }), [fileRows, fileSort.sortKey, fileSort.sortDir]);
+
+  // opens Vulnerabilities with these severity pills selected
+  const showSeverities = (sevs: number[]) => {
+    useSeverityStore.getState().setSelection("vulnerabilities", sevs);
+    navigate("/vulnerabilities");
+  };
 
   if (files.length === 0) {
     return <EmptyState openFiles={openFiles} recentFiles={recentFiles} loadFile={loadFile} />;
   }
 
+  const shownTotal = total(shown);
+
   return (
-    <div className="space-y-5">
-      <div className="flex justify-end">
-        <ShowInfoCheckbox />
-      </div>
-
-      {/* File card grid - auto-fill so cards fill available width at any screen size */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
-        {files.map((file) => {
-          const counts = severityCounts(file.hosts);
-          const hosts = file.hosts.length;
-          return (
-            <div key={file.id} className="card p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
-              {/* Title row */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="pill bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px]">
-                      Loaded
-                    </span>
-                  </div>
-                  <p
-                    className="font-semibold text-slate-800 dark:text-slate-100 truncate mt-1 cursor-pointer hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-                    title="Click to view file details"
-                    onClick={() => setDetailFile(file)}
-                  >
-                    {file.filename}
-                  </p>
-                  <ScanName file={file} />
-                  <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                    <Clock size={11} />
-                    {formatDate(file.loaded_at)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Stats + donut */}
-              <div className={`flex items-center gap-4 ${showInfo ? "min-h-[150px]" : "min-h-[124px]"}`}>
-                <SeverityDonut counts={visibleCounts(counts, showInfo)} size={110} emptyText={counts.info > 0 ? "Only Info findings" : undefined} />
-                <div className="flex flex-col gap-1.5 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Server size={13} className="text-slate-400" />
-                    <span className="text-slate-600 dark:text-slate-400 w-16">Hosts:</span>
-                    <strong className="text-slate-800 dark:text-slate-200">{hosts}</strong>
-                  </div>
-                  <SeverityRow label="Critical" value={counts.critical} color="text-critical" />
-                  <SeverityRow label="High"     value={counts.high}     color="text-high" />
-                  <SeverityRow label="Medium"   value={counts.medium}   color="text-medium" />
-                  <SeverityRow label="Low"      value={counts.low}      color="text-low" />
-                  <SeverityRow label="Info"     value={showInfo ? counts.info : 0} color="text-info" />
-                </div>
-              </div>
-
-              {/* Actions - always at card bottom */}
-              <div className="flex gap-2 pt-1 mt-auto border-t border-slate-100 dark:border-slate-700">
-                <button
-                  onClick={() => navigate("/vulnerabilities", { state: { fileFilter: file.id } })}
-                  className="btn-secondary flex-1 text-xs justify-center"
-                >
-                  <ShieldAlert size={13} /> View Vulns
-                </button>
-                <button
-                  onClick={() => navigate("/hosts", { state: { fileFilter: file.id } })}
-                  className="btn-secondary flex-1 text-xs justify-center"
-                >
-                  <Server size={13} /> View Hosts
-                </button>
-                <button
-                  onClick={() => unloadFile(file.id)}
-                  className="btn-danger text-xs"
-                  title="Unload this file"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Add file card */}
-        <button
-          onClick={openFiles}
-          className="card p-5 flex flex-col items-center justify-center gap-3 border-dashed border-slate-300 dark:border-slate-600 hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 transition-colors text-slate-400 dark:text-slate-500 hover:text-violet-500 dark:hover:text-violet-400 min-h-48"
-        >
-          <FolderOpen size={28} />
-          <span className="text-sm font-medium">Add .nessus file</span>
-        </button>
-      </div>
-
-      {/* Aggregate overview */}
-      {files.length > 1 && (
-        <div className="card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Combined Overview ({files.length} files)
+    <div className="flex flex-col gap-6">
+      {/* Totals */}
+      <section aria-label="Totals" className="grid grid-cols-3 xl:grid-cols-6 gap-3">
+        {LEVELS.map((l) => (
+          <button
+            key={l.key}
+            onClick={() => showSeverities([l.sev])}
+            className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5 text-left hover:border-ink-300 dark:hover:border-ink-600 transition-colors"
+            title={`Show ${SEVERITY_LABELS[l.sev]} findings`}
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-ink-500 dark:text-ink-400">
+              <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />{SEVERITY_LABELS[l.sev]}
             </span>
-          </div>
-          <div className="px-5 pb-5 pt-4 flex flex-col lg:flex-row gap-6 items-start">
-            <div className="shrink-0">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                Severity Distribution
-              </h3>
-              <SeverityDonut counts={visibleCounts(combinedCounts, showInfo)} size={150} showLegend emptyText={combinedCounts.info > 0 ? "Only Info findings" : undefined} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                Top 15 Vulnerable Hosts
-              </h3>
-              <TopHostsBar hosts={allHosts} showInfo={showInfo} />
-            </div>
-          </div>
+            <span className={`text-3xl font-bold leading-none tabular-nums ${l.fg}`}>{combined[l.key].toLocaleString()}</span>
+            <span className="text-xs text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} hosts</span>
+            <span className={`absolute inset-x-0 bottom-0 h-1 ${l.bg}`} />
+          </button>
+        ))}
+        <div className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold text-ink-500 dark:text-ink-400" title="Findings Nessus marks as having a public exploit">Exploitable</span>
+          <span className="text-3xl font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>
+          <span className="text-xs text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} hosts · {exploits.metasploit.toLocaleString()} Metasploit</span>
+          <span className="absolute inset-x-0 bottom-0 h-1 bg-critical" />
         </div>
-      )}
+      </section>
+
+      {/* Top vulnerabilities */}
+      <section>
+        <div className="flex items-baseline justify-between gap-3 mb-2.5">
+          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Top vulnerabilities</h2>
+          {seriousCount > 0 && (
+            <button onClick={() => showSeverities([4, 3])} className="text-sm font-medium text-accent-700 dark:text-accent-400 hover:underline">
+              Show all {seriousCount.toLocaleString()} in Vulnerabilities
+            </button>
+          )}
+        </div>
+        <div className="card divide-y divide-ink-100 dark:divide-ink-700">
+          {topVulns.length === 0 && <p className="px-4 py-5 text-sm text-ink-500 dark:text-ink-400">No critical or high findings.</p>}
+          {topVulns.map((v) => {
+            const cvss = ratedScore(v);
+            return (
+              <button
+                key={v.plugin_id}
+                onClick={() => openVulnPanel(v.plugin_id)}
+                className="w-full grid grid-cols-[5.5rem_minmax(0,1fr)_auto_5.75rem_5.5rem] gap-3.5 items-center px-4 py-2.5 text-left hover:bg-ink-50 dark:hover:bg-ink-700/40 transition-colors"
+              >
+                <span><SeverityBadge severity={v.severity} size="sm" /></span>
+                <span className="truncate text-sm font-medium text-ink-800 dark:text-ink-100" title={v.plugin_name}>{v.plugin_name}</span>
+                <span className="flex gap-1">
+                  {v.exploit_available && <span className="px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 text-critical-fg">Exploit</span>}
+                  {v.metasploit_available && <span className="px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-200">Metasploit</span>}
+                </span>
+                <span className="text-right text-[13px] text-ink-500 dark:text-ink-400 tabular-nums">
+                  {cvss ? <>CVSS <b className="text-ink-800 dark:text-ink-100">{cvss.score.toFixed(1)}</b> <span className="text-[10px]">v{cvss.version}</span></> : "-"}
+                </span>
+                <span className="text-right text-[13px] text-ink-500 dark:text-ink-400 tabular-nums">
+                  <b className="text-sm text-ink-800 dark:text-ink-100">{v.host_count}</b> {v.host_count === 1 ? "host" : "hosts"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Hosts + distribution */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <section className="flex flex-col min-w-0">
+          <div className="flex items-baseline justify-between gap-3 mb-2.5">
+            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Most vulnerable hosts</h2>
+            <button onClick={() => navigate("/hosts")} className="text-sm font-medium text-accent-700 dark:text-accent-400 hover:underline">
+              All {allHosts.length.toLocaleString()} hosts
+            </button>
+          </div>
+          <div className="card flex-1 divide-y divide-ink-100 dark:divide-ink-700">
+            {topHosts.length === 0 && <p className="px-4 py-5 text-sm text-ink-500 dark:text-ink-400">No findings above Info.</p>}
+            {topHosts.map((h) => {
+              const counts = visibleCounts(h.severity_counts, showInfo);
+              const name = h.hostname ?? h.netbios;
+              return (
+                <div key={h.ip} className="grid grid-cols-[8.5rem_minmax(0,10rem)_minmax(0,1fr)_2.5rem] gap-3.5 items-center px-4 py-2">
+                  <IpLink ip={h.ip} className="text-left" />
+                  <span className="truncate text-sm text-ink-500 dark:text-ink-400" title={name ?? undefined}>{name ?? "-"}</span>
+                  <SeverityBar counts={counts} max={hostMax} />
+                  <span className="text-right text-sm font-semibold tabular-nums text-ink-800 dark:text-ink-100">{total(counts)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="flex flex-col min-w-0">
+          <div className="flex items-baseline justify-between gap-3 mb-2.5">
+            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Severity distribution</h2>
+            <ShowInfoCheckbox />
+          </div>
+          <div className="card flex-1 flex flex-col items-center justify-center gap-6 p-5">
+            <SeverityDonut counts={shown} size={190} emptyText={combined.info > 0 ? "Only Info findings" : undefined} />
+            {shownTotal > 0 && (
+              <div className="w-full flex flex-col gap-2">
+                {LEVELS.filter((l) => shown[l.key] > 0).map((l) => (
+                  <div key={l.key} className="grid grid-cols-[0.875rem_1fr_auto_3rem] gap-2 items-center text-sm">
+                    <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />
+                    <span className="text-ink-700 dark:text-ink-200">{SEVERITY_LABELS[l.sev]}</span>
+                    <span className={`text-right font-bold tabular-nums ${l.fg}`}>{shown[l.key].toLocaleString()}</span>
+                    <span className="text-right text-xs tabular-nums text-ink-500 dark:text-ink-400">{Math.round((shown[l.key] / shownTotal) * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Scan files */}
+      <section>
+        <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100 mb-2.5">Scan files</h2>
+        <div className="card overflow-x-auto">
+          <table style={fileTable.style} className="text-sm tabular-nums">
+            <TableHead table={fileTable} sortKey={fileSort.sortKey} sortDir={fileSort.sortDir} onSort={fileSort.toggleSort} />
+            <tbody className="divide-y divide-ink-100 dark:divide-ink-700">
+              {sortedFiles.map(({ file, counts, window }) => (
+                <tr key={file.id} className="whitespace-nowrap">
+                  {fileTable.visible.map((col) => {
+                    switch (col.key) {
+                      case "file":
+                        return (
+                          <td key={col.key} className="px-4 py-2.5 overflow-hidden">
+                            <button
+                              onClick={() => setDetailFile(file)}
+                              className="block max-w-full truncate font-semibold text-ink-800 dark:text-ink-100 hover:text-accent-700 dark:hover:text-accent-400 text-left"
+                              title={`${file.path}\nClick for file details`}
+                            >
+                              {file.filename.replace(/\.nessus$/i, "")}
+                            </button>
+                            <ScanName file={file} />
+                          </td>
+                        );
+                      case "scanned":
+                        return (
+                          <td key={col.key} className="px-4 py-2.5 overflow-hidden">
+                            {window.start ? (
+                              <>
+                                <div className="text-ink-700 dark:text-ink-200">{formatScanStart(window.start)}</div>
+                                {window.durationMs !== null && <div className="text-xs text-ink-500 dark:text-ink-400">ran for {formatDuration(window.durationMs)}</div>}
+                              </>
+                            ) : <span className="text-ink-400 dark:text-ink-500">-</span>}
+                          </td>
+                        );
+                      case "hosts":
+                        return <td key={col.key} className="px-4 py-2.5 text-center text-ink-700 dark:text-ink-200">{file.hosts.length.toLocaleString()}</td>;
+                      case "distribution":
+                        return (
+                          <td key={col.key} className="px-4 py-2.5">
+                            <SeverityBar counts={visibleCounts(counts, showInfo)} max={fileMax} numbers={false} className="h-2.5" />
+                          </td>
+                        );
+                      case "actions":
+                        return (
+                          <td key={col.key} className="px-2 py-2.5 text-right">
+                            <FileAction label="Vulnerabilities" onClick={() => navigate("/vulnerabilities", { state: { fileFilter: file.id } })}><ShieldAlert size={15} /></FileAction>
+                            <FileAction label="Hosts" onClick={() => navigate("/hosts", { state: { fileFilter: file.id } })}><Server size={15} /></FileAction>
+                            <FileAction label="Services" onClick={() => navigate("/services", { state: { fileFilter: file.id } })}><Layers size={15} /></FileAction>
+                            <FileAction label="Unload" danger onClick={() => unloadFile(file.id)}><Trash2 size={14} /></FileAction>
+                          </td>
+                        );
+                      default: {
+                        const level = LEVELS.find((l) => l.key === col.key)!;
+                        return (
+                          <td key={col.key} className={`px-4 py-2.5 text-center ${counts[level.key] > 0 ? `font-bold ${level.fg}` : "text-ink-400 dark:text-ink-500"}`}>
+                            {counts[level.key].toLocaleString()}
+                          </td>
+                        );
+                      }
+                    }
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {detailFile && (
         <FileDetailPanel file={detailFile} onClose={() => setDetailFile(null)} />
@@ -147,19 +321,22 @@ export default function Dashboard() {
   );
 }// Dashboard
 
-function SeverityRow({ label, value, color }: { label: string; value: number; color: string }) {
-  if (value === 0) {
-    return null;
-  }
-
+// icon button with the same icon as the page in the sidebar
+function FileAction({ label, danger = false, onClick, children }: { label: string; danger?: boolean; onClick: () => void; children: ReactNode }) {
+  const text = danger ? "Unload this file" : `Open in ${label}`;
   return (
-    <div className="flex items-center gap-2">
-      <span className={`w-[13px] h-[13px] rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
-      <span className="text-slate-500 dark:text-slate-400 w-16">{label}:</span>
-      <strong className={`${color}`}>{value}</strong>
-    </div>
+    <button
+      onClick={onClick}
+      title={text}
+      aria-label={text}
+      className={`inline-flex items-center justify-center w-8 h-8 rounded-md text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-700 transition-colors ${
+        danger ? "hover:text-red-600 dark:hover:text-red-400" : "hover:text-accent-700 dark:hover:text-accent-400"
+      }`}
+    >
+      {children}
+    </button>
   );
-}// SeverityRow
+}// FileAction
 
 function EmptyState({openFiles, recentFiles, loadFile,}: {
   openFiles: () => void;
@@ -170,11 +347,11 @@ function EmptyState({openFiles, recentFiles, loadFile,}: {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
       <div className="flex flex-col items-center gap-3 text-center">
         <img src={logo} alt="" className="w-16 h-16 rounded-2xl" />
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+        <h1 className="text-2xl font-bold text-ink-800 dark:text-ink-100">
           Scan Insights for Nessus
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 max-w-sm">
-          Load one or more <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">.nessus</code> scan
+        <p className="text-ink-500 dark:text-ink-400 max-w-sm">
+          Load one or more <code className="bg-ink-100 dark:bg-ink-700 px-1 rounded">.nessus</code> scan
           files to start analyzing vulnerabilities.
         </p>
         <button onClick={openFiles} className="btn-primary mt-2 px-5 py-2.5">
@@ -184,20 +361,20 @@ function EmptyState({openFiles, recentFiles, loadFile,}: {
 
       {recentFiles.length > 0 && (
         <div className="w-full max-w-md">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-400 mb-3 flex items-center gap-1.5">
             <Clock size={12} /> Recent Files
           </h2>
-          <div className="card divide-y divide-slate-100 dark:divide-slate-700">
+          <div className="card divide-y divide-ink-100 dark:divide-ink-700">
             {recentFiles.slice(0, 5).map((f) => (
               <button
                 key={f.path}
                 onClick={() => loadFile(f.path)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-left transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-ink-50 dark:hover:bg-ink-700/50 text-left transition-colors"
               >
-                <FileX size={14} className="text-slate-400 shrink-0" />
+                <FileX size={14} className="text-ink-400 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{f.filename}</p>
-                  <p className="text-xs text-slate-400 truncate">{f.path}</p>
+                  <p className="text-sm text-ink-700 dark:text-ink-300 truncate">{f.filename}</p>
+                  <p className="text-xs text-ink-400 truncate">{f.path}</p>
                 </div>
               </button>
             ))}

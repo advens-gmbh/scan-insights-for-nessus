@@ -202,13 +202,13 @@ export default function Hosts() {
         <ColumnPicker table={table} />
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-slate-400">{sorted.length} hosts</span>
+          <span className="text-xs text-ink-400">{sorted.length} hosts</span>
           {sorted.length > 0 && (
             <div className="relative" ref={copyMenuRef}>
               <button
                 onClick={() => setShowCopyMenu((v) => !v)}
                 className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${
-                  copied ? "text-low" : showCopyMenu ? "bg-slate-100 dark:bg-slate-700" : ""
+                  copied ? "text-emerald-600 dark:text-emerald-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
                 }`}
               >
                 {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
@@ -219,7 +219,7 @@ export default function Hosts() {
                 <div className="absolute right-0 top-full mt-1 z-50 card p-1 w-52 shadow-xl">
                   <CopyMenuItem label="IP addresses" sub="one per line" onClick={() => copy("ips")} />
                   <CopyMenuItem label="Hostnames" sub="one per line" onClick={() => copy("hostnames")} />
-                  <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                  <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
                   <CopyMenuItem label="Visible columns" sub="TSV - pastes into Excel / Sheets" onClick={() => copy("visible")} />
                 </div>
               )}
@@ -233,7 +233,7 @@ export default function Hosts() {
         <div ref={scrollRef} className="overflow-auto h-full">
           <table style={table.style}>
             <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
               <SpacerRow height={paddingTop} colSpan={visibleCols.length} />
               {rows.map((row) => {
                 const h = sorted[row.index];
@@ -253,7 +253,7 @@ export default function Hosts() {
               <SpacerRow height={paddingBottom} colSpan={visibleCols.length} />
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={visibleCols.length} className="table-cell text-center text-slate-400 py-10">
+                  <td colSpan={visibleCols.length} className="table-cell text-center text-ink-400 py-10">
                     No hosts match the current filter.
                   </td>
                 </tr>
@@ -290,7 +290,7 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
 
           case "hostname":
             return (
-              <td key="hostname" className="table-cell text-slate-500">
+              <td key="hostname" className="table-cell text-ink-500">
                 <span className="flex items-center gap-1.5">
                   <span className="truncate">{host.hostname ?? host.netbios ?? "-"}</span>
                   {host.conflicts.length > 0 && (
@@ -303,7 +303,7 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
                   )}
                   {host.file_ids.length > 1 && (
                     <span
-                      className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1 py-px rounded bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400"
+                      className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1 py-px rounded bg-accent-100 dark:bg-accent-900/40 text-accent-700 dark:text-accent-400"
                       title={host.filenames.join("\n")}
                     >
                       {host.file_ids.length} files
@@ -311,12 +311,12 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
                   )}
                 </span>
                 {host.domain && (
-                  <span className="truncate block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span className="truncate block text-[10px] text-ink-400 dark:text-ink-500 mt-0.5">
                     {host.domain}
                   </span>
                 )}
                 {host.alt_hostnames.length > 0 && (
-                  <span className="truncate block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span className="truncate block text-[10px] text-ink-400 dark:text-ink-500 mt-0.5">
                     {host.alt_hostnames.slice(0, 2).join(", ")}
                     {host.alt_hostnames.length > 2 ? ` +${host.alt_hostnames.length - 2}` : ""}
                   </span>
@@ -326,28 +326,28 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
 
           case "os":
             return (
-              <td key="os" className="table-cell text-slate-500">
+              <td key="os" className="table-cell text-ink-500">
                 <span className="truncate block">{host.os ?? "-"}</span>
               </td>
             );
 
           case "system_type":
             return (
-              <td key="system_type" className="table-cell text-slate-500">
+              <td key="system_type" className="table-cell text-ink-500">
                 <span className="truncate block">{host.system_type ?? "-"}</span>
               </td>
             );
 
           case "netbios":
             return (
-              <td key="netbios" className="table-cell text-slate-500">
+              <td key="netbios" className="table-cell text-ink-500">
                 <span className="truncate block">{host.netbios ?? "-"}</span>
               </td>
             );
 
           case "mac":
             return (
-              <td key="mac" className="table-cell text-slate-500" title={macs.length > 1 ? macs.join("\n") : undefined}>
+              <td key="mac" className="table-cell text-ink-500" title={macs.length > 1 ? macs.join("\n") : undefined}>
                 <span className="truncate block">
                   {macs[0] ?? "-"}
                   {macs.length > 1 && ` +${macs.length - 1}`}
@@ -358,7 +358,7 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
           case "credentialed":
             return (
               <td key="credentialed" className="table-cell text-center">
-                <span className={`text-xs font-semibold ${host.credentialed_scan ? "text-low" : "text-slate-400 dark:text-slate-600"}`}>
+                <span className={`text-xs font-semibold ${host.credentialed_scan ? "text-emerald-600 dark:text-emerald-400" : "text-ink-400 dark:text-ink-600"}`}>
                   {host.credentialed_scan ? "Yes" : "No"}
                 </span>
               </td>
@@ -372,7 +372,7 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
 
           case "ports":
             return (
-              <td key="ports" className="table-cell text-slate-500">
+              <td key="ports" className="table-cell text-ink-500">
                 <span className="truncate block">{portSample}{extra}</span>
               </td>
             );
@@ -389,22 +389,22 @@ function macAddresses(mac: string | null): string[] {
 }// macAddresses
 
 function SevCount({ value, sev }: { value: number; sev: number }) {
-  const color = { 4: "text-critical", 3: "text-high", 2: "text-medium", 1: "text-low", 0: "text-info" }[sev] ?? "text-info";
+  const color = { 4: "text-critical-fg", 3: "text-high-fg", 2: "text-medium-fg", 1: "text-low-fg", 0: "text-info-fg" }[sev] ?? "text-info-fg";
   return <span className={`font-semibold text-sm ${color}`}>{value}</span>;
 }// SevCount
 
 function Dash() {
-  return <span className="text-slate-300 dark:text-slate-600">-</span>;
+  return <span className="text-ink-300 dark:text-ink-600">-</span>;
 }// Dash
 
 function CopyMenuItem({ label, sub, onClick }: { label: string; sub: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex flex-col items-start px-3 py-2 rounded text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+      className="w-full flex flex-col items-start px-3 py-2 rounded text-left hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors"
     >
-      <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">{label}</span>
-      <span className="text-[11px] text-slate-400 dark:text-slate-500">{sub}</span>
+      <span className="text-sm text-ink-700 dark:text-ink-200 font-medium">{label}</span>
+      <span className="text-[11px] text-ink-400 dark:text-ink-500">{sub}</span>
     </button>
   );
 }// CopyMenuItem

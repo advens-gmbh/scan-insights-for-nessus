@@ -14,7 +14,7 @@ export default function Notifications() {
         const styles = {
           error:   "bg-red-50    dark:bg-red-950/90   border-red-200   dark:border-red-800   text-red-700   dark:text-red-300",
           warning: "bg-amber-50  dark:bg-amber-950/90 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300",
-          info:    "bg-white     dark:bg-slate-800    border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200",
+          info:    "bg-white     dark:bg-ink-800    border-ink-200 dark:border-ink-700 text-ink-700 dark:text-ink-200",
         }[n.type];
         const Icon = { error: AlertCircle, warning: AlertTriangle, info: Info }[n.type];
         return (

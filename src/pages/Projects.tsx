@@ -52,8 +52,8 @@ export default function Projects() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-semibold text-slate-700 dark:text-slate-200">Projects</h2>
-          <p className="text-xs text-slate-400">
+          <h2 className="font-semibold text-ink-700 dark:text-ink-200">Projects</h2>
+          <p className="text-xs text-ink-400">
             Group scan files by path. Use "Load" to unload all current files and reload the project's files.
           </p>
         </div>
@@ -80,7 +80,7 @@ export default function Projects() {
 
       {/* Project grid */}
       {projects.length === 0 ? (
-        <div className="card p-10 text-center text-slate-400">
+        <div className="card p-10 text-center text-ink-400">
           <FolderOpen size={32} className="mx-auto mb-3 opacity-40" />
           <p>No projects yet. Create one above.</p>
         </div>
@@ -108,7 +108,7 @@ export default function Projects() {
                     />
                   ) : (
                     <h3
-                      className="font-semibold text-slate-800 dark:text-slate-100 cursor-pointer hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                      className="font-semibold text-ink-800 dark:text-ink-100 cursor-pointer hover:text-accent-700 dark:hover:text-accent-400 transition-colors"
                       onClick={() => startEdit(project.id, project.name)}
                       title="Click to rename"
                     >
@@ -120,25 +120,25 @@ export default function Projects() {
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-400 -mt-2">
+                <p className="text-xs text-ink-400 -mt-2">
                   Created {formatDate(project.created_at)}
                 </p>
 
                 {/* Assigned file paths */}
                 <div className="space-y-1.5 flex-1">
                   {project.file_paths.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No files in this project.</p>
+                    <p className="text-xs text-ink-400 italic">No files in this project.</p>
                   ) : (
                     project.file_paths.map((fp) => (
-                      <div key={fp.path} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2">
-                        <FileText size={13} className="text-violet-500 shrink-0" />
+                      <div key={fp.path} className="flex items-center gap-2 bg-ink-50 dark:bg-ink-700/50 rounded-lg px-3 py-2">
+                        <FileText size={13} className="text-accent-500 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-slate-700 dark:text-slate-300 truncate">{fp.filename}</p>
-                          <p className="text-[10px] text-slate-400 truncate" title={fp.path}>{fp.path}</p>
+                          <p className="text-xs text-ink-700 dark:text-ink-300 truncate">{fp.filename}</p>
+                          <p className="text-[10px] text-ink-400 truncate" title={fp.path}>{fp.path}</p>
                         </div>
                         <button
                           onClick={() => removeFileFromProject(project.id, fp.path)}
-                          className="text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                          className="text-ink-400 hover:text-red-500 transition-colors shrink-0"
                         >
                           <X size={13} />
                         </button>

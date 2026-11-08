@@ -85,7 +85,7 @@ export default function VulnDetail({ pluginId }: Props) {
       <div className="panel-overlay" onClick={closeVulnPanel} />
       <div className="panel-drawer">
         {/* Header */}
-        <div className={`px-5 pt-5 pb-4 border-b border-slate-200 dark:border-slate-700 ${colors.bg}`}>
+        <div className={`px-5 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 ${colors.bg}`}>
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -97,10 +97,10 @@ export default function VulnDetail({ pluginId }: Props) {
                   <span className="pill bg-purple-600 text-white text-xs">METASPLOIT</span>
                 )}
               </div>
-              <h2 className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+              <h2 className="font-semibold text-ink-900 dark:text-ink-100 leading-snug">
                 {vuln.plugin_name}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                 Plugin ID: {vuln.plugin_id} · {vuln.plugin_family}
               </p>
             </div>
@@ -118,8 +118,8 @@ export default function VulnDetail({ pluginId }: Props) {
               {vuln.vpr !== null && <CvssScore label="VPR" score={vuln.vpr} version={3} />}
               {vuln.epss !== null && (
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-bold tabular-nums text-slate-700 dark:text-slate-200">{vuln.epss}</span>
-                  <span className="text-xs text-slate-500">EPSS</span>
+                  <span className="text-2xl font-bold tabular-nums text-ink-700 dark:text-ink-200">{vuln.epss}</span>
+                  <span className="text-xs text-ink-500">EPSS</span>
                 </div>
               )}
             </div>
@@ -148,12 +148,12 @@ export default function VulnDetail({ pluginId }: Props) {
           {/* Description */}
           <Section title="Description">
             {vuln.synopsis && (
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed mb-2">
+              <p className="text-sm font-medium text-ink-800 dark:text-ink-200 whitespace-pre-wrap leading-relaxed mb-2">
                 {vuln.synopsis}
               </p>
             )}
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed flex-1">
+              <p className="text-sm text-ink-700 dark:text-ink-300 whitespace-pre-wrap leading-relaxed flex-1">
                 {vuln.description || "No description available."}
               </p>
               {vuln.description && <CopyButton text={vuln.description} label="Copy" variant="icon" />}
@@ -163,13 +163,13 @@ export default function VulnDetail({ pluginId }: Props) {
           {/* Solution */}
           <Section title="Solution">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed flex-1">
+              <p className="text-sm text-ink-700 dark:text-ink-300 whitespace-pre-wrap leading-relaxed flex-1">
                 {vuln.solution || "No solution available."}
               </p>
               {vuln.solution && <CopyButton text={vuln.solution} label="Copy" variant="icon" />}
             </div>
             {vuln.patch_publication_date && (
-              <p className="text-sm text-slate-700 dark:text-slate-300 mt-2">
+              <p className="text-sm text-ink-700 dark:text-ink-300 mt-2">
                 Patch released: {formatNessusDate(vuln.patch_publication_date)}
               </p>
             )}
@@ -182,7 +182,7 @@ export default function VulnDetail({ pluginId }: Props) {
                 <button
                   onClick={() => openExternal(metasploitSearchUrl(vuln.metasploit_name!))}
                   title="Search for this module on rapid7.com"
-                  className="text-sm text-violet-600 dark:text-violet-400 hover:underline break-words text-left min-w-0"
+                  className="text-sm text-accent-700 dark:text-accent-400 hover:underline break-words text-left min-w-0"
                 >
                   {vuln.metasploit_name} <ExternalLink size={11} className="inline" />
                 </button>
@@ -203,7 +203,7 @@ export default function VulnDetail({ pluginId }: Props) {
                   <button
                     key={c}
                     onClick={() => openExternal(`https://nvd.nist.gov/vuln/detail/${encodeURIComponent(c)}`)}
-                    className="pill justify-between tabular-nums break-all bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 transition-colors cursor-pointer"
+                    className="pill justify-between tabular-nums break-all bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-300 hover:bg-accent-100 dark:hover:bg-accent-900/30 hover:text-accent-700 dark:hover:text-accent-300 transition-colors cursor-pointer"
                   >
                     {c} <ExternalLink size={10} className="inline" />
                   </button>
@@ -217,7 +217,7 @@ export default function VulnDetail({ pluginId }: Props) {
             <Section title="CWEs">
               <div className="flex flex-wrap gap-1.5">
                 {vuln.cwe.map((c) => (
-                  <span key={c} className="pill bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                  <span key={c} className="pill bg-ink-100 dark:bg-ink-700 text-ink-600 dark:text-ink-300">
                     {c}
                   </span>
                 ))}
@@ -234,12 +234,12 @@ export default function VulnDetail({ pluginId }: Props) {
                     {isWebUrl(url) ? (
                       <button
                         onClick={() => openExternal(url)}
-                        className="text-xs text-violet-600 dark:text-violet-400 hover:underline break-all text-left"
+                        className="text-xs text-accent-700 dark:text-accent-400 hover:underline break-all text-left"
                       >
                         {url}
                       </button>
                     ) : (
-                      <span className="text-xs text-slate-500 dark:text-slate-400 break-all">{url}</span>
+                      <span className="text-xs text-ink-500 dark:text-ink-400 break-all">{url}</span>
                     )}
                   </li>
                 ))}
@@ -290,16 +290,16 @@ export default function VulnDetail({ pluginId }: Props) {
                 const httpsUrl = isHttps(h.port, h.svc_name) ? `https://${h.ip}${h.port !== 443 ? `:${h.port}` : ""}` : null;
 
                 return (
-                  <div key={h.id} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 overflow-hidden">
+                  <div key={h.id} className="rounded-lg border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-800/50 overflow-hidden">
                     <div
-                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-ink-100 dark:hover:bg-ink-700/50"
                       onClick={() => toggleCollapse(h.id)}
                     >
                       <IpLink ip={h.ip} />
-                      <span className="text-xs text-slate-500 font-mono">{h.port}/{h.protocol}</span>
-                      <span className="text-xs text-slate-500">{h.svc_name}</span>
+                      <span className="text-xs text-ink-500 font-mono">{h.port}/{h.protocol}</span>
+                      <span className="text-xs text-ink-500">{h.svc_name}</span>
                       {files.length > 1 && (
-                        <span className="pill bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 ml-auto text-[10px] max-w-32 truncate">
+                        <span className="pill bg-ink-200 dark:bg-ink-700 text-ink-500 dark:text-ink-400 ml-auto text-[10px] max-w-32 truncate">
                           {h.filename}
                         </span>
                       )}
@@ -311,8 +311,8 @@ export default function VulnDetail({ pluginId }: Props) {
                       </div>
                     </div>
                     {!isCollapsed && h.plugin_output && (
-                      <div className="px-3 pb-2 border-t border-slate-200 dark:border-slate-700">
-                        <pre className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 whitespace-pre-wrap font-mono leading-relaxed max-h-40 overflow-y-auto">
+                      <div className="px-3 pb-2 border-t border-ink-200 dark:border-ink-700">
+                        <pre className="text-xs text-ink-600 dark:text-ink-400 mt-1.5 whitespace-pre-wrap font-mono leading-relaxed max-h-40 overflow-y-auto">
                           {h.plugin_output}
                         </pre>
                       </div>
@@ -329,7 +329,7 @@ export default function VulnDetail({ pluginId }: Props) {
                 </button>
               )}
               {allHosts.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-4">No hosts match the filter.</p>
+                <p className="text-sm text-ink-400 text-center py-4">No hosts match the filter.</p>
               )}
             </div>
           </Section>
@@ -342,7 +342,7 @@ export default function VulnDetail({ pluginId }: Props) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-400 dark:text-ink-500 mb-2">
         {title}
       </h3>
       {children}
@@ -356,7 +356,7 @@ function CvssScore({ label, score, version }: { label: string; score: number; ve
   return (
     <div className="flex items-baseline gap-1.5">
       <span className={`text-2xl font-bold tabular-nums ${color}`}>{score.toFixed(1)}</span>
-      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-xs text-ink-500">{label}</span>
     </div>
   );
 }// CvssScore

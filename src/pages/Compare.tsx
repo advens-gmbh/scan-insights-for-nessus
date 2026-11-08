@@ -73,7 +73,7 @@ export default function Compare() {
   if (files.length < 2) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center text-slate-400">
+        <div className="text-center text-ink-400">
           <p className="text-lg font-medium mb-2">Load at least 2 scan files to compare.</p>
           <EmptyFilesNotice />
         </div>
@@ -86,7 +86,7 @@ export default function Compare() {
       {/* Scan selector */}
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Scan A (baseline)</label>
+          <label className="text-xs font-medium text-ink-500 dark:text-ink-400 mb-1 block">Scan A (baseline)</label>
           <select
             value={scanA}
             onChange={(e) => setScanA(e.target.value)}
@@ -96,9 +96,9 @@ export default function Compare() {
             {files.filter((f) => f.id !== scanB).map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
           </select>
         </div>
-        <ArrowRight size={20} className="text-slate-400 mt-5 shrink-0" />
+        <ArrowRight size={20} className="text-ink-400 mt-5 shrink-0" />
         <div className="flex-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Scan B (comparison)</label>
+          <label className="text-xs font-medium text-ink-500 dark:text-ink-400 mb-1 block">Scan B (comparison)</label>
           <select
             value={scanB}
             onChange={(e) => setScanB(e.target.value)}
@@ -153,12 +153,12 @@ export default function Compare() {
               label="Persisted"
               count={persistedItems.length}
               desc="In both scans"
-              color="text-slate-500"
-              bg="bg-slate-50 dark:bg-slate-800/50"
+              color="text-ink-500"
+              bg="bg-ink-50 dark:bg-ink-800/50"
             />
           </div>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-400">
             Findings are matched by plugin, host, port and protocol. A different scan policy between
             the two scans can still hide a finding, so check that both used the same one.
           </p>
@@ -204,7 +204,7 @@ export default function Compare() {
       )}
 
       {(!fileA || !fileB) && (
-        <div className="card p-8 text-center text-slate-400">
+        <div className="card p-8 text-center text-ink-400">
           Select two scan files above to compare them.
         </div>
       )}
@@ -222,10 +222,10 @@ function ScanSummaryCard({ file, label, onFileClick }: { file: NessusFile; label
 
   return (
     <div className="card p-5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-ink-400 mb-1">{label}</p>
       <div className="mb-3">
         <h3
-          className="font-semibold text-slate-800 dark:text-slate-100 truncate cursor-pointer hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+          className="font-semibold text-ink-800 dark:text-ink-100 truncate cursor-pointer hover:text-accent-700 dark:hover:text-accent-400 transition-colors"
           title="Click to view file details"
           onClick={() => onFileClick(file)}
         >
@@ -237,15 +237,15 @@ function ScanSummaryCard({ file, label, onFileClick }: { file: NessusFile; label
         <SeverityDonut counts={visibleCounts(counts, showInfo)} size={110} emptyText={counts.info > 0 ? "Only Info findings" : undefined} />
         <div className="flex flex-col gap-1.5 text-sm">
           <div className="flex items-center gap-2">
-            <Server size={13} className="text-slate-400" />
-            <span className="text-slate-600 dark:text-slate-400 w-16">Hosts:</span>
-            <strong className="text-slate-800 dark:text-slate-200">{file.hosts.length}</strong>
+            <Server size={13} className="text-ink-400" />
+            <span className="text-ink-600 dark:text-ink-400 w-16">Hosts:</span>
+            <strong className="text-ink-800 dark:text-ink-200">{file.hosts.length}</strong>
           </div>
-          <CompareSeverityRow label="Critical" value={counts.critical} color="text-critical" />
-          <CompareSeverityRow label="High"     value={counts.high}     color="text-high" />
-          <CompareSeverityRow label="Medium"   value={counts.medium}   color="text-medium" />
-          <CompareSeverityRow label="Low"      value={counts.low}      color="text-low" />
-          <CompareSeverityRow label="Info"     value={showInfo ? counts.info : 0} color="text-info" />
+          <CompareSeverityRow label="Critical" value={counts.critical} color="text-critical-fg" />
+          <CompareSeverityRow label="High"     value={counts.high}     color="text-high-fg" />
+          <CompareSeverityRow label="Medium"   value={counts.medium}   color="text-medium-fg" />
+          <CompareSeverityRow label="Low"      value={counts.low}      color="text-low-fg" />
+          <CompareSeverityRow label="Info"     value={showInfo ? counts.info : 0} color="text-info-fg" />
         </div>
       </div>
     </div>
@@ -259,8 +259,8 @@ function CompareSeverityRow({ label, value, color }: { label: string; value: num
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`w-[13px] h-[13px] rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
-      <span className="text-slate-500 dark:text-slate-400 w-16">{label}:</span>
+      <span className={`w-[13px] h-[13px] rounded-full shrink-0 ${color.replace("text-", "bg-").replace("-fg", "")}`} />
+      <span className="text-ink-500 dark:text-ink-400 w-16">{label}:</span>
       <strong className={color}>{value}</strong>
     </div>
   );
@@ -274,7 +274,7 @@ function DeltaCard({ icon, label, count, desc, color, bg }: {icon: React.ReactNo
         <span className="font-semibold">{label}</span>
       </div>
       <p className={`text-3xl font-bold ${color}`}>{count.toLocaleString()}</p>
-      <p className="text-xs text-slate-400 mt-1">{desc}</p>
+      <p className="text-xs text-ink-400 mt-1">{desc}</p>
     </div>
   );
 }// DeltaCard
@@ -314,15 +314,15 @@ function DeltaTable({ title, items, itemMap, rowClass, onOpen }: {title: string;
 
   return (
     <div className="card overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
-        <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
+      <div className="px-5 py-3 border-b border-ink-100 dark:border-ink-700">
+        <h3 className="font-semibold text-ink-700 dark:text-ink-300 text-sm">
           {title} ({items.length})
         </h3>
       </div>
       <div ref={scrollRef} className="overflow-x-auto max-h-72 overflow-y-auto">
         <table style={table.style}>
           <TableHead table={table} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+          <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
             <SpacerRow height={paddingTop} colSpan={3} />
             {rows.map((row) => {
               const item = sorted[row.index];
@@ -338,16 +338,16 @@ function DeltaTable({ title, items, itemMap, rowClass, onOpen }: {title: string;
                   <td className="table-cell">
                     {info && <SeverityBadge severity={info.severity} size="sm" />}
                   </td>
-                  <td className="table-cell text-sm text-slate-700 dark:text-slate-300">
+                  <td className="table-cell text-sm text-ink-700 dark:text-ink-300">
                     <span className="truncate block">{info?.name ?? `Plugin #${item.pluginId}`}</span>
                     {item.note && (
                       <span className="block text-[10px] text-amber-600 dark:text-amber-400">{item.note}</span>
                     )}
                   </td>
-                  <td className="table-cell text-violet-600 dark:text-violet-400">
+                  <td className="table-cell text-accent-700 dark:text-accent-400">
                     {item.ip}
                     {item.port > 0 && (
-                      <span className="text-xs text-slate-400"> {item.port}/{item.protocol}</span>
+                      <span className="text-xs text-ink-400"> {item.port}/{item.protocol}</span>
                     )}
                   </td>
                 </tr>

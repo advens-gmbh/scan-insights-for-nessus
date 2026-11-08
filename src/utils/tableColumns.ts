@@ -10,6 +10,7 @@ export interface TableColumn<K extends string = string> {
   required?: boolean;      // can't be hidden
   defaultHidden?: boolean;
   align?: "left" | "center";
+  sortable?: boolean;      // false: the header doesn't sort
 }// TableColumn
 
 export interface TableLayout {

@@ -15,7 +15,7 @@ export default function IpLink({ ip, fileId, className = "" }: Props) {
         e.stopPropagation();
         openHostPanel(ip, fileId);
       }}
-      className={`tabular-nums text-violet-600 dark:text-violet-400 hover:underline focus:outline-none text-sm ${className}`}
+      className={`tabular-nums text-accent-700 dark:text-accent-400 hover:underline focus:outline-none text-sm ${className}`}
     >
       {ip}
     </button>

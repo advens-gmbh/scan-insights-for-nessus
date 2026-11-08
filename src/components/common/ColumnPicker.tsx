@@ -27,7 +27,7 @@ export default function ColumnPicker<K extends string>({ table }: { table: Table
         onClick={() => setOpen((v) => !v)}
         title="Choose columns"
         className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${
-          open ? "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200" : ""
+          open ? "bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-200" : ""
         }`}
       >
         <SlidersHorizontal size={13} />
@@ -45,22 +45,22 @@ export default function ColumnPicker<K extends string>({ table }: { table: Table
                 className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-sm text-left transition-colors ${
                   col.required
                     ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
+                    : "hover:bg-ink-50 dark:hover:bg-ink-700/50 cursor-pointer"
                 }`}
               >
                 <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                  visible ? "bg-violet-500 border-violet-500" : "border-slate-300 dark:border-slate-600"
+                  visible ? "bg-accent-500 border-accent-500" : "border-ink-300 dark:border-ink-600"
                 }`}>
                   {visible && <Check size={10} className="text-white" strokeWidth={3} />}
                 </div>
-                <span className="text-slate-700 dark:text-slate-300">{col.label}</span>
+                <span className="text-ink-700 dark:text-ink-300">{col.label}</span>
               </button>
             );
           })}
-          <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+          <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
           <button
             onClick={table.resetAll}
-            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-sm text-left text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-sm text-left text-ink-500 dark:text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors"
           >
             <RotateCcw size={13} className="shrink-0 mx-px" />
             Reset columns

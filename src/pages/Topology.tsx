@@ -7,6 +7,7 @@ import SeverityPills from "../components/common/SeverityPills";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+import { accent, ink } from "../theme/colors";
 
 const ALL_SEVERITIES = new Set<number>(SEVERITY_ORDER);
 // hosts with only info findings would bury the rest of the graph
@@ -27,8 +28,8 @@ export default function Topology() {
     <div className="flex flex-col gap-4 h-full" style={{ height: "calc(100vh - 100px)" }}>
       {/* Controls */}
       <div className="flex items-center gap-4 flex-wrap shrink-0">
-        <h2 className="font-semibold text-slate-700 dark:text-slate-200">Network Topology</h2>
-        <p className="text-xs text-slate-400">
+        <h2 className="font-semibold text-ink-700 dark:text-ink-200">Network Topology</h2>
+        <p className="text-xs text-ink-400">
           Subnet-inferred topology - hosts grouped by /24 subnet, colored by worst severity.
         </p>
         <div className="ml-auto">
@@ -37,7 +38,7 @@ export default function Topology() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-3 flex-wrap text-xs text-slate-500 dark:text-slate-400 shrink-0">
+      <div className="flex items-center gap-3 flex-wrap text-xs text-ink-500 dark:text-ink-400 shrink-0">
         {SEVERITY_ORDER.map((sev) => (
           <span key={sev} className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: SEVERITY_COLORS[sev]?.hex }} />
@@ -45,15 +46,15 @@ export default function Topology() {
           </span>
         ))}
         <span className="flex items-center gap-1.5" title="Virtual grouping node - represents a /24 subnet, not a real host">
-          <span className="w-8 h-3.5 rounded shrink-0 bg-slate-200 dark:bg-slate-700 border border-slate-400 dark:border-slate-500" />
+          <span className="w-8 h-3.5 rounded shrink-0 bg-ink-200 dark:bg-ink-700 border border-ink-400 dark:border-ink-500" />
           Subnet hub
         </span>
         <span className="flex items-center gap-1.5" title="Two subnets appeared in the same scan file - a connection exists somewhere, but the routing host is unknown">
-          <span className="w-8 h-0 shrink-0" style={{ borderTop: "2px dashed #64748b" }} />
+          <span className="w-8 h-0 shrink-0" style={{ borderTop: `2px dashed ${ink[500]}` }} />
           Inter-subnet link
         </span>
         <span className="flex items-center gap-1.5" title="Confirmed routing path - the gateway was identified via traceroute data (plugin 10287) and is known to route traffic between these two subnets">
-          <span className="w-8 h-0 shrink-0" style={{ borderTop: "2px solid rgb(20,184,166)" }} />
+          <span className="w-8 h-0 shrink-0" style={{ borderTop: `2px solid ${accent[500]}` }} />
           Gateway link
         </span>
         <span className="flex items-center gap-1.5" title="Host identified as a network router via traceroute (plugin 10287) - connected to both subnet hubs with teal lines">
@@ -70,7 +71,7 @@ export default function Topology() {
         </span>
         <span className="flex items-center gap-1.5" title="Same MAC address or NetBIOS name seen on IPs in multiple /24 subnets - likely a firewall, router, or dual-NIC server">
           <span className="w-3 h-3 rounded-full shrink-0 border-2"
-            style={{ borderStyle: "dashed", borderColor: "rgb(20,184,166)" }} />
+            style={{ borderStyle: "dashed", borderColor: accent[500] }} />
           Multi-homed
         </span>
       </div>
@@ -98,7 +99,7 @@ export default function Topology() {
         />
       </div>
 
-      <p className="text-xs text-slate-400 text-center shrink-0">
+      <p className="text-xs text-ink-400 text-center shrink-0">
         {hosts.length} hosts across {new Set(hosts.map((h) => h.ip.split(".").slice(0, 3).join("."))).size} subnets.
         Click any host node to view details.
       </p>

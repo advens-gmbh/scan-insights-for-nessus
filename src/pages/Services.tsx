@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useScanStore } from "../stores/scanStore";
 import { buildServiceEntries } from "../types/nessus";
 import type { ServiceEntry } from "../types/nessus";
@@ -42,7 +43,10 @@ export default function Services() {
 
   const [search, setSearch] = useState("");
   const [protocol, setProtocol] = useState<Protocol>("all");
-  const [fileFilter, setFileFilter] = useState("all");
+  const location = useLocation();
+  const [fileFilter, setFileFilter] = useState<string>(
+    (location.state as { fileFilter?: string } | null)?.fileFilter ?? "all"
+  );
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("services");
 
@@ -116,8 +120,8 @@ export default function Services() {
               onClick={() => setProtocol(p)}
               className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${
                 protocol === p
-                  ? "bg-violet-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  ? "bg-accent-600 text-white"
+                  : "bg-ink-100 dark:bg-ink-700 text-ink-600 dark:text-ink-300"
               }`}
             >
               {p === "all" ? "All" : p.toUpperCase()}
@@ -140,7 +144,7 @@ export default function Services() {
 
         <ColumnPicker table={table} />
 
-        <span className="text-xs text-slate-400 shrink-0">
+        <span className="text-xs text-ink-400 shrink-0">
           {sorted.length.toLocaleString()} services
         </span>
       </div>
@@ -150,7 +154,7 @@ export default function Services() {
         <div ref={scrollRef} className="overflow-auto h-full">
           <table style={table.style}>
             <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
               <SpacerRow height={paddingTop} colSpan={columnCount} />
               {rows.map((row) => {
                 const s = sorted[row.index];
@@ -168,7 +172,7 @@ export default function Services() {
               <SpacerRow height={paddingBottom} colSpan={columnCount} />
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={columnCount} className="table-cell text-center text-slate-400 py-10">
+                  <td colSpan={columnCount} className="table-cell text-center text-ink-400 py-10">
                     No services match the current filter.
                   </td>
                 </tr>
@@ -206,25 +210,25 @@ function ServiceRow({ service, visibleCols, index, measureRow, onClick }: {
       {visibleCols.map((col) => {
         switch (col.key) {
           case "port":
-            return <td key={col.key} className="table-cell font-semibold text-slate-800 dark:text-slate-200">{service.port}</td>;
+            return <td key={col.key} className="table-cell font-semibold text-ink-800 dark:text-ink-200">{service.port}</td>;
           case "protocol":
-            return <td key={col.key} className="table-cell uppercase text-slate-500 dark:text-slate-400 truncate" title={service.protocol}>{service.protocol}</td>;
+            return <td key={col.key} className="table-cell uppercase text-ink-500 dark:text-ink-400 truncate" title={service.protocol}>{service.protocol}</td>;
           case "service":
-            return <td key={col.key} className="table-cell text-slate-700 dark:text-slate-300 truncate" title={names}>{names || "-"}</td>;
+            return <td key={col.key} className="table-cell text-ink-700 dark:text-ink-300 truncate" title={names}>{names || "-"}</td>;
           case "hosts":
-            return <td key={col.key} className="table-cell font-semibold text-slate-700 dark:text-slate-200">{service.host_ips.length}</td>;
+            return <td key={col.key} className="table-cell font-semibold text-ink-700 dark:text-ink-200">{service.host_ips.length}</td>;
           case "findings":
-            return <td key={col.key} className="table-cell font-semibold text-slate-700 dark:text-slate-200">{service.findings.length}</td>;
+            return <td key={col.key} className="table-cell font-semibold text-ink-700 dark:text-ink-200">{service.findings.length}</td>;
           case "critical":
-            return <Count key={col.key} value={sc.critical} color="text-critical" />;
+            return <Count key={col.key} value={sc.critical} color="text-critical-fg" />;
           case "high":
-            return <Count key={col.key} value={sc.high} color="text-high" />;
+            return <Count key={col.key} value={sc.high} color="text-high-fg" />;
           case "medium":
-            return <Count key={col.key} value={sc.medium} color="text-medium" />;
+            return <Count key={col.key} value={sc.medium} color="text-medium-fg" />;
           case "low":
-            return <Count key={col.key} value={sc.low} color="text-low" />;
+            return <Count key={col.key} value={sc.low} color="text-low-fg" />;
           case "info":
-            return <Count key={col.key} value={sc.info} color="text-info" />;
+            return <Count key={col.key} value={sc.info} color="text-info-fg" />;
           case "exploit":
             return (
               <td key={col.key} className="table-cell">
@@ -244,7 +248,7 @@ function Count({ value, color }: { value: number; color: string }) {
     <td className="table-cell">
       {value > 0
         ? <span className={`font-semibold text-sm ${color}`}>{value}</span>
-        : <span className="text-slate-300 dark:text-slate-600">-</span>}
+        : <span className="text-ink-300 dark:text-ink-600">-</span>}
     </td>
   );
 }// Count

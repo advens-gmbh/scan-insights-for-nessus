@@ -150,7 +150,7 @@ export default function Vulnerabilities() {
 
         <ColumnPicker table={table} />
 
-        <span className="text-xs text-slate-400 shrink-0">
+        <span className="text-xs text-ink-400 shrink-0">
           {sorted.length.toLocaleString()} results
         </span>
       </div>
@@ -160,7 +160,7 @@ export default function Vulnerabilities() {
         <div ref={scrollRef} className="overflow-auto h-full">
           <table style={table.style}>
             <TableHead table={table} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
               <SpacerRow height={paddingTop} colSpan={table.visible.length} />
               {rows.map((row) => {
                 const v = sorted[row.index];
@@ -178,7 +178,7 @@ export default function Vulnerabilities() {
               <SpacerRow height={paddingBottom} colSpan={table.visible.length} />
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={table.visible.length} className="table-cell text-center text-slate-400 py-10">
+                  <td colSpan={table.visible.length} className="table-cell text-center text-ink-400 py-10">
                     No vulnerabilities match the current filter.
                   </td>
                 </tr>
@@ -210,18 +210,18 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
               </td>
             );
           case "plugin_id":
-            return <td key={col.key} className="table-cell text-slate-500 dark:text-slate-400">{vuln.plugin_id}</td>;
+            return <td key={col.key} className="table-cell text-ink-500 dark:text-ink-400">{vuln.plugin_id}</td>;
           case "name":
             return (
-              <td key={col.key} className="table-cell font-medium text-slate-800 dark:text-slate-200">
+              <td key={col.key} className="table-cell font-medium text-ink-800 dark:text-ink-200">
                 <span className="line-clamp-2">{vuln.plugin_name}</span>
               </td>
             );
           case "family":
-            return <td key={col.key} className="table-cell text-slate-500 dark:text-slate-400 truncate" title={vuln.plugin_family}>{vuln.plugin_family}</td>;
+            return <td key={col.key} className="table-cell text-ink-500 dark:text-ink-400 truncate" title={vuln.plugin_family}>{vuln.plugin_family}</td>;
           case "cve":
             return (
-              <td key={col.key} className="table-cell text-slate-500 dark:text-slate-400 truncate" title={vuln.cve.join("\n")}>
+              <td key={col.key} className="table-cell text-ink-500 dark:text-ink-400 truncate" title={vuln.cve.join("\n")}>
                 {vuln.cve[0] ?? <Dash />}
                 {vuln.cve.length > 1 && ` +${vuln.cve.length - 1}`}
               </td>
@@ -237,7 +237,7 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
                   <Dash />
                 )}
                 {cvss !== null && (
-                  <span className="ml-1 text-[10px] text-slate-400" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
+                  <span className="ml-1 text-[10px] text-ink-400" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
                 )}
               </td>
             );
@@ -247,13 +247,13 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
             return <td key={col.key} className="table-cell">{vuln.epss ?? <Dash />}</td>;
           case "hosts":
             return (
-              <td key={col.key} className="table-cell text-center font-semibold text-slate-700 dark:text-slate-200">
+              <td key={col.key} className="table-cell text-center font-semibold text-ink-700 dark:text-ink-200">
                 {vuln.host_count}
               </td>
             );
           case "patch":
             return (
-              <td key={col.key} className="table-cell text-slate-500 dark:text-slate-400">
+              <td key={col.key} className="table-cell text-ink-500 dark:text-ink-400">
                 {vuln.patch_publication_date ? formatNessusDate(vuln.patch_publication_date) : <Dash />}
               </td>
             );
@@ -279,7 +279,7 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
             );
           case "ease":
             return (
-              <td key={col.key} className="table-cell text-slate-500 dark:text-slate-400 truncate" title={vuln.exploit_ease ?? undefined}>
+              <td key={col.key} className="table-cell text-ink-500 dark:text-ink-400 truncate" title={vuln.exploit_ease ?? undefined}>
                 {vuln.exploit_ease ?? <Dash />}
               </td>
             );
@@ -290,5 +290,5 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
 }// VulnRow
 
 function Dash() {
-  return <span className="text-slate-300 dark:text-slate-600">-</span>;
+  return <span className="text-ink-300 dark:text-ink-600">-</span>;
 }// Dash

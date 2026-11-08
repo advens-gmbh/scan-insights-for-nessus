@@ -7,11 +7,11 @@ interface Props {
 }// Props
 
 const COLORS: Record<number, { on: string; off: string }> = {
-  4: { on: "bg-critical text-white", off: "bg-critical/10 text-critical" },
-  3: { on: "bg-high text-white",     off: "bg-high/10 text-high" },
-  2: { on: "bg-medium text-white",   off: "bg-medium/10 text-medium" },
-  1: { on: "bg-low text-white",      off: "bg-low/10 text-low" },
-  0: { on: "bg-info text-white",     off: "bg-info/10 text-info" },
+  4: { on: "bg-critical text-critical-on", off: "bg-critical/10 text-critical-fg" },
+  3: { on: "bg-high text-high-on",     off: "bg-high/10 text-high-fg" },
+  2: { on: "bg-medium text-medium-on",   off: "bg-medium/10 text-medium-fg" },
+  1: { on: "bg-low text-low-on",      off: "bg-low/10 text-low-fg" },
+  0: { on: "bg-info text-info-on",     off: "bg-info/10 text-info-fg" },
 };
 
 // row filter: nothing selected shows everything, selected pills narrow it down

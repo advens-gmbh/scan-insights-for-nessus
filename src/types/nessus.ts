@@ -1,6 +1,7 @@
 // Mirror of Rust models - keep in sync with src-tauri/src/models.rs
 
 import { compareHosts } from "../utils/ip";
+import { severity } from "../theme/colors";
 
 export interface ReportItem {
   plugin_id: number;
@@ -191,11 +192,11 @@ export const SEVERITY_LABELS: Record<number, string> = {
 export const SEVERITY_ORDER = [4, 3, 2, 1, 0] as const;
 
 export const SEVERITY_COLORS: Record<number, { bg: string; text: string; border: string; hex: string }> = {
-  4: { bg: "bg-critical/10 dark:bg-critical/20",  text: "text-critical",  border: "border-critical/30",  hex: "#dc2626" },
-  3: { bg: "bg-high/10 dark:bg-high/20",           text: "text-high",      border: "border-high/30",      hex: "#f97316" },
-  2: { bg: "bg-medium/10 dark:bg-medium/20",        text: "text-medium",    border: "border-medium/30",    hex: "#eab308" },
-  1: { bg: "bg-low/10 dark:bg-low/20",              text: "text-low",       border: "border-low/30",       hex: "#22c55e" },
-  0: { bg: "bg-info/10 dark:bg-info/20",            text: "text-info",      border: "border-info/30",      hex: "#3b82f6" },
+  4: { bg: "bg-critical/10 dark:bg-critical/20",  text: "text-critical-fg",  border: "border-critical/30",  hex: severity.critical.fill },
+  3: { bg: "bg-high/10 dark:bg-high/20",           text: "text-high-fg",      border: "border-high/30",      hex: severity.high.fill },
+  2: { bg: "bg-medium/10 dark:bg-medium/20",        text: "text-medium-fg",    border: "border-medium/30",    hex: severity.medium.fill },
+  1: { bg: "bg-low/10 dark:bg-low/20",              text: "text-low-fg",       border: "border-low/30",       hex: severity.low.fill },
+  0: { bg: "bg-info/10 dark:bg-info/20",            text: "text-info-fg",      border: "border-info/30",      hex: severity.info.fill },
 };// SEVERITY_COLORS
 
 export function severityCounts(hosts: { items: Pick<ReportItem, "severity">[] }[]): SeverityCounts {

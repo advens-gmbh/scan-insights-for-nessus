@@ -10,7 +10,7 @@ interface Props {
 export default function SearchBar({ value, onChange, placeholder = "Search…", className = "" }: Props) {
   return (
     <div className={`relative ${className}`}>
-      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
       <input
         type="text"
         value={value}
@@ -21,7 +21,7 @@ export default function SearchBar({ value, onChange, placeholder = "Search…", 
       {value && (
         <button
           onClick={() => onChange("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600 dark:hover:text-ink-200"
         >
           <X size={14} />
         </button>
