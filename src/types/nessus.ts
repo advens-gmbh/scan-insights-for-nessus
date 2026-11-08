@@ -118,6 +118,7 @@ export interface VulnEntry {
   solution: string;
   synopsis: string | null;
   patch_publication_date: string | null;
+  vuln_publication_date: string | null;
   cve: string[];
   cwe: string[];
   see_also: string[];
@@ -357,6 +358,7 @@ export const buildVulnEntries = cachedByFiles((files: NessusFile[]): VulnEntry[]
             solution: item.solution,
             synopsis: item.synopsis,
             patch_publication_date: item.patch_publication_date,
+            vuln_publication_date: item.vuln_publication_date,
             cve: item.cve,
             cwe: item.cwe,
             see_also: item.see_also,
@@ -384,6 +386,7 @@ export const buildVulnEntries = cachedByFiles((files: NessusFile[]): VulnEntry[]
         entry.synopsis ??= item.synopsis;
         entry.metasploit_name ??= item.metasploit_name;
         entry.patch_publication_date ??= item.patch_publication_date;
+        entry.vuln_publication_date ??= item.vuln_publication_date;
         const hosts = hostsByPlugin.get(item.plugin_id)!;
         hosts.add(host.ip);
         entry.host_count = hosts.size;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
@@ -43,6 +43,7 @@ const COLUMNS: ColDef[] = [
 export default function Vulnerabilities() {
   const files = useScanStore((s) => s.files);
   const openVulnPanel = useUiStore((s) => s.openVulnPanel);
+  const openPluginId = useUiStore((s) => s.vulnPanelId);
   const location = useLocation();
 
   const [search, setSearch] = useState("");
@@ -111,7 +112,37 @@ export default function Vulnerabilities() {
     });
   }, [filtered, sortKey, sortDir]);
 
-  const { scrollRef, rows, paddingTop, paddingBottom, measureRow } = useVirtualRows(sorted.length);
+  const { scrollRef, rows, paddingTop, paddingBottom, measureRow, scrollToIndex } = useVirtualRows(sorted.length);
+
+  // while a finding is open, up and down move to the previous and next one in the table's order
+  useEffect(() => {
+    if (openPluginId === null) {
+      return;
+    }
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") {
+        return;
+      }
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) {
+        return;
+      }
+
+      const index = sorted.findIndex((v) => v.plugin_id === openPluginId);
+      const next = index === -1 ? 0 : index + (e.key === "ArrowDown" ? 1 : -1);
+      if (next < 0 || next >= sorted.length) {
+        return;
+      }
+
+      e.preventDefault();
+      openVulnPanel(sorted[next].plugin_id, fileFilter !== "all" ? fileFilter : undefined);
+      scrollToIndex(next, { align: "auto" });
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openPluginId, sorted, fileFilter, openVulnPanel, scrollToIndex]);
 
   const severityCounts = useMemo(
     () => countBySeverity(vulnsForFilter.map((v) => [v.severity])),
@@ -171,6 +202,7 @@ export default function Vulnerabilities() {
                     visibleCols={table.visible}
                     index={row.index}
                     measureRow={measureRow}
+                    selected={v.plugin_id === openPluginId}
                     onClick={() => openVulnPanel(v.plugin_id, fileFilter !== "all" ? fileFilter : undefined)}
                   />
                 );
@@ -191,16 +223,23 @@ export default function Vulnerabilities() {
   );
 }// Vulnerabilities
 
-function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
+function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
   vuln: VulnEntry;
   visibleCols: ColDef[];
   index: number;
+  selected: boolean;
   measureRow: (el: HTMLTableRowElement | null) => void;
   onClick: () => void;
 }) {
   const cvss = ratedScore(vuln);
   return (
-    <tr ref={measureRow} data-index={index} className="table-row" onClick={onClick}>
+    <tr
+      ref={measureRow}
+      data-index={index}
+      className={`table-row ${selected ? "!bg-accent-50 dark:!bg-accent-900/30" : ""}`}
+      aria-selected={selected}
+      onClick={onClick}
+    >
       {visibleCols.map((col) => {
         switch (col.key) {
           case "severity":
@@ -260,21 +299,13 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
           case "exploit":
             return (
               <td key={col.key} className="table-cell">
-                {vuln.exploit_available && (
-                  <span className="pill bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs">
-                    EXPLOIT
-                  </span>
-                )}
+                {vuln.exploit_available && <Tag danger>Exploit</Tag>}
               </td>
             );
           case "metasploit":
             return (
               <td key={col.key} className="table-cell" title={vuln.metasploit_name ?? undefined}>
-                {vuln.metasploit_available && (
-                  <span className="pill bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs">
-                    METASPLOIT
-                  </span>
-                )}
+                {vuln.metasploit_available && <Tag>Metasploit</Tag>}
               </td>
             );
           case "ease":
@@ -288,6 +319,14 @@ function VulnRow({ vuln, visibleCols, index, measureRow, onClick }: {
     </tr>
   );
 }// VulnRow
+
+function Tag({ danger = false, children }: { danger?: boolean; children: string }) {
+  return (
+    <span className={`px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 ${danger ? "text-critical-fg" : "text-ink-700 dark:text-ink-200"}`}>
+      {children}
+    </span>
+  );
+}// Tag
 
 function Dash() {
   return <span className="text-ink-300 dark:text-ink-600">-</span>;

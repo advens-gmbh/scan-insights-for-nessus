@@ -14,5 +14,5 @@ export function useVirtualRows(count: number, estimatedRowHeight = 44) {
   const paddingTop = rows.length > 0 ? rows[0].start : 0;
   const paddingBottom = rows.length > 0 ? virtualizer.getTotalSize() - rows[rows.length - 1].end : 0;
   
-  return { scrollRef, rows, paddingTop, paddingBottom, measureRow: virtualizer.measureElement };
+  return { scrollRef, rows, paddingTop, paddingBottom, measureRow: virtualizer.measureElement, scrollToIndex: virtualizer.scrollToIndex };
 }// useVirtualRows

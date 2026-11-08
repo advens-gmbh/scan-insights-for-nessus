@@ -153,10 +153,10 @@ describe("buildVulnEntries", () => {
 
   it("fills in details missing from the first file", () => {
     const [entry] = buildVulnEntries([
-      file("a", host("10.0.0.1", [{ ...item(1, 80), synopsis: null, metasploit_name: null, patch_publication_date: null }])),
-      file("b", host("10.0.0.1", [{ ...item(1, 80), synopsis: "s", metasploit_name: "m", patch_publication_date: "2012/01/31" }])),
+      file("a", host("10.0.0.1", [{ ...item(1, 80), synopsis: null, metasploit_name: null, patch_publication_date: null, vuln_publication_date: null }])),
+      file("b", host("10.0.0.1", [{ ...item(1, 80), synopsis: "s", metasploit_name: "m", patch_publication_date: "2012/01/31", vuln_publication_date: "2011/08/24" }])),
     ]);
-    expect([entry.synopsis, entry.metasploit_name, entry.patch_publication_date]).toEqual(["s", "m", "2012/01/31"]);
+    expect([entry.synopsis, entry.metasploit_name, entry.patch_publication_date, entry.vuln_publication_date]).toEqual(["s", "m", "2012/01/31", "2011/08/24"]);
   });
 
   it("counts unique hosts, not ports or repeat scans", () => {
