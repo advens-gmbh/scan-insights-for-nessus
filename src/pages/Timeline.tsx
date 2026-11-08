@@ -8,7 +8,6 @@ import ScanName from "../components/common/ScanName";
 import type { NessusFile } from "../types/nessus";
 import TrendLine, { type TrendPoint } from "../components/charts/TrendLine";
 import SeverityDonut from "../components/charts/SeverityDonut";
-import FileDetailPanel from "../panels/FileDetailPanel";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import { formatDate, formatDateShort } from "../utils/format";
 import { accent, ink } from "../theme/colors";
@@ -57,7 +56,7 @@ function SeverityRow({ label, value, color }: { label: string; value: number; co
 export default function Timeline() {
   const files = useScanStore((s) => s.files);
   const [selected, setSelected] = useState<string | null>(null);
-  const [detailFile, setDetailFile] = useState<NessusFile | null>(null);
+  const openFilePanel = useUiStore((s) => s.openFilePanel);
   const showInfo = useUiStore((s) => s.showInfo);
 
   const sortedFiles = useMemo(
@@ -211,7 +210,7 @@ export default function Timeline() {
                 <p
                   className="font-semibold text-ink-800 dark:text-ink-100 truncate cursor-pointer hover:text-accent-700 dark:hover:text-accent-400 transition-colors"
                   title="Click to view file details"
-                  onClick={() => setDetailFile(selectedFile)}
+                  onClick={() => openFilePanel(selectedFile.id)}
                 >
                   {selectedFile.filename}
                 </p>
@@ -243,9 +242,6 @@ export default function Timeline() {
         );
       })()}
 
-      {detailFile && (
-        <FileDetailPanel file={detailFile} onClose={() => setDetailFile(null)} />
-      )}
     </div>
   );
 }// Timeline

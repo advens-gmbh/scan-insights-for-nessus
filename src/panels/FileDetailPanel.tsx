@@ -1,135 +1,199 @@
-import { X, Target, Server } from "lucide-react";
+import { useState } from "react";
+import { X, AlertTriangle } from "lucide-react";
+import { useUiStore } from "../stores/uiStore";
+import { useScanStore } from "../stores/scanStore";
+import { severityCounts } from "../types/nessus";
 import type { NessusFile } from "../types/nessus";
+import { compareHosts } from "../utils/ip";
+import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
+import { splitTargets, targetCoverage } from "../utils/fileTargets";
+import type { TargetCoverage } from "../utils/fileTargets";
+import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
+import { Section, useEscape } from "./PanelParts";
+import { CountBoxes } from "./FindingParts";
 
-interface Props {
-  file: NessusFile;
-  onClose: () => void;
-}// Props
+const HOSTS_COLLAPSED = 24; // 6 rows of 4 at the panel's full width
+const TARGETS_COLLAPSED = 10;
 
-export default function FileDetailPanel({ file, onClose }: Props) {
-  const targets = file.target ? file.target.split(/[\n,]+/).map((t) => t.trim()).filter(Boolean) : [];
-  const hosts = file.hosts.map((h) => ({
-    ip: h.ip,
-    hostname: h.hostname,
-  }));
+export default function FileDetailPanel({ fileId }: { fileId: string }) {
+  const closeFilePanel = useUiStore((s) => s.closeFilePanel);
+  const file = useScanStore((s) => s.files.find((f) => f.id === fileId));
+  useEscape(closeFilePanel);
 
-  const allTargetsText = targets.join("\n");
-  const allIpsText = hosts.map((h) => h.ip).join("\n");
-  const allWithNamesText = hosts
-    .map((h) => (h.hostname ? `${h.ip} (${h.hostname})` : h.ip))
-    .join("\n");
+  if (!file) {
+    return null;
+  }
+
+  return (
+    <aside className="panel-drawer border-l border-ink-200 dark:border-ink-700" aria-label="Scan file details">
+      <FileContent key={file.id} file={file} onClose={closeFilePanel} />
+    </aside>
+  );
+}// FileDetailPanel
+
+function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void }) {
+  const hosts = [...file.hosts].sort((a, b) => compareHosts(a.ip, b.ip));
+  const coverage = targetCoverage(splitTargets(file.target), hosts);
+  const missed = coverage.filter((t) => t.ips.length === 0);
+  const scan = scanWindow(file.hosts);
+  const credentialed = hosts.filter((h) => h.credentialed_scan).length;
+  const withoutCredentials = credentialed > 0 ? hosts.filter((h) => !h.credentialed_scan) : [];
+  const name = file.filename.replace(/\.nessus$/i, "");
+  const scanned = scan.start ? `${formatScanStart(scan.start)}${scan.durationMs !== null ? `, ran for ${formatDuration(scan.durationMs)}` : ""}` : null;
 
   return (
     <>
-      <div className="panel-overlay" onClick={onClose} />
-      <div className="panel-drawer">
-        {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs text-ink-400 mb-0.5">Scan File Details</p>
-              <h2
-                className="font-semibold text-ink-900 dark:text-ink-100 truncate"
-                title={file.filename}
-              >
-                {file.filename}
-              </h2>
-              {file.report_name && (
-                <p className="text-xs text-ink-500 dark:text-ink-400 mt-0.5 truncate">
-                  {file.report_name}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="btn-ghost w-8 h-8 p-0 flex items-center justify-center shrink-0"
-            >
-              <X size={16} />
-            </button>
-          </div>
+      {/* Header */}
+      <div className="px-6 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 flex flex-col gap-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-xl font-semibold text-ink-900 dark:text-ink-50 truncate" title={file.filename}>{name}</h2>
+          <button onClick={onClose} className="btn-ghost w-8 h-8 p-0 ml-auto justify-center shrink-0" title="Close (Esc)" aria-label="Close">
+            <X size={16} />
+          </button>
         </div>
+        <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate">
+          {[file.report_name, `${hosts.length} ${hosts.length === 1 ? "host" : "hosts"}`].filter(Boolean).join(" · ")}
+        </p>
+        <CountBoxes counts={severityCounts(file.hosts)} />
+      </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
+        <Section title="Details">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-6 gap-y-1 items-baseline">
+            {file.report_name && <Detail label="Scan name" value={file.report_name} />}
+            {scanned && <Detail label="Scanned" value={scanned} />}
+            <Detail
+              label="Credentialed"
+              value={
+                credentialed === 0 ? "No"
+                  : credentialed === hosts.length ? `Yes, all ${hosts.length} hosts`
+                  : `${credentialed} of ${hosts.length} hosts`
+              }
+            />
+            <Detail label="File" value={file.path} copy />
+          </dl>
+        </Section>
 
-          {/* Configured Targets */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5">
-                <Target size={14} className="text-accent-500" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">
-                  Configured Targets
-                  {targets.length > 0 && (
-                    <span className="ml-1.5 normal-case font-normal text-ink-400">
-                      ({targets.length})
-                    </span>
-                  )}
-                </h3>
-              </div>
-              {targets.length > 0 && <CopyButton text={allTargetsText} label="Copy All" />}
+        <Section
+          title={`Targets (${coverage.length})${missed.length > 0 ? ` · ${missed.length} not reached` : ""}`}
+          actions={coverage.length > 0 && (
+            <div className="flex items-center gap-1">
+              {missed.length > 0 && <CopyButton text={missed.map((t) => t.target).join("\n")} label="Copy not reached" />}
+              <CopyButton text={coverage.map((t) => t.target).join("\n")} label="Copy all" />
             </div>
+          )}
+        >
+          {coverage.length === 0 ? (
+            <p className="text-ink-500 dark:text-ink-400">The scan file doesn't list its targets.</p>
+          ) : (
+            <TargetList coverage={coverage} fileId={file.id} />
+          )}
+        </Section>
 
-            {targets.length === 0 ? (
-              <p className="text-xs text-ink-400 italic">
-                Target information not found in this scan file's policy section.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {targets.map((t, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-md border border-ink-200 dark:border-ink-600 bg-ink-50 dark:bg-ink-800 font-mono text-xs text-ink-700 dark:text-ink-200"
-                  >
-                    {t}
-                    <CopyButton text={t} variant="icon" label="Copy" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+        <IpSection
+          title={`Hosts (${hosts.length})`}
+          hosts={hosts}
+          fileId={file.id}
+          empty="No hosts in this scan file."
+        />
 
-          {/* Reached Hosts */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5">
-                <Server size={14} className="text-accent-500" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">
-                  Reached Hosts
-                  <span className="ml-1.5 normal-case font-normal text-ink-400">
-                    ({hosts.length})
-                  </span>
-                </h3>
-              </div>
-              {hosts.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <CopyButton text={allIpsText} label="IPs" />
-                  <CopyButton text={allWithNamesText} label="IPs+Names" />
-                </div>
-              )}
-            </div>
-
-            {hosts.length === 0 ? (
-              <p className="text-xs text-ink-400 italic">No hosts in this scan file.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {hosts.map((h) => (
-                  <div
-                    key={h.ip}
-                    className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-md border border-ink-200 dark:border-ink-600 bg-ink-50 dark:bg-ink-800 font-mono text-xs text-ink-700 dark:text-ink-200"
-                  >
-                    <span>{h.ip}</span>
-                    {h.hostname && (
-                      <span className="font-sans text-ink-400 ml-0.5 text-[10px]">({h.hostname})</span>
-                    )}
-                    <CopyButton text={h.ip} variant="icon" label="Copy IP" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+        {withoutCredentials.length > 0 && (
+          <IpSection
+            title={`Without working credentials (${withoutCredentials.length})`}
+            note="Local checks didn't run on these hosts, so their findings may be incomplete."
+            hosts={withoutCredentials}
+            fileId={file.id}
+          />
+        )}
       </div>
     </>
   );
-}// FileDetailPanel
+}// FileContent
+
+function TargetList({ coverage, fileId }: { coverage: TargetCoverage[]; fileId: string }) {
+  const [showAll, setShowAll] = useState(false);
+  const ordered = [...coverage.filter((t) => t.ips.length === 0), ...coverage.filter((t) => t.ips.length > 0)];
+  const shown = showAll ? ordered : ordered.slice(0, TARGETS_COLLAPSED);
+
+  return (
+    <>
+      <ul className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-1 tabular-nums">
+        {shown.map((t) => (
+          <li key={t.target} className="contents">
+            <span className="truncate" title={t.target}>{t.target}</span>
+            {t.ips.length === 0 ? (
+              <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                <AlertTriangle size={13} /> not reached
+              </span>
+            ) : t.size !== null ? (
+              <span className="text-ink-500 dark:text-ink-400">{t.ips.length} of {t.size.toLocaleString()} answered</span>
+            ) : t.ips[0] !== t.target ? (
+              <span className="text-ink-500 dark:text-ink-400" title="The address the name resolved to during the scan">
+                resolved to <IpLink ip={t.ips[0]} fileId={fileId} />
+                {t.ips.length > 1 && ` +${t.ips.length - 1}`}
+              </span>
+            ) : (
+              <span className="text-ink-500 dark:text-ink-400">reached</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {ordered.length > TARGETS_COLLAPSED && (
+        <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+          {showAll ? "Show less" : `Show all ${ordered.length}`}
+        </button>
+      )}
+    </>
+  );
+}// TargetList
+
+function Detail({ label, value, copy = false }: { label: string; value: string; copy?: boolean }) {
+  return (
+    <>
+      <dt className="text-ink-500 dark:text-ink-400">{label}</dt>
+      <dd className="min-w-0 break-words">{value}</dd>
+      <dd className="-my-1">{copy && <CopyButton text={value} label={`Copy ${label.toLowerCase()}`} variant="icon" />}</dd>
+    </>
+  );
+}// Detail
+
+function IpSection({ title, note, hosts, fileId, empty }: {
+  title: string;
+  note?: string;
+  hosts: { ip: string; hostname: string | null }[];
+  fileId: string;
+  empty?: string;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? hosts : hosts.slice(0, HOSTS_COLLAPSED);
+
+  return (
+    <Section title={title}>
+      {note && <p className="mb-2 text-ink-500 dark:text-ink-400">{note}</p>}
+      {hosts.length === 0 ? (
+        <p className="text-ink-500 dark:text-ink-400">{empty}</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1 mb-3">
+            <CopyButton text={hosts.map((h) => h.ip).join("\n")} label="Copy IPs" />
+            <CopyButton text={hosts.map((h) => (h.hostname ? `${h.ip} (${h.hostname})` : h.ip)).join("\n")} label="Copy IPs with names" />
+          </div>
+          <div className="grid gap-x-3 gap-y-1.5 tabular-nums" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+            {shown.map((h) => (
+              <div key={h.ip} title={h.hostname ?? undefined}>
+                <IpLink ip={h.ip} fileId={fileId} className="text-left break-all" />
+              </div>
+            ))}
+          </div>
+          {hosts.length > HOSTS_COLLAPSED && (
+            <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+              {showAll ? "Show less" : `Show all ${hosts.length}`}
+            </button>
+          )}
+        </>
+      )}
+    </Section>
+  );
+}// IpSection

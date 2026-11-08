@@ -16,7 +16,6 @@ import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
-import FileDetailPanel from "../panels/FileDetailPanel";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 
 export default function Compare() {
@@ -25,7 +24,7 @@ export default function Compare() {
 
   const [scanA, setScanA] = useState<string>("");
   const [scanB, setScanB] = useState<string>("");
-  const [detailFile, setDetailFile] = useState<NessusFile | null>(null);
+  const openFilePanel = useUiStore((s) => s.openFilePanel);
 
   const fileA = files.find((f) => f.id === scanA);
   const fileB = files.find((f) => f.id === scanB);
@@ -118,8 +117,8 @@ export default function Compare() {
 
           {/* Side-by-side summary */}
           <div className="grid grid-cols-2 gap-4">
-            <ScanSummaryCard file={fileA} label="Scan A" onFileClick={setDetailFile} />
-            <ScanSummaryCard file={fileB} label="Scan B" onFileClick={setDetailFile} />
+            <ScanSummaryCard file={fileA} label="Scan A" onFileClick={(f) => openFilePanel(f.id)} />
+            <ScanSummaryCard file={fileB} label="Scan B" onFileClick={(f) => openFilePanel(f.id)} />
           </div>
 
           {/* Delta stats */}
@@ -209,9 +208,6 @@ export default function Compare() {
         </div>
       )}
 
-      {detailFile && (
-        <FileDetailPanel file={detailFile} onClose={() => setDetailFile(null)} />
-      )}
     </div>
   );
 }// Compare
@@ -222,7 +218,7 @@ function ScanSummaryCard({ file, label, onFileClick }: { file: NessusFile; label
 
   return (
     <div className="card p-5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink-400 mb-1">{label}</p>
+      <p className="text-[13px] font-semibold text-ink-500 dark:text-ink-400 mb-1">{label}</p>
       <div className="mb-3">
         <h3
           className="font-semibold text-ink-800 dark:text-ink-100 truncate cursor-pointer hover:text-accent-700 dark:hover:text-accent-400 transition-colors"

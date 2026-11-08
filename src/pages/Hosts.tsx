@@ -20,6 +20,7 @@ import { useTableSort } from "../hooks/useTableSort";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+import { Tag } from "../panels/PanelParts";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 
@@ -340,11 +341,8 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
                     </span>
                   )}
                   {host.file_ids.length > 1 && (
-                    <span
-                      className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1 py-px rounded bg-accent-100 dark:bg-accent-900/40 text-accent-700 dark:text-accent-400"
-                      title={host.filenames.join("\n")}
-                    >
-                      {host.file_ids.length} files
+                    <span className="shrink-0" title={host.filenames.join("\n")}>
+                      <Tag>{host.file_ids.length} files</Tag>
                     </span>
                   )}
                 </span>

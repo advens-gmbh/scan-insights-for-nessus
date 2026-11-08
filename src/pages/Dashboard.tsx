@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { FolderOpen, Trash2, Clock, FileX, ShieldAlert, Server, Layers } from "lucide-react";
 import type { ReactNode } from "react";
@@ -10,11 +10,10 @@ import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import ScanName from "../components/common/ScanName";
 import IpLink from "../components/common/IpLink";
 import SeverityBadge from "../components/common/SeverityBadge";
-import type { NessusFile, SeverityCounts } from "../types/nessus";
+import type { SeverityCounts } from "../types/nessus";
 import { formatDuration, formatScanStart, rankHosts, scanWindow, topVulnerabilities } from "../utils/dashboard";
 import SeverityDonut from "../components/charts/SeverityDonut";
 import SeverityBar from "../components/charts/SeverityBar";
-import FileDetailPanel from "../panels/FileDetailPanel";
 import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
@@ -53,7 +52,7 @@ export default function Dashboard() {
   const { files, recentFiles, openFiles, loadFile, unloadFile } = useScanStore();
   const navigate = useNavigate();
   const { showInfo, openVulnPanel } = useUiStore();
-  const [detailFile, setDetailFile] = useState<NessusFile | null>(null);
+  const openFilePanel = useUiStore((s) => s.openFilePanel);
 
   const allHosts = useMemo(() => buildHostEntries(files), [files]);
   const allVulns = useMemo(() => buildVulnEntries(files), [files]);
@@ -255,7 +254,7 @@ export default function Dashboard() {
                         return (
                           <td key={col.key} className="px-4 py-2.5 overflow-hidden">
                             <button
-                              onClick={() => setDetailFile(file)}
+                              onClick={() => openFilePanel(file.id)}
                               className="block max-w-full truncate font-semibold text-ink-800 dark:text-ink-100 hover:text-accent-700 dark:hover:text-accent-400 text-left"
                               title={`${file.path}\nClick for file details`}
                             >
@@ -309,9 +308,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {detailFile && (
-        <FileDetailPanel file={detailFile} onClose={() => setDetailFile(null)} />
-      )}
     </div>
   );
 }// Dashboard
@@ -356,8 +352,8 @@ function EmptyState({openFiles, recentFiles, loadFile,}: {
 
       {recentFiles.length > 0 && (
         <div className="w-full max-w-md">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-400 mb-3 flex items-center gap-1.5">
-            <Clock size={12} /> Recent Files
+          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100 mb-2.5 flex items-center gap-1.5">
+            <Clock size={14} className="text-ink-500 dark:text-ink-400" /> Recent files
           </h2>
           <div className="card divide-y divide-ink-100 dark:divide-ink-700">
             {recentFiles.slice(0, 5).map((f) => (

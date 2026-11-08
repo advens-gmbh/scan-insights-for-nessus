@@ -7,12 +7,13 @@ import Notifications from "./Notifications";
 import VulnDetail from "../../panels/VulnDetail";
 import HostDetail from "../../panels/HostDetail";
 import ServiceDetail from "../../panels/ServiceDetail";
+import FileDetailPanel from "../../panels/FileDetailPanel";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 
 export default function Layout() {
-  const { vulnPanelId, hostPanelIp, servicePanelKey } = useUiStore();
+  const { vulnPanelId, hostPanelIp, servicePanelKey, filePanelId } = useUiStore();
   const loadFile = useScanStore((s) => s.loadFile);
 
   // lives here so files can be dropped on any page
@@ -51,6 +52,7 @@ export default function Layout() {
       {vulnPanelId !== null && <VulnDetail pluginId={vulnPanelId} />}
       {hostPanelIp !== null && <HostDetail ip={hostPanelIp} />}
       {servicePanelKey !== null && <ServiceDetail serviceKey={servicePanelKey} />}
+      {filePanelId !== null && <FileDetailPanel fileId={filePanelId} />}
 
       {/* Toast notifications */}
       <Notifications />
