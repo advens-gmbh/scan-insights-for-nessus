@@ -31,6 +31,11 @@ export function scanWindow(hosts: { host_start: string | null; host_end: string 
   return { start, durationMs: end !== null && end >= start.getTime() ? end - start.getTime() : null };
 }// scanWindow
 
+export function formatScanStart(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}// formatScanStart
+
 export function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   if (minutes < 1) {

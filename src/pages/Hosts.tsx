@@ -36,11 +36,11 @@ const COLUMNS: ColDef[] = [
   { key: "netbios",      label: "NetBIOS",      width: 140, defaultHidden: true },
   { key: "mac",          label: "MAC Address",  width: 155, defaultHidden: true },
   { key: "credentialed", label: "Credentialed", width: 110, defaultHidden: true, align: "center" },
-  { key: "critical",     label: "Critical",     width: 80,  align: "center" },
-  { key: "high",         label: "High",         width: 70,  align: "center" },
-  { key: "medium",       label: "Medium",       width: 80,  align: "center" },
-  { key: "low",          label: "Low",          width: 70,  align: "center" },
-  { key: "info",         label: "Info",         width: 70,  align: "center", defaultHidden: true },
+  { key: "critical",     label: "Critical",     width: 96,  align: "center", dot: "bg-critical" },
+  { key: "high",         label: "High",         width: 80,  align: "center", dot: "bg-high" },
+  { key: "medium",       label: "Medium",       width: 96,  align: "center", dot: "bg-medium" },
+  { key: "low",          label: "Low",          width: 76,  align: "center", dot: "bg-low" },
+  { key: "info",         label: "Info",         width: 76,  align: "center", dot: "bg-info", defaultHidden: true },
   { key: "ports",        label: "Open Ports",   width: 200 },
 ];// COLUMNS
 
@@ -51,6 +51,7 @@ const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbio
 export default function Hosts() {
   const files = useScanStore((s) => s.files);
   const openHostPanel = useUiStore((s) => s.openHostPanel);
+  const openIp = useUiStore((s) => s.hostPanelIp);
   const location = useLocation();
 
   const [search, setSearch] = useState("");
@@ -115,7 +116,36 @@ export default function Hosts() {
     return sortDir === "desc" ? -cmp : cmp;
   }), [filtered, activeSort, sortDir]);
 
-  const { scrollRef, rows, paddingTop, paddingBottom, measureRow } = useVirtualRows(sorted.length);
+  const { scrollRef, rows, paddingTop, paddingBottom, measureRow, scrollToIndex } = useVirtualRows(sorted.length);
+
+  useEffect(() => {
+    if (openIp === null) {
+      return;
+    }
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") {
+        return;
+      }
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) {
+        return;
+      }
+
+      const index = sorted.findIndex((h) => h.ip === openIp);
+      const next = index === -1 ? 0 : index + (e.key === "ArrowDown" ? 1 : -1);
+      if (next < 0 || next >= sorted.length) {
+        return;
+      }
+
+      e.preventDefault();
+      openHostPanel(sorted[next].ip, fileFilter !== "all" ? fileFilter : undefined);
+      scrollToIndex(next, { align: "auto" });
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openIp, sorted, fileFilter, openHostPanel, scrollToIndex]);
 
   const [copied, setCopied] = useState(false);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
@@ -245,6 +275,7 @@ export default function Hosts() {
                     visibleCols={visibleCols}
                     fileId={fileId}
                     index={row.index}
+                    selected={h.ip === openIp}
                     measureRow={measureRow}
                     onClick={() => openHostPanel(h.ip, fileId)}
                   />
@@ -268,11 +299,12 @@ export default function Hosts() {
 
 // ── Table sub-components ──────────────────────────────────────────────────────
 
-function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
+function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onClick }: {
   host: HostEntry;
   visibleCols: ColDef[];
   fileId?: string;
   index: number;
+  selected: boolean;
   measureRow: (el: HTMLTableRowElement | null) => void;
   onClick: () => void;
 }) {
@@ -282,7 +314,13 @@ function HostRow({ host, visibleCols, fileId, index, measureRow, onClick }: {
   const macs = macAddresses(host.mac);
 
   return (
-    <tr ref={measureRow} data-index={index} className="table-row" onClick={onClick}>
+    <tr
+      ref={measureRow}
+      data-index={index}
+      className={`table-row ${selected ? "!bg-accent-50 dark:!bg-accent-900/30" : ""}`}
+      aria-selected={selected}
+      onClick={onClick}
+    >
       {visibleCols.map((col) => {
         switch (col.key) {
           case "ip":

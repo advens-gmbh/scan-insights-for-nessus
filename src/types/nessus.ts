@@ -294,7 +294,7 @@ export interface CvssScore {
   version: 2 | 3 | 4;
 }// CvssScore
 
-export function ratedScore(v: VulnEntry): CvssScore | null {
+export function ratedScore(v: Pick<VulnEntry, "cvss4" | "cvss3" | "cvss2" | "severity">): CvssScore | null {
   const scores: { score: number | null; version: CvssScore["version"] }[] = [
     { score: v.cvss4, version: 4 },
     { score: v.cvss3, version: 3 },

@@ -39,6 +39,7 @@ export default function TableHead<K extends string>({ table, sortKey, sortDir, o
                 }}
               >
                 <span className={`flex items-center gap-1 whitespace-nowrap ${centered ? "justify-center" : ""}`}>
+                  {col.dot && <span className={`w-2 h-2 rounded-full shrink-0 ${col.dot}`} aria-hidden="true" />}
                   {col.label}
                   {sortable && (active
                     ? (sortDir === "desc" ? <ChevronDown size={12} /> : <ChevronUp size={12} />)

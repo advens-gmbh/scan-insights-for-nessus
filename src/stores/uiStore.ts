@@ -17,6 +17,8 @@ interface UiStore {
   // info findings are mostly noise, unchecked by default
   showInfo: boolean;
   toggleShowInfo: () => void;
+  groupHostFindings: boolean;
+  toggleGroupHostFindings: () => void;
   // Theme
   toggleTheme: () => void;
   setTheme: (t: "light" | "dark") => void;
@@ -38,6 +40,8 @@ export const useUiStore = create<UiStore>((set, get) => ({
   showInfo: false,
 
   toggleShowInfo: () => set((s) => ({ showInfo: !s.showInfo })),
+  groupHostFindings: false,
+  toggleGroupHostFindings: () => set((s) => ({ groupHostFindings: !s.groupHostFindings })),
 
   openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null }),
   openHostPanel: (ip, fileId) => set({ hostPanelIp: ip, hostPanelFileId: fileId ?? null, vulnPanelId: null }),

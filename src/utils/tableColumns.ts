@@ -11,6 +11,7 @@ export interface TableColumn<K extends string = string> {
   defaultHidden?: boolean;
   align?: "left" | "center";
   sortable?: boolean;      // false: the header doesn't sort
+  dot?: string;            // colour class of a dot before the label
 }// TableColumn
 
 export interface TableLayout {

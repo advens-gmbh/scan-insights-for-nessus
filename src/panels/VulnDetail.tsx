@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { X, ExternalLink, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { isWebUrl, metasploitSearchUrl, openExternal } from "../utils/openExternal";
@@ -10,6 +10,7 @@ import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import SearchBar from "../components/common/SearchBar";
+import { Section, Tag, useEscape } from "./PanelParts";
 
 const HOST_ROWS_PAGE = 200;
 
@@ -20,16 +21,7 @@ interface Props {
 export default function VulnDetail({ pluginId }: Props) {
   const closeVulnPanel = useUiStore((s) => s.closeVulnPanel);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        closeVulnPanel();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-
-    return () => window.removeEventListener("keydown", onKey);
-  }, [closeVulnPanel]);
+  useEscape(closeVulnPanel);
 
   return (
     <aside className="panel-drawer border-l border-ink-200 dark:border-ink-700" aria-label="Finding details">
@@ -342,18 +334,6 @@ function HostRows({ open, columns, output, children }: { open: boolean; columns:
   );
 }// HostRows
 
-function Section({ title, copy, children }: { title: string; copy?: string; children: ReactNode }) {
-  return (
-    <section className="pt-4 border-t border-ink-200 dark:border-ink-700 first:pt-0 first:border-t-0">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-[15px] font-semibold text-ink-900 dark:text-ink-50">{title}</h3>
-        {copy && <CopyButton text={copy} label={`Copy ${title.replace(/ \(\d+\)$/, "").toLowerCase()}`} variant="icon" />}
-      </div>
-      <div className="text-sm leading-relaxed text-ink-700 dark:text-ink-200">{children}</div>
-    </section>
-  );
-}// Section
-
 function ExtLink({ onClick, title, children }: { onClick: () => void; title: string; children: ReactNode }) {
   return (
     <button onClick={onClick} title={title} className="inline-flex items-center gap-1 text-left font-medium text-accent-700 dark:text-accent-400 hover:underline break-words">
@@ -361,14 +341,6 @@ function ExtLink({ onClick, title, children }: { onClick: () => void; title: str
     </button>
   );
 }// ExtLink
-
-function Tag({ danger = false, children }: { danger?: boolean; children: ReactNode }) {
-  return (
-    <span className={`px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 ${danger ? "text-critical-fg" : "text-ink-700 dark:text-ink-200"}`}>
-      {children}
-    </span>
-  );
-}// Tag
 
 function Score({ label, value, sev }: { label: string; value: string; sev?: number }) {
   const color = sev === undefined ? "text-ink-900 dark:text-ink-50" : SEVERITY_COLORS[sev].text;

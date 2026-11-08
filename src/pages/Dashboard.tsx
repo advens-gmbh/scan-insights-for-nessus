@@ -11,7 +11,7 @@ import ScanName from "../components/common/ScanName";
 import IpLink from "../components/common/IpLink";
 import SeverityBadge from "../components/common/SeverityBadge";
 import type { NessusFile, SeverityCounts } from "../types/nessus";
-import { formatDuration, rankHosts, scanWindow, topVulnerabilities } from "../utils/dashboard";
+import { formatDuration, formatScanStart, rankHosts, scanWindow, topVulnerabilities } from "../utils/dashboard";
 import SeverityDonut from "../components/charts/SeverityDonut";
 import SeverityBar from "../components/charts/SeverityBar";
 import FileDetailPanel from "../panels/FileDetailPanel";
@@ -48,11 +48,6 @@ const FILE_COLUMNS: TableColumn<FileCol>[] = [
 ];// FILE_COLUMNS
 
 const total = (c: SeverityCounts) => c.critical + c.high + c.medium + c.low + c.info;
-
-function formatScanStart(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}// formatScanStart
 
 export default function Dashboard() {
   const { files, recentFiles, openFiles, loadFile, unloadFile } = useScanStore();
