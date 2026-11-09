@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { ArrowLeftRight } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
@@ -9,6 +10,7 @@ import type { HostChange, HostDelta, MatchedBy, VulnChange, VulnDelta } from "..
 import { formatScanStart, scanWindow } from "../utils/dashboard";
 import { compareHosts } from "../utils/ip";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
+import Segmented from "../components/common/Segmented";
 import SeverityBadge from "../components/common/SeverityBadge";
 import SpacerRow from "../components/common/SpacerRow";
 import TableHead from "../components/common/TableHead";
@@ -92,7 +94,8 @@ export default function Compare() {
   const openPluginId = useUiStore((s) => s.vulnPanelId);
   const openIp = useUiStore((s) => s.hostPanelIp);
 
-  const [picked, setPicked] = useState<[string, string] | null>(null);
+  const location = useLocation();
+  const [picked, setPicked] = useState<[string, string] | null>((location.state as { pair?: [string, string] } | null)?.pair ?? null);
   const [view, setView] = useState<View>("vulns");
   const [vulnFilter, setVulnFilter] = useState<VulnFilter>("changes");
   const [hostFilter, setHostFilter] = useState<HostFilter>("all");
@@ -368,33 +371,6 @@ function Change({ label, dot, a, b, color, neutral = false }: { label: string; d
     </div>
   );
 }// Change
-
-function Segmented<T extends string>({ label, value, onChange, options }: {
-  label: string;
-  value: T;
-  onChange: (v: T) => void;
-  options: { value: T; label: string; count?: number }[];
-}) {
-  return (
-    <div className="inline-flex rounded-md border border-ink-200 dark:border-ink-700 overflow-hidden" role="group" aria-label={label}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          aria-pressed={value === o.value}
-          className={`px-3 h-8 text-[13px] border-l first:border-l-0 border-ink-200 dark:border-ink-700 transition-colors ${
-            value === o.value
-              ? "bg-accent-600 text-white font-semibold"
-              : "bg-white dark:bg-ink-800 text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700"
-          }`}
-        >
-          {o.label}
-          {o.count !== undefined && <span className="ml-1.5 tabular-nums opacity-80">{o.count}</span>}
-        </button>
-      ))}
-    </div>
-  );
-}// Segmented
 
 function Pill({ change, map }: { change: string; map: Record<string, { label: string; tone: string; title: string }> }) {
   const c = map[change];

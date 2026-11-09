@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { to: "/services",      icon: Layers,          label: "Services"        },
   { to: "/topology",      icon: Network,         label: "Topology"        },
   { to: "/compare",       icon: GitCompare,      label: "Compare"         },
-  { to: "/timeline",      icon: TrendingUp,      label: "Timeline"        },
+  { to: "/trends",        icon: TrendingUp,      label: "Trends"          },
   { to: "/projects",      icon: FolderOpen,      label: "Projects"        },
   { to: "/export",        icon: Download,        label: "Export"          },
 ];// NAV_ITEMS

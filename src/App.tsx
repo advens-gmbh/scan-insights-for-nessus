@@ -12,7 +12,7 @@ const Hosts = lazy(() => import("./pages/Hosts"));
 const Services = lazy(() => import("./pages/Services"));
 const Topology = lazy(() => import("./pages/Topology"));
 const Compare = lazy(() => import("./pages/Compare"));
-const Timeline = lazy(() => import("./pages/Timeline"));
+const Trends = lazy(() => import("./pages/Trends"));
 const Projects = lazy(() => import("./pages/Projects"));
 const Export = lazy(() => import("./pages/Export"));
 
@@ -31,7 +31,7 @@ const router = createBrowserRouter([
           { path: "services", element: <Services /> },
           { path: "topology", element: <Topology /> },
           { path: "compare", element: <Compare /> },
-          { path: "timeline", element: <Timeline /> },
+          { path: "trends", element: <Trends /> },
           { path: "projects", element: <Projects /> },
           { path: "export", element: <Export /> },
           { path: "*", element: <Navigate to="/" replace /> },

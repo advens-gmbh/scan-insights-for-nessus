@@ -30,6 +30,10 @@ interface UiStore {
   toggleGroupServiceFindings: () => void;
   groupServices: boolean;
   toggleGroupServices: () => void;
+  trendFileIds: string[] | null;    // null = the default selection
+  setTrendFileIds: (ids: string[]) => void;
+  trendChart: "lines" | "bars";
+  setTrendChart: (chart: "lines" | "bars") => void;
   // Theme
   toggleTheme: () => void;
   setTheme: (t: "light" | "dark") => void;
@@ -60,6 +64,10 @@ export const useUiStore = create<UiStore>((set, get) => ({
   toggleGroupServiceFindings: () => set((s) => ({ groupServiceFindings: !s.groupServiceFindings })),
   groupServices: false,
   toggleGroupServices: () => set((s) => ({ groupServices: !s.groupServices })),
+  trendFileIds: null,
+  setTrendFileIds: (ids) => set({ trendFileIds: ids }),
+  trendChart: "lines",
+  setTrendChart: (chart) => set({ trendChart: chart }),
 
   openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null, servicePanelKey: null, filePanelId: null }),
   openHostPanel: (ip, fileId) => set({ hostPanelIp: ip, hostPanelFileId: fileId ?? null, vulnPanelId: null, servicePanelKey: null, filePanelId: null }),
