@@ -23,10 +23,11 @@ export default function Notifications() {
             className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm ${styles}`}
           >
             <Icon size={16} className="shrink-0 mt-0.5 opacity-80" />
-            <span className="flex-1 leading-snug">{n.message}</span>
+            <span className="flex-1 min-w-0 leading-snug [overflow-wrap:anywhere]">{n.message}</span>
             <button
               onClick={() => remove(n.id)}
               className="shrink-0 opacity-50 hover:opacity-100 transition-opacity mt-0.5"
+              aria-label="Dismiss"
             >
               <X size={14} />
             </button>

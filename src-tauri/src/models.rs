@@ -102,5 +102,6 @@ pub struct ExportRequest {
 #[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     Csv,
+    Xlsx,
     Nessus,
 }

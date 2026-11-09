@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::models::{ExportFormat, ExportRequest, NessusFile, ReportHost, ReportItem};
 use crate::private_file;
+use rust_xlsxwriter::{Format, Workbook, XlsxError};
 
 pub fn export(all_files: &[Arc<NessusFile>], req: &ExportRequest) -> Result<(), String> {
     let files: Vec<&NessusFile> = all_files
@@ -18,9 +19,35 @@ pub fn export(all_files: &[Arc<NessusFile>], req: &ExportRequest) -> Result<(), 
 
     match req.format {
         ExportFormat::Csv => write_csv(&files, req),
+        ExportFormat::Xlsx => write_xlsx(&files, req),
         ExportFormat::Nessus => write_nessus(&files, req),
     }
 }// export
+
+const COLUMNS: [&str; 22] = [
+    "Source File",
+    "Host IP",
+    "Hostname",
+    "Port",
+    "Protocol",
+    "Service",
+    "Severity",
+    "Risk Factor",
+    "Plugin ID",
+    "Plugin Name",
+    "Plugin Family",
+    "CVSS v2",
+    "CVSS v3",
+    "CVSS v4",
+    "VPR",
+    "EPSS",
+    "CVEs",
+    "CWEs",
+    "Exploit Available",
+    "Metasploit Module",
+    "Description",
+    "Solution",
+];
 
 // ── CSV ───────────────────────────────────────────────────────────────────────
 
@@ -30,30 +57,7 @@ fn write_csv(files: &[&NessusFile], req: &ExportRequest) -> Result<(), String> {
 }// write_csv
 
 fn write_csv_records<W: Write>(mut wtr: csv::Writer<W>, files: &[&NessusFile], req: &ExportRequest,) -> Result<(), String> {
-    wtr.write_record([
-        "Source File",
-        "Host IP",
-        "Hostname",
-        "Port",
-        "Protocol",
-        "Service",
-        "Severity",
-        "Risk Factor",
-        "Plugin ID",
-        "Plugin Name",
-        "Plugin Family",
-        "CVSS v2",
-        "CVSS v3",
-        "CVSS v4",
-        "VPR",
-        "EPSS",
-        "CVEs",
-        "CWEs",
-        "Exploit Available",
-        "Metasploit Module",
-        "Description",
-        "Solution",
-    ])
+    wtr.write_record(COLUMNS)
     .map_err(|e| e.to_string())?;
 
     for file in files {
@@ -103,6 +107,97 @@ fn csv_safe(value: &str) -> String {
         value.to_string()
     }
 }// csv_safe
+
+// ── Excel ─────────────────────────────────────────────────────────────────────
+
+// Excel stores every cell with its type, so text from the scan can't run as a formula
+// and needs no leading '. Scores and numbers stay numbers, so they sort and filter.
+fn write_xlsx(files: &[&NessusFile], req: &ExportRequest) -> Result<(), String> {
+    let bytes = build_xlsx(files, req).map_err(|e| e.to_string())?;
+    private_file::write(&req.output_path, bytes).map_err(|e| e.to_string())
+}// write_xlsx
+
+fn build_xlsx(files: &[&NessusFile], req: &ExportRequest) -> Result<Vec<u8>, XlsxError> {
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.set_name("Findings")?;
+    let bold = Format::new().set_bold();
+
+    for (col, name) in COLUMNS.iter().enumerate() {
+        sheet.write_string_with_format(0, col as u16, *name, &bold)?;
+    }
+
+    let mut row: u32 = 0;
+    for file in files {
+        for host in &file.hosts {
+            for item in &host.items {
+                if !req.severities.contains(&item.severity) {
+                    continue;
+                }
+                row += 1;
+                let texts: [(u16, &str); 13] = [
+                    (0, &file.filename),
+                    (1, &host.ip),
+                    (2, host.hostname.as_deref().unwrap_or("")),
+                    (4, &item.protocol),
+                    (5, &item.svc_name),
+                    (6, &severity_name(item.severity)),
+                    (7, &item.risk_factor),
+                    (9, &item.plugin_name),
+                    (10, &item.plugin_family),
+                    (16, &item.cve.join(", ")),
+                    (17, &item.cwe.join(", ")),
+                    (18, if item.exploit_available { "Yes" } else { "No" }),
+                    (19, item.metasploit_name.as_deref().unwrap_or("")),
+                ];
+                for (col, value) in texts {
+                    if !value.is_empty() {
+                        sheet.write_string(row, col, excel_text(value))?;
+                    }
+                }
+                sheet.write_string(row, 20, excel_text(&item.description))?;
+                sheet.write_string(row, 21, excel_text(&item.solution))?;
+
+                let numbers: [(u16, Option<f64>); 7] = [
+                    (3, Some(item.port as f64)),
+                    (8, Some(item.plugin_id as f64)),
+                    (11, item.cvss_base_score.map(round1)),
+                    (12, item.cvss3_base_score.map(round1)),
+                    (13, item.cvss4_base_score.map(round1)),
+                    (14, item.vpr_score.map(round1)),
+                    (15, item.epss_score.map(|v| v as f64)),
+                ];
+                for (col, value) in numbers {
+                    if let Some(v) = value {
+                        sheet.write_number(row, col, v)?;
+                    }
+                }
+            }
+        }
+    }
+
+    sheet.set_freeze_panes(1, 0)?;
+    sheet.autofilter(0, 0, row, COLUMNS.len() as u16 - 1)?;
+    for (col, width) in [(0, 24), (1, 15), (2, 26), (3, 7), (4, 9), (5, 14), (6, 10), (7, 11), (8, 10), (9, 50), (10, 24), (11, 8), (12, 8), (13, 8), (14, 7), (15, 7), (16, 22), (17, 12), (18, 10), (19, 26), (20, 80), (21, 60)] {
+        sheet.set_column_width(col, width)?;
+    }
+
+    book.save_to_buffer()
+}// build_xlsx
+
+// An Excel cell holds at most 32767 characters
+fn excel_text(value: &str) -> &str {
+    const MAX: usize = 32_767;
+    if value.chars().count() <= MAX {
+        return value;
+    }
+    let end = value.char_indices().nth(MAX).map(|(i, _)| i).unwrap_or(value.len());
+    &value[..end]
+}// excel_text
+
+fn round1(v: f32) -> f64 {
+    (v as f64 * 10.0).round() / 10.0
+}// round1
 
 // ── Nessus XML ────────────────────────────────────────────────────────────────
 
@@ -403,6 +498,11 @@ mod tests {
         write_csv(&[&scan], &req).unwrap();
         assert!(std::fs::read_to_string(&csv_path).unwrap().contains("10.0.0.1"));
 
+        let xlsx_path = temp.path().join("out.xlsx");
+        req.output_path = xlsx_path.to_str().unwrap().to_string();
+        write_xlsx(&[&scan], &req).unwrap();
+        assert!(std::fs::read(&xlsx_path).unwrap().starts_with(b"PK"));
+
         let nessus_path = temp.path().join("out.nessus");
         req.output_path = nessus_path.to_str().unwrap().to_string();
         write_nessus(&[&scan], &req).unwrap();
@@ -412,6 +512,7 @@ mod tests {
         {
             use crate::private_file::testing::mode;
             assert_eq!(mode(&csv_path), 0o600);
+            assert_eq!(mode(&xlsx_path), 0o600);
             assert_eq!(mode(&nessus_path), 0o600);
         }
     }
@@ -547,6 +648,19 @@ line two &amp; more</description><solution>Upgrade</solution><risk_factor>Critic
         ] {
             assert_eq!(csv_safe(input), expected);
         }
+    }
+
+    #[test]
+    fn excel_text_stays_within_a_cell_and_on_a_char_boundary() {
+        let long = "é".repeat(40_000);
+        assert_eq!(excel_text(&long).chars().count(), 32_767);
+        assert_eq!(excel_text("short"), "short");
+    }
+
+    #[test]
+    fn xlsx_takes_text_that_looks_like_a_formula() {
+        let f = parse_str(r#"<NessusClientData_v2><Report name="a"><ReportHost name="10.0.0.1"><ReportItem port="1" protocol="tcp" severity="4" pluginID="1" pluginName="=1+1" pluginFamily="f"><solution>- Force SSL</solution><cvss3_base_score>9.8</cvss3_base_score></ReportItem></ReportHost></Report></NessusClientData_v2>"#).unwrap();
+        assert!(build_xlsx(&[&f], &request(&[4])).unwrap().starts_with(b"PK"));
     }
 
     fn csv_bytes(files: &[&NessusFile], req: &ExportRequest) -> Vec<u8> {

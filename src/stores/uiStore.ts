@@ -33,6 +33,10 @@ interface UiStore {
   trendFileIds: string[] | null;    // null = the default selection
   setTrendFileIds: (ids: string[]) => void;
   trendChart: "lines" | "bars";
+  exportExcludedIds: string[];
+  setExportExcludedIds: (ids: string[]) => void;
+  exportSeverities: number[];
+  setExportSeverities: (severities: number[]) => void;
   setTrendChart: (chart: "lines" | "bars") => void;
   // Theme
   toggleTheme: () => void;
@@ -67,6 +71,10 @@ export const useUiStore = create<UiStore>((set, get) => ({
   trendFileIds: null,
   setTrendFileIds: (ids) => set({ trendFileIds: ids }),
   trendChart: "lines",
+  exportExcludedIds: [],
+  setExportExcludedIds: (ids) => set({ exportExcludedIds: ids }),
+  exportSeverities: [4, 3, 2, 1, 0],
+  setExportSeverities: (severities) => set({ exportSeverities: severities }),
   setTrendChart: (chart) => set({ trendChart: chart }),
 
   openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null, servicePanelKey: null, filePanelId: null }),

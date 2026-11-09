@@ -1,16 +1,28 @@
-import { useState } from "react";
-import { FolderOpen, Plus, Trash2, X, FileText, Download } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FolderOpen, Plus, Trash2, X, FileText, Download, Pencil } from "lucide-react";
 import { useProjectStore } from "../stores/projectStore";
 import { useScanStore } from "../stores/scanStore";
 import { formatDate } from "../utils/format";
+import { Tag } from "../panels/PanelParts";
 
 export default function Projects() {
   const { projects, createProject, deleteProject, renameProject, addFileToProject, removeFileFromProject } = useProjectStore();
   const { files, loadFile, unloadAll } = useScanStore();
   const [newName, setNewName] = useState("");
+  const [withLoaded, setWithLoaded] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!confirmDelete) {
+      return;
+    }
+    const timer = setTimeout(() => setConfirmDelete(null), 3000);
+
+    return () => clearTimeout(timer);
+  }, [confirmDelete]);
 
   const handleCreate = () => {
     const name = newName.trim();
@@ -18,13 +30,8 @@ export default function Projects() {
       return;
     }
 
-    createProject(name);
+    createProject(name, withLoaded ? files.map((f) => ({ path: f.path, filename: f.filename })) : []);
     setNewName("");
-  };
-
-  const startEdit = (id: string, name: string) => {
-    setEditingId(id);
-    setEditName(name);
   };
 
   const commitEdit = () => {
@@ -39,7 +46,7 @@ export default function Projects() {
     if (!project || project.file_paths.length === 0) {
       return;
     }
-    
+
     setLoadingId(projectId);
     await unloadAll();
     for (const fp of project.file_paths) {
@@ -48,134 +55,149 @@ export default function Projects() {
     setLoadingId(null);
   };
 
+  const loadedPaths = new Set(files.map((f) => f.path));
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-ink-700 dark:text-ink-200">Projects</h2>
-          <p className="text-xs text-ink-400">
-            Group scan files by path. Use "Load" to unload all current files and reload the project's files.
-          </p>
+    <div className="flex flex-col gap-4">
+      {/* New project */}
+      <section className="card p-4 flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">New project</h2>
+          <span className="text-[13px] text-ink-500 dark:text-ink-400">A project remembers a set of scan files so you can open them again with one click.</span>
         </div>
-      </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            placeholder="Project name, e.g. the customer or the engagement"
+            className="input flex-1 min-w-64"
+          />
+          {files.length > 0 && (
+            <label className="flex items-center gap-1.5 text-[13px] text-ink-600 dark:text-ink-300 cursor-pointer select-none">
+              <input type="checkbox" checked={withLoaded} onChange={() => setWithLoaded((v) => !v)} className="rounded accent-accent-600" />
+              With the {files.length} loaded {files.length === 1 ? "file" : "files"}
+            </label>
+          )}
+          <button onClick={handleCreate} disabled={!newName.trim()} className="btn-primary h-9 px-4 disabled:opacity-50 disabled:cursor-not-allowed">
+            <Plus size={15} /> Create
+          </button>
+        </div>
+      </section>
 
-      {/* Create project */}
-      <div className="card p-4 flex items-center gap-3">
-        <input
-          type="text"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          placeholder="New project name…"
-          className="input flex-1"
-        />
-        <button
-          onClick={handleCreate}
-          disabled={!newName.trim()}
-          className="btn-primary disabled:opacity-50"
-        >
-          <Plus size={14} /> Create Project
-        </button>
-      </div>
-
-      {/* Project grid */}
       {projects.length === 0 ? (
-        <div className="card p-10 text-center text-ink-400">
-          <FolderOpen size={32} className="mx-auto mb-3 opacity-40" />
-          <p>No projects yet. Create one above.</p>
-        </div>
+        <section className="card p-10 flex flex-col items-center gap-2 text-center">
+          <FolderOpen size={32} className="text-ink-300 dark:text-ink-600" />
+          <p className="font-medium text-ink-700 dark:text-ink-200">No projects yet</p>
+          <p className="max-w-md text-[13px] text-ink-500 dark:text-ink-400">
+            Load the scan files that belong together, for example every scan of one customer, then create a project above to reopen them all later.
+          </p>
+        </section>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {projects.map((project) => {
             const isLoading = loadingId === project.id;
-            // Files currently loaded that aren't already in this project
-            const unassignedLoadedFiles = files.filter(
-              (f) => !project.file_paths.some((fp) => fp.path === f.path)
-            );
+            const count = project.file_paths.length;
+            const notInProject = files.filter((f) => !project.file_paths.some((fp) => fp.path === f.path));
 
             return (
-              <div key={project.id} className="card p-5 flex flex-col gap-4">
-                {/* Title + actions */}
-                <div className="flex items-start justify-between gap-2">
-                  {editingId === project.id ? (
-                    <input
-                      autoFocus
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onBlur={commitEdit}
-                      onKeyDown={(e) => e.key === "Enter" && commitEdit()}
-                      className="input flex-1 h-7 py-0 text-sm font-semibold"
-                    />
+              <section key={project.id} className="card p-4 flex flex-col gap-3">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    {editingId === project.id ? (
+                      <input
+                        autoFocus
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            commitEdit();
+                          } else if (e.key === "Escape") {
+                            setEditingId(null);
+                          }
+                        }}
+                        className="input h-8 py-0 text-[15px] font-semibold w-full"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setEditingId(project.id);
+                          setEditName(project.name);
+                        }}
+                        className="group flex items-center gap-1.5 max-w-full text-left text-[15px] font-semibold text-ink-800 dark:text-ink-100"
+                        title="Rename"
+                      >
+                        <span className="truncate">{project.name}</span>
+                        <Pencil size={13} className="shrink-0 text-ink-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+                      </button>
+                    )}
+                    <p className="text-xs text-ink-500 dark:text-ink-400 mt-0.5">Created {formatDate(project.created_at)}</p>
+                  </div>
+                  {confirmDelete === project.id ? (
+                    <button onClick={() => deleteProject(project.id)} className="btn-ghost h-7 px-2 text-xs font-semibold text-critical-fg shrink-0">
+                      Delete project?
+                    </button>
                   ) : (
-                    <h3
-                      className="font-semibold text-ink-800 dark:text-ink-100 cursor-pointer hover:text-accent-700 dark:hover:text-accent-400 transition-colors"
-                      onClick={() => startEdit(project.id, project.name)}
-                      title="Click to rename"
-                    >
-                      {project.name}
-                    </h3>
+                    <button onClick={() => setConfirmDelete(project.id)} className="btn-ghost h-7 w-7 p-0 justify-center shrink-0" title="Delete project" aria-label="Delete project">
+                      <Trash2 size={14} />
+                    </button>
                   )}
-                  <button onClick={() => deleteProject(project.id)} className="btn-danger p-1 h-7 w-7 shrink-0">
-                    <Trash2 size={13} />
-                  </button>
                 </div>
 
-                <p className="text-xs text-ink-400 -mt-2">
-                  Created {formatDate(project.created_at)}
-                </p>
-
-                {/* Assigned file paths */}
-                <div className="space-y-1.5 flex-1">
-                  {project.file_paths.length === 0 ? (
-                    <p className="text-xs text-ink-400 italic">No files in this project.</p>
-                  ) : (
-                    project.file_paths.map((fp) => (
-                      <div key={fp.path} className="flex items-center gap-2 bg-ink-50 dark:bg-ink-700/50 rounded-lg px-3 py-2">
-                        <FileText size={13} className="text-accent-500 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-ink-700 dark:text-ink-300 truncate">{fp.filename}</p>
-                          <p className="text-[10px] text-ink-400 truncate" title={fp.path}>{fp.path}</p>
-                        </div>
-                        <button
-                          onClick={() => removeFileFromProject(project.id, fp.path)}
-                          className="text-ink-400 hover:text-red-500 transition-colors shrink-0"
-                        >
-                          <X size={13} />
-                        </button>
+                <ul className="flex flex-col gap-1 flex-1">
+                  {count === 0 && <li className="text-[13px] text-ink-500 dark:text-ink-400">No files yet. Add loaded files below.</li>}
+                  {project.file_paths.map((fp) => (
+                    <li key={fp.path} className="flex items-center gap-2.5 rounded-md bg-ink-50 dark:bg-ink-700/50 px-3 py-2">
+                      <FileText size={14} className="text-ink-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="flex items-center gap-2 text-sm text-ink-800 dark:text-ink-100">
+                          <span className="truncate">{fp.filename.replace(/\.nessus$/i, "")}</span>
+                          {loadedPaths.has(fp.path) && <Tag>loaded</Tag>}
+                        </p>
+                        <p className="truncate text-xs text-ink-500 dark:text-ink-400" title={fp.path}>{fp.path}</p>
                       </div>
-                    ))
-                  )}
-                </div>
+                      <button
+                        onClick={() => removeFileFromProject(project.id, fp.path)}
+                        className="btn-ghost h-7 w-7 p-0 justify-center shrink-0"
+                        title="Remove from the project"
+                        aria-label={`Remove ${fp.filename} from the project`}
+                      >
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
 
-                {/* Add currently-loaded file to project */}
-                {unassignedLoadedFiles.length > 0 && (
+                {notInProject.length > 0 && (
                   <select
                     onChange={(e) => {
-                      const f = files.find((f) => f.id === e.target.value);
-                      if (f) addFileToProject(project.id, { path: f.path, filename: f.filename });
+                      const f = files.find((x) => x.id === e.target.value);
+                      if (f) {
+                        addFileToProject(project.id, { path: f.path, filename: f.filename });
+                      }
                       e.target.value = "";
                     }}
-                    className="input text-xs h-8 py-0"
+                    className="input h-8 py-0 text-[13px]"
                     defaultValue=""
+                    aria-label="Add a loaded file"
                   >
-                    <option value="">+ Add loaded file to project…</option>
-                    {unassignedLoadedFiles.map((f) => (
-                      <option key={f.id} value={f.id}>{f.filename}</option>
-                    ))}
+                    <option value="">Add a loaded file…</option>
+                    {notInProject.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
                   </select>
                 )}
 
-                {/* Load project button */}
                 <button
                   onClick={() => handleLoadProject(project.id)}
-                  disabled={project.file_paths.length === 0 || isLoading}
-                  className="btn-primary text-xs justify-center disabled:opacity-40"
-                  title="Unload all current files and load this project's files"
+                  disabled={count === 0 || isLoading}
+                  className="btn-primary h-9 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Unloads the current files and opens this project's files"
                 >
-                  <Download size={13} />
-                  {isLoading ? "Loading…" : `Load Project (${project.file_paths.length} file${project.file_paths.length !== 1 ? "s" : ""})`}
+                  <Download size={15} />
+                  {isLoading ? "Opening…" : `Open ${count} ${count === 1 ? "file" : "files"}`}
                 </button>
-              </div>
+              </section>
             );
           })}
         </div>

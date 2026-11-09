@@ -96,8 +96,10 @@ export interface ExportRequest {
   file_ids: string[];
   severities: number[];
   output_path: string;
-  format: "csv" | "nessus";
+  format: ExportFormat;
 }// ExportRequest
+
+export type ExportFormat = "xlsx" | "csv" | "nessus";
 
 // ── Derived / denormalized types used in the UI ───────────────────────────────
 
