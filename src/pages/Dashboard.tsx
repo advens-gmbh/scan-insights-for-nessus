@@ -96,7 +96,6 @@ export default function Dashboard() {
     const counts = severityCounts(file.hosts);
     return { file, counts, window: scanWindow(file.hosts) };
   }), [files]);
-  const fileMax = Math.max(0, ...fileRows.map((r) => total(visibleCounts(r.counts, showInfo))));
 
   const fileTable = useTableColumns("dashboard-files", FILE_COLUMNS);
   const fileSort = useTableSort("dashboard-files", fileTable.visible, "scanned", "desc", ["file"]);
@@ -280,7 +279,7 @@ export default function Dashboard() {
                       case "distribution":
                         return (
                           <td key={col.key} className="px-4 py-2.5">
-                            <SeverityBar counts={visibleCounts(counts, showInfo)} max={fileMax} numbers={false} className="h-2.5" />
+                            <SeverityBar counts={visibleCounts(counts, showInfo)} max={total(visibleCounts(counts, showInfo))} numbers={false} className="h-2.5" />
                           </td>
                         );
                       case "actions":
