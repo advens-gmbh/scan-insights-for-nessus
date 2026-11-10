@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
@@ -15,6 +15,7 @@ import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { countBySeverity } from "../utils/severityFilter";
 import { useTableSort } from "../hooks/useTableSort";
+import { usePageState } from "../stores/pageStore";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
@@ -46,13 +47,19 @@ export default function Vulnerabilities() {
   const openPluginId = useUiStore((s) => s.vulnPanelId);
   const location = useLocation();
 
-  const [search, setSearch] = useState("");
-  const [fileFilter, setFileFilter] = useState<string>(
-    (location.state as { fileFilter?: string } | null)?.fileFilter ?? "all"
-  );
+  const [search, setSearch] = usePageState("vulns:search", "");
+  const [chosenFile, setFileFilter] = usePageState("vulns:file", "all");
+  const fileFilter = chosenFile === "all" || files.some((f) => f.id === chosenFile) ? chosenFile : "all";
+
+  useEffect(() => {
+    const handed = (location.state as { fileFilter?: string } | null)?.fileFilter;
+    if (handed) {
+      setFileFilter(handed);
+    }
+  }, [location.key, location.state, setFileFilter]);
   const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("vulnerabilities");
   const table = useTableColumns("vulnerabilities", COLUMNS);
-  const { sortKey, sortDir, toggleSort } = useTableSort(table.visible, "severity", "desc", ASCENDING_FIRST);
+  const { sortKey, sortDir, toggleSort } = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
 
   const filteredFiles = useMemo(() => {
     if (fileFilter === "all") {

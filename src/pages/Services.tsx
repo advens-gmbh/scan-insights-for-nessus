@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
@@ -15,6 +15,9 @@ import { useTableColumns } from "../hooks/useTableColumns";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { groupServices } from "../utils/serviceGroups";
 import { useTableSort } from "../hooks/useTableSort";
+import { usePageState } from "../stores/pageStore";
+
+const NO_GROUPS = new Set<string>();
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
@@ -50,17 +53,23 @@ export default function Services() {
   const grouped = useUiStore((s) => s.groupServices);
   const toggleGrouped = useUiStore((s) => s.toggleGroupServices);
 
-  const [search, setSearch] = useState("");
-  const [protocol, setProtocol] = useState<Protocol>("all");
+  const [search, setSearch] = usePageState("services:search", "");
+  const [protocol, setProtocol] = usePageState<Protocol>("services:protocol", "all");
   const location = useLocation();
-  const [fileFilter, setFileFilter] = useState<string>(
-    (location.state as { fileFilter?: string } | null)?.fileFilter ?? "all"
-  );
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [chosenFile, setFileFilter] = usePageState("services:file", "all");
+  const fileFilter = chosenFile === "all" || files.some((f) => f.id === chosenFile) ? chosenFile : "all";
+  const [openGroups, setOpenGroups] = usePageState<Set<string>>("services:open", NO_GROUPS);
+
+  useEffect(() => {
+    const handed = (location.state as { fileFilter?: string } | null)?.fileFilter;
+    if (handed) {
+      setFileFilter(handed);
+    }
+  }, [location.key, location.state, setFileFilter]);
   const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("services");
 
   const table = useTableColumns("services", COLUMNS);
-  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort(table.visible, "port", "asc", ASCENDING_FIRST);
+  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort("services", table.visible, "port", "asc", ASCENDING_FIRST);
 
   const activeFile = files.some((f) => f.id === fileFilter) ? fileFilter : "all";
   const fileId = activeFile !== "all" ? activeFile : undefined;

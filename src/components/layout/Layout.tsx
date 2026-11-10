@@ -13,7 +13,8 @@ import { useScanStore } from "../../stores/scanStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 
 export default function Layout() {
-  const { vulnPanelId, hostPanelIp, servicePanelKey, filePanelId } = useUiStore();
+  const { vulnPanelId, hostPanelIp, servicePanelKey, filePanelId, closePanels } = useUiStore();
+  const panelOpen = vulnPanelId !== null || hostPanelIp !== null || servicePanelKey !== null || filePanelId !== null;
   const loadFile = useScanStore((s) => s.loadFile);
 
   // lives here so files can be dropped on any page
@@ -49,6 +50,7 @@ export default function Layout() {
       </div>
 
       {/* Global slide-in panels */}
+      {panelOpen && <div className="panel-overlay" onClick={closePanels} aria-hidden="true" />}
       {vulnPanelId !== null && <VulnDetail pluginId={vulnPanelId} />}
       {hostPanelIp !== null && <HostDetail ip={hostPanelIp} />}
       {servicePanelKey !== null && <ServiceDetail serviceKey={servicePanelKey} />}

@@ -17,6 +17,7 @@ import TableHead from "../components/common/TableHead";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
+import { usePageState } from "../stores/pageStore";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
@@ -49,21 +50,29 @@ const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbio
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const COPY_MENU_W = 208; // w-52
+
 export default function Hosts() {
   const files = useScanStore((s) => s.files);
   const openHostPanel = useUiStore((s) => s.openHostPanel);
   const openIp = useUiStore((s) => s.hostPanelIp);
   const location = useLocation();
 
-  const [search, setSearch] = useState("");
-  const [fileFilter, setFileFilter] = useState<string>(
-    (location.state as { fileFilter?: string } | null)?.fileFilter ?? "all"
-  );
+  const [search, setSearch] = usePageState("hosts:search", "");
+  const [chosenFile, setFileFilter] = usePageState("hosts:file", "all");
+  const fileFilter = chosenFile === "all" || files.some((f) => f.id === chosenFile) ? chosenFile : "all";
+
+  useEffect(() => {
+    const handed = (location.state as { fileFilter?: string } | null)?.fileFilter;
+    if (handed) {
+      setFileFilter(handed);
+    }
+  }, [location.key, location.state, setFileFilter]);
   const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("hosts");
 
   const table = useTableColumns("hosts", COLUMNS);
   const visibleCols = table.visible;
-  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort(visibleCols, "critical", "desc", TEXT_SORT_KEYS);
+  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort("hosts", visibleCols, "critical", "desc", TEXT_SORT_KEYS);
 
   // ── Data pipeline ───────────────────────────────────────────────────────────
 
@@ -150,6 +159,7 @@ export default function Hosts() {
 
   const [copied, setCopied] = useState(false);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const [menuLeftward, setMenuLeftward] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -237,7 +247,12 @@ export default function Hosts() {
           {sorted.length > 0 && (
             <div className="relative" ref={copyMenuRef}>
               <button
-                onClick={() => setShowCopyMenu((v) => !v)}
+                onClick={(e) => {
+                  // open towards whichever side has room for the menu
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setMenuLeftward(r.left + COPY_MENU_W > window.innerWidth - 8);
+                  setShowCopyMenu((v) => !v);
+                }}
                 className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${
                   copied ? "text-emerald-600 dark:text-emerald-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
                 }`}
@@ -247,7 +262,7 @@ export default function Hosts() {
                 {!copied && <ChevronDown size={11} className="opacity-60" />}
               </button>
               {showCopyMenu && (
-                <div className="absolute right-0 top-full mt-1 z-50 card p-1 w-52 shadow-xl">
+                <div className={`absolute ${menuLeftward ? "right-0" : "left-0"} top-full mt-1 z-50 card p-1 w-52 shadow-xl`}>
                   <CopyMenuItem label="IP addresses" sub="one per line" onClick={() => copy("ips")} />
                   <CopyMenuItem label="Hostnames" sub="one per line" onClick={() => copy("hostnames")} />
                   <div className="my-1 border-t border-ink-100 dark:border-ink-700" />

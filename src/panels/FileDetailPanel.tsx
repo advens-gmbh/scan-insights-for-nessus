@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
 import { severityCounts } from "../types/nessus";
@@ -10,7 +10,7 @@ import { splitTargets, targetCoverage } from "../utils/fileTargets";
 import type { TargetCoverage } from "../utils/fileTargets";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
-import { Section, useEscape } from "./PanelParts";
+import { PanelButtons, Section, useEscape } from "./PanelParts";
 import { CountBoxes } from "./FindingParts";
 
 const HOSTS_COLLAPSED = 24; // 6 rows of 4 at the panel's full width
@@ -48,9 +48,7 @@ function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void 
       <div className="px-6 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 flex flex-col gap-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <h2 className="text-xl font-semibold text-ink-900 dark:text-ink-50 truncate" title={file.filename}>{name}</h2>
-          <button onClick={onClose} className="btn-ghost w-8 h-8 p-0 ml-auto justify-center shrink-0" title="Close (Esc)" aria-label="Close">
-            <X size={16} />
-          </button>
+          <PanelButtons onClose={onClose} />
         </div>
         <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate">
           {[file.report_name, `${hosts.length} ${hosts.length === 1 ? "host" : "hosts"}`].filter(Boolean).join(" · ")}

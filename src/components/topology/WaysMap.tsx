@@ -5,6 +5,7 @@ import type { HostEntry } from "../../types/nessus";
 import type { Link, ScannerNode, WayEdge, WayGraph, WayMachine, WayNet, WayNode } from "../../utils/topology";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
+import { usePageState } from "../../stores/pageStore";
 
 export const SEVERITY_BG = ["bg-info", "bg-low", "bg-medium", "bg-high", "bg-critical"];
 
@@ -195,7 +196,12 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
 
   // pan and zoom
   const frame = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState({ x: 20, y: 10, k: 1 });
+  // where the map was left, kept while the same files are loaded
+  const loaded = graph.starts.join("|") + graph.nets.size;
+  const [saved, save] = usePageState<{ loaded: string; x: number; y: number; k: number } | null>("topology:view", null);
+  const restored = useRef(saved?.loaded === loaded);
+  const [view, setView] = useState(() => (saved?.loaded === loaded ? { x: saved.x, y: saved.y, k: saved.k } : { x: 20, y: 10, k: 1 }));
+  useEffect(() => save({ loaded, ...view }), [loaded, view, save]);
   const viewRef = useRef(view);
   useLayoutEffect(() => {
     viewRef.current = view;
@@ -233,8 +239,13 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
   useLayoutEffect(() => {
     fitRef.current = fit;
   }, [fit]);
-  const starts = graph.starts.join("|") + graph.nets.size;
-  useLayoutEffect(() => fitRef.current(FIRST_ZOOM), [starts]);
+  useLayoutEffect(() => {
+    if (restored.current) {
+      restored.current = false;
+      return;
+    }
+    fitRef.current(FIRST_ZOOM);
+  }, [loaded]);
 
   useEffect(() => {
     const el = frame.current;

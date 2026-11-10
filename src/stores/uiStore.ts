@@ -2,6 +2,43 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppSettings } from "../types/nessus";
 
+// a panel that was open, so it can be gone back to
+export type PanelEntry =
+  | { kind: "vuln"; id: number; fileId: string | null }
+  | { kind: "host"; ip: string; fileId: string | null }
+  | { kind: "service"; key: string; fileId: string | null }
+  | { kind: "file"; id: string };
+
+const NO_PANEL = { vulnPanelId: null, vulnPanelFileId: null, hostPanelIp: null, hostPanelFileId: null, servicePanelKey: null, servicePanelFileId: null, filePanelId: null };
+
+function openPanel(s: UiStore): PanelEntry | null {
+  if (s.vulnPanelId !== null) {
+    return { kind: "vuln", id: s.vulnPanelId, fileId: s.vulnPanelFileId };
+  }
+  if (s.hostPanelIp !== null) {
+    return { kind: "host", ip: s.hostPanelIp, fileId: s.hostPanelFileId };
+  }
+  if (s.servicePanelKey !== null) {
+    return { kind: "service", key: s.servicePanelKey, fileId: s.servicePanelFileId };
+  }
+  return s.filePanelId !== null ? { kind: "file", id: s.filePanelId } : null;
+}// openPanel
+
+function show(entry: PanelEntry) {
+  switch (entry.kind) {
+    case "vuln": return { ...NO_PANEL, vulnPanelId: entry.id, vulnPanelFileId: entry.fileId };
+    case "host": return { ...NO_PANEL, hostPanelIp: entry.ip, hostPanelFileId: entry.fileId };
+    case "service": return { ...NO_PANEL, servicePanelKey: entry.key, servicePanelFileId: entry.fileId };
+    case "file": return { ...NO_PANEL, filePanelId: entry.id };
+  }
+}// show
+
+function opening(s: UiStore, entry: PanelEntry) {
+  const current = openPanel(s);
+  const history = current && current.kind !== entry.kind ? [...s.panelHistory, current] : s.panelHistory;
+  return { ...show(entry), panelHistory: current ? history : [] };
+}// opening
+
 interface UiStore {
   theme: "light" | "dark";
   sidebarCollapsed: boolean;
@@ -21,6 +58,9 @@ interface UiStore {
   openHostPanel: (ip: string, fileId?: string) => void;
   closeVulnPanel: () => void;
   closeHostPanel: () => void;
+  panelHistory: PanelEntry[];
+  goBack: () => void;
+  closePanels: () => void;
   // info findings are mostly noise, unchecked by default
   showInfo: boolean;
   toggleShowInfo: () => void;
@@ -95,14 +135,20 @@ export const useUiStore = create<UiStore>((set, get) => ({
   topologyTarget: null,
   setTopologyTarget: (target) => set({ topologyTarget: target }),
 
-  openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null, servicePanelKey: null, filePanelId: null }),
-  openHostPanel: (ip, fileId) => set({ hostPanelIp: ip, hostPanelFileId: fileId ?? null, vulnPanelId: null, servicePanelKey: null, filePanelId: null }),
-  openServicePanel: (key, fileId) => set({ servicePanelKey: key, servicePanelFileId: fileId ?? null, vulnPanelId: null, hostPanelIp: null, filePanelId: null }),
-  closeServicePanel: () => set({ servicePanelKey: null, servicePanelFileId: null }),
-  openFilePanel: (fileId) => set({ filePanelId: fileId, vulnPanelId: null, hostPanelIp: null, servicePanelKey: null }),
-  closeFilePanel: () => set({ filePanelId: null }),
-  closeVulnPanel: () => set({ vulnPanelId: null, vulnPanelFileId: null }),
-  closeHostPanel: () => set({ hostPanelIp: null, hostPanelFileId: null }),
+  openVulnPanel: (pluginId, fileId) => set((s) => opening(s, { kind: "vuln", id: pluginId, fileId: fileId ?? null })),
+  openHostPanel: (ip, fileId) => set((s) => opening(s, { kind: "host", ip, fileId: fileId ?? null })),
+  openServicePanel: (key, fileId) => set((s) => opening(s, { kind: "service", key, fileId: fileId ?? null })),
+  openFilePanel: (fileId) => set((s) => opening(s, { kind: "file", id: fileId })),
+  closeServicePanel: () => set({ ...NO_PANEL, panelHistory: [] }),
+  closeFilePanel: () => set({ ...NO_PANEL, panelHistory: [] }),
+  closeVulnPanel: () => set({ ...NO_PANEL, panelHistory: [] }),
+  closeHostPanel: () => set({ ...NO_PANEL, panelHistory: [] }),
+  panelHistory: [],
+  goBack: () => set((s) => {
+    const previous = s.panelHistory[s.panelHistory.length - 1];
+    return previous ? { ...show(previous), panelHistory: s.panelHistory.slice(0, -1) } : {};
+  }),
+  closePanels: () => set({ ...NO_PANEL, panelHistory: [] }),
 
   toggleTheme: () => {
     const next = get().theme === "dark" ? "light" : "dark";

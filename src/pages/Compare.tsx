@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { ArrowLeftRight } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
@@ -16,6 +16,7 @@ import SpacerRow from "../components/common/SpacerRow";
 import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
+import { usePageState } from "../stores/pageStore";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
@@ -95,10 +96,17 @@ export default function Compare() {
   const openIp = useUiStore((s) => s.hostPanelIp);
 
   const location = useLocation();
-  const [picked, setPicked] = useState<[string, string] | null>((location.state as { pair?: [string, string] } | null)?.pair ?? null);
-  const [view, setView] = useState<View>("vulns");
-  const [vulnFilter, setVulnFilter] = useState<VulnFilter>("changes");
-  const [hostFilter, setHostFilter] = useState<HostFilter>("all");
+  const [picked, setPicked] = usePageState<[string, string] | null>("compare:pair", null);
+  const [view, setView] = usePageState<View>("compare:view", "vulns");
+  const [vulnFilter, setVulnFilter] = usePageState<VulnFilter>("compare:vulns", "changes");
+  const [hostFilter, setHostFilter] = usePageState<HostFilter>("compare:hosts", "all");
+
+  useEffect(() => {
+    const handed = (location.state as { pair?: [string, string] } | null)?.pair;
+    if (handed) {
+      setPicked(handed);
+    }
+  }, [location.key, location.state, setPicked]);
 
   // what was picked while both files are still loaded, else the newest pair
   const pair = picked && picked.every((id) => files.some((f) => f.id === id)) ? picked : defaultPair(files);
@@ -133,9 +141,9 @@ export default function Compare() {
   );
 
   const vulnTable = useTableColumns("compare-vulns", VULN_COLUMNS);
-  const vulnSort = useTableSort(vulnTable.visible, "severity", "desc", ["name", "change"]);
+  const vulnSort = useTableSort("compare-vulns", vulnTable.visible, "severity", "desc", ["name", "change"]);
   const hostTable = useTableColumns("compare-hosts", HOST_COLUMNS);
-  const hostSort = useTableSort(hostTable.visible, "change", "asc", ["host", "change"]);
+  const hostSort = useTableSort("compare-hosts", hostTable.visible, "change", "asc", ["host", "change"]);
 
   const vulnCounts = countBy(vulnRows.map((r) => r.change));
   const shownVulns = useMemo(() => {

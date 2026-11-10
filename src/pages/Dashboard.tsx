@@ -99,7 +99,7 @@ export default function Dashboard() {
   const fileMax = Math.max(0, ...fileRows.map((r) => total(visibleCounts(r.counts, showInfo))));
 
   const fileTable = useTableColumns("dashboard-files", FILE_COLUMNS);
-  const fileSort = useTableSort(fileTable.visible, "scanned", "desc", ["file"]);
+  const fileSort = useTableSort("dashboard-files", fileTable.visible, "scanned", "desc", ["file"]);
   const sortedFiles = useMemo(() => [...fileRows].sort((a, b) => {
     let cmp = 0;
     switch (fileSort.sortKey) {
@@ -221,20 +221,21 @@ export default function Dashboard() {
             <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Severity distribution</h2>
             <ShowInfoCheckbox />
           </div>
-          <div className="card flex-1 flex flex-col items-center justify-center gap-6 p-5">
+          <div className="card flex-1 flex flex-col items-center justify-center gap-3 p-5">
             <SeverityDonut counts={shown} size={190} emptyText={combined.info > 0 ? "Only Info findings" : undefined} />
-            {shownTotal > 0 && (
-              <div className="w-full flex flex-col gap-2">
-                {LEVELS.filter((l) => shown[l.key] > 0).map((l) => (
-                  <div key={l.key} className="grid grid-cols-[0.875rem_1fr_auto_3rem] gap-2 items-center text-sm">
-                    <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />
-                    <span className="text-ink-700 dark:text-ink-200">{SEVERITY_LABELS[l.sev]}</span>
-                    <span className={`text-right font-bold tabular-nums ${l.fg}`}>{shown[l.key].toLocaleString()}</span>
-                    <span className="text-right text-xs tabular-nums text-ink-500 dark:text-ink-400">{Math.round((shown[l.key] / shownTotal) * 100)}%</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="w-full flex flex-col gap-1.5">
+              {LEVELS.map((l) => {
+                const present = shownTotal > 0 && shown[l.key] > 0;
+                return { l, present };
+              }).sort((a, b) => Number(b.present) - Number(a.present)).map(({ l, present }) => (
+                <div key={l.key} className={`grid grid-cols-[0.875rem_1fr_auto_3rem] gap-2 items-center text-sm h-5 ${present ? "" : "invisible"}`} aria-hidden={!present}>
+                  <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />
+                  <span className="text-ink-700 dark:text-ink-200">{SEVERITY_LABELS[l.sev]}</span>
+                  <span className={`text-right font-bold tabular-nums ${l.fg}`}>{shown[l.key].toLocaleString()}</span>
+                  <span className="text-right text-xs tabular-nums text-ink-500 dark:text-ink-400">{shownTotal > 0 ? Math.round((shown[l.key] / shownTotal) * 100) : 0}%</span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </div>

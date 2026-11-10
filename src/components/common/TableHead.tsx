@@ -9,6 +9,9 @@ interface Props<K extends string> {
   onSort: (key: K) => void;
 }// Props
 
+const DARK_HEADER = "dark:bg-[color-mix(in_srgb,theme(colors.ink.900)_50%,theme(colors.ink.800))]";
+const DARK_ACTIVE = "dark:bg-[color-mix(in_srgb,theme(colors.accent.900)_20%,theme(colors.ink.800))]";
+
 // column widths and sortable, resizable header of a table
 export default function TableHead<K extends string>({ table, sortKey, sortDir, onSort }: Props<K>) {
   return (
@@ -29,8 +32,8 @@ export default function TableHead<K extends string>({ table, sortKey, sortDir, o
                   centered ? "text-center" : "text-left"
                 } ${
                   active
-                    ? "bg-accent-50 dark:bg-accent-900/20 text-accent-700 dark:text-accent-300 font-bold"
-                    : "bg-ink-50 dark:bg-ink-900/50 text-ink-500 dark:text-ink-400 font-semibold hover:text-ink-700 dark:hover:text-ink-200"
+                    ? `bg-accent-50 ${DARK_ACTIVE} text-accent-700 dark:text-accent-300 font-bold`
+                    : `bg-ink-50 ${DARK_HEADER} text-ink-500 dark:text-ink-400 font-semibold hover:text-ink-700 dark:hover:text-ink-200`
                 }`}
                 onClick={() => {
                   if (sortable && !table.wasDragged()) {

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
 import { buildHostEntries, buildServiceEntries, buildVulnEntries, isHttps, isPlainHttp, ratedScore } from "../types/nessus";
@@ -9,7 +8,7 @@ import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
-import { Section, Tag, useEscape } from "./PanelParts";
+import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
 import { CountBoxes, Cvss, FindingGroups, FindingName } from "./FindingParts";
 
 const ROWS_PAGE = 200;
@@ -66,9 +65,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold tabular-nums text-ink-900 dark:text-ink-50">{service.key}</h2>
           {service.exploit_available && <Tag danger>Exploit available</Tag>}
-          <button onClick={onClose} className="btn-ghost w-8 h-8 p-0 ml-auto justify-center shrink-0" title="Close (Esc)" aria-label="Close">
-            <X size={16} />
-          </button>
+          <PanelButtons onClose={onClose} />
         </div>
         <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate" title={subtitle}>{subtitle}</p>
         <CountBoxes counts={service.severity_counts} />

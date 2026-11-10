@@ -519,10 +519,12 @@ fn normalize_text(s: String) -> String {
         .join("\n")
 }
 
-// For prose fields (description, solution): collapse hard-wrapped single newlines into
+// For prose fields (description, solution, synopsis): collapse hard-wrapped single newlines into
 // spaces so the UI can reflow the text naturally. Blank lines (paragraph breaks) are kept.
+// Runs of spaces inside a line collapse too: some exporters replace each line break with spaces.
 fn normalize_prose(s: String) -> String {
-    let lines: Vec<&str> = s.lines().map(|l| l.trim()).collect();
+    let joined: Vec<String> = s.lines().map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).collect();
+    let lines: Vec<&str> = joined.iter().map(String::as_str).collect();
     let mut out = String::new();
     let mut i = 0;
     while i < lines.len() {
@@ -623,6 +625,20 @@ mod tests {
         let i = &f.hosts[0].items[0];
         assert_eq!(i.description, "a &nbsp; b < c AT&T");
         assert_eq!(i.solution, "R&D & ops");
+    }
+
+    #[test]
+    fn prose_loses_runs_of_spaces_but_plugin_output_keeps_them() {
+        let xml = scan(&item(concat!(
+            "<description>exist in     Microsoft SMB due to     improper handling.\n\n  - An     unauthenticated attacker</description>",
+            "<solution>Apply     MS17-010.</solution><synopsis>Remote     code execution.</synopsis>",
+            "<plugin_output>Port   State\n22     open</plugin_output>",
+        )));
+        let i = &parse_str(&xml).unwrap().hosts[0].items[0];
+        assert_eq!(i.description, "exist in Microsoft SMB due to improper handling.\n- An unauthenticated attacker");
+        assert_eq!(i.solution, "Apply MS17-010.");
+        assert_eq!(i.synopsis.as_deref(), Some("Remote code execution."));
+        assert_eq!(i.plugin_output.as_deref(), Some("Port   State\n22     open"));
     }
 
     #[test]

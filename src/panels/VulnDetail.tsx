@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { X, ExternalLink, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { isWebUrl, metasploitSearchUrl, openExternal } from "../utils/openExternal";
 import { formatNessusDate } from "../utils/format";
 import { httpUrl, httpsUrl } from "../utils/webUrls";
@@ -11,7 +11,7 @@ import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import SearchBar from "../components/common/SearchBar";
-import { Section, Tag, useEscape } from "./PanelParts";
+import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
 
 const HOST_ROWS_PAGE = 200;
 
@@ -93,9 +93,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           <SeverityBadge severity={vuln.severity} />
           {vuln.exploit_available && <Tag danger>Exploit</Tag>}
           {vuln.metasploit_available && <Tag>Metasploit</Tag>}
-          <button onClick={onClose} className="btn-ghost w-8 h-8 p-0 ml-auto justify-center shrink-0" title="Close (Esc)" aria-label="Close">
-            <X size={16} />
-          </button>
+          <PanelButtons onClose={onClose} />
         </div>
         <h2 className="text-lg font-semibold leading-snug text-ink-900 dark:text-ink-50">{vuln.plugin_name}</h2>
         <p className="text-[13px] text-ink-500 dark:text-ink-400">

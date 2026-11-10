@@ -14,6 +14,7 @@ import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { buildTopology, buildWays, findWay, netEnd } from "../utils/topology";
 import type { Bridge, WayMachine } from "../utils/topology";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+import { usePageState } from "../stores/pageStore";
 
 // hosts with only info findings would bury the rest
 const START_SELECTED = [4, 3, 2, 1];
@@ -39,7 +40,7 @@ export default function Topology() {
   const setTarget = useUiStore((s) => s.setTopologyTarget);
   const { selected: severities, toggle } = useSeverityFilter("topology", START_SELECTED);
   const [hovered, setHovered] = useState<Bridge | null>(null);
-  const [machineId, setMachineId] = useState<string | null>(null);
+  const [machineId, setMachineId] = usePageState<string | null>("topology:machine", null);
   const [zoom, setZoom] = useState(1);
   const map = useRef<WaysControls>(null);
 

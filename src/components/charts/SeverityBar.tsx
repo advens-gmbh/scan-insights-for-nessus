@@ -18,23 +18,19 @@ interface Props {
 export default function SeverityBar({ counts, max, numbers = true, className = "h-5" }: Props) {
   return (
     <div className={`flex rounded-sm overflow-hidden bg-ink-100 dark:bg-ink-700 text-[11px] font-bold tabular-nums ${className}`}>
-      {max > 0 && SEGMENTS.map((s) => {
-        const value = counts[s.key];
-        if (value === 0) {
-          return null;
-        }
-
-        const share = value / max;
+      {SEGMENTS.map((s) => {
+        const value = max > 0 ? counts[s.key] : 0;
+        const share = max > 0 ? value / max : 0;
         const label = value.toLocaleString();
-        const minWidth = numbers ? `${label.length * 0.45 + 0.6}rem` : "3px";
+        const minWidth = value === 0 ? "0px" : numbers ? `${label.length * 0.45 + 0.6}rem` : "3px";
         return (
           <div
             key={s.key}
-            className={`flex items-center justify-center ${s.fill}`}
-            style={{ flex: `0 1 ${share * 100}%`, minWidth }}
-            title={`${s.label}: ${label}`}
+            className={`flex items-center justify-center overflow-hidden transition-[flex-basis,min-width] duration-500 ease-out ${s.fill}`}
+            style={{ flexGrow: 0, flexShrink: 1, flexBasis: `${share * 100}%`, minWidth }}
+            title={value > 0 ? `${s.label}: ${label}` : undefined}
           >
-            {numbers && label}
+            {numbers && value > 0 && label}
           </div>
         );
       })}

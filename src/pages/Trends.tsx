@@ -96,7 +96,7 @@ export default function Trends() {
   }, [runs]);
 
   const table = useTableColumns("trends", showInfo ? RUN_COLUMNS : RUN_COLUMNS_NO_INFO);
-  const { sortKey, sortDir, toggleSort } = useTableSort(table.visible, "scanned", "desc", ["file"]);
+  const { sortKey, sortDir, toggleSort } = useTableSort("trends", table.visible, "scanned", "desc", ["file"]);
   const sortedRows = useMemo(() => {
     const value = (r: (typeof rows)[number]): number | string => {
       switch (sortKey) {

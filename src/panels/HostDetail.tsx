@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import { X, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
 import { buildHostEntries } from "../types/nessus";
@@ -10,7 +9,7 @@ import { groupByPort, openPorts, sortFindings } from "../utils/hostFindings";
 import SeverityBadge from "../components/common/SeverityBadge";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
-import { Section, Tag, useEscape } from "./PanelParts";
+import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
 import { CountBoxes, Cvss, FindingGroups, FindingName, itemScore } from "./FindingParts";
 
 interface Props {
@@ -34,6 +33,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
   const grouped = useUiStore((s) => s.groupHostFindings);
   const toggleGrouped = useUiStore((s) => s.toggleGroupHostFindings);
   const files = useScanStore((s) => s.files);
+  const openFilePanel = useUiStore((s) => s.openFilePanel);
 
   const [fileScope, setFileScope] = useState(hostPanelFileId ?? "all");
 
@@ -48,9 +48,9 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
     return null;
   }
 
-  const host = scoped ?? acrossFiles;
+  const host = acrossFiles;
   const scopeFileId = fileScope === "all" ? undefined : fileScope;
-  const findings = host.items.filter((i) => showInfo || i.severity > 0);
+  const findings = (scoped ?? acrossFiles).items.filter((i) => showInfo || i.severity > 0);
   const { tcp, udp } = openPorts(host.items);
   const osValues = host.os ? host.os.split(/\n+/).map((o) => o.trim()).filter(Boolean) : [];
   const macs = host.mac ? host.mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
@@ -66,9 +66,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
           <CopyButton text={host.ip} variant="icon" label="Copy IP" />
           {host.credentialed_scan && <Tag>Credentialed</Tag>}
           {multiFile && <Tag>{acrossFiles.file_ids.length} files</Tag>}
-          <button onClick={onClose} className="btn-ghost w-8 h-8 p-0 ml-auto justify-center shrink-0" title="Close (Esc)" aria-label="Close">
-            <X size={16} />
-          </button>
+          <PanelButtons onClose={onClose} />
         </div>
         {(host.hostname || host.netbios || osValues.length > 0) && (
           <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate">
@@ -108,20 +106,18 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
             )}
             <dt className="text-ink-500 dark:text-ink-400">{multiFile ? "Scan files" : "Scan file"}</dt>
             <dd className="col-span-2 min-w-0">
-              {multiFile ? (
-                <div className="flex flex-wrap gap-1.5 py-0.5" role="group" aria-label="Show this host from">
-                  <FileChip active={fileScope === "all"} onClick={() => setFileScope("all")} title="Findings merged from every file">
-                    All files
-                  </FileChip>
-                  {acrossFiles.file_ids.map((id, i) => (
-                    <FileChip key={id} active={fileScope === id} onClick={() => setFileScope(id)} title={acrossFiles.filenames[i]}>
-                      {acrossFiles.filenames[i].replace(/\.nessus$/i, "")}
-                    </FileChip>
-                  ))}
-                </div>
-              ) : (
-                <span className="block truncate" title={acrossFiles.filename}>{acrossFiles.filename.replace(/\.nessus$/i, "")}</span>
-              )}
+              <div className="flex flex-col items-start gap-0.5">
+                {acrossFiles.file_ids.map((id, i) => (
+                  <button
+                    key={id}
+                    onClick={() => openFilePanel(id)}
+                    title={`${acrossFiles.filenames[i]}\nShow the scan file`}
+                    className="max-w-full truncate text-left text-accent-700 dark:text-accent-400 hover:underline"
+                  >
+                    {acrossFiles.filenames[i].replace(/\.nessus$/i, "")}
+                  </button>
+                ))}
+              </div>
             </dd>
           </dl>
         </Section>
@@ -150,6 +146,18 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
           title={`Vulnerabilities (${findings.length})`}
           actions={
             <div className="flex items-center gap-3">
+              {multiFile && (
+                <select
+                  value={fileScope}
+                  onChange={(e) => setFileScope(e.target.value)}
+                  className="input h-7 py-0 text-xs w-auto max-w-[11rem]"
+                  aria-label="Show the findings from"
+                  title="Show the findings from one scan file, or merged from all of them"
+                >
+                  <option value="all">All files</option>
+                  {acrossFiles.file_ids.map((id, i) => <option key={id} value={id}>{acrossFiles.filenames[i].replace(/\.nessus$/i, "")}</option>)}
+                </select>
+              )}
               <ShowInfoCheckbox />
               <label className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
                 <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
@@ -195,23 +203,6 @@ function Detail({ label, value, copy = false }: { label: string; value: string |
     </>
   );
 }// Detail
-
-function FileChip({ active, onClick, title, children }: { active: boolean; onClick: () => void; title: string; children: ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      aria-pressed={active}
-      className={`max-w-full truncate px-2 py-0.5 rounded-md border text-[13px] transition-colors ${
-        active
-          ? "border-accent-600 bg-accent-50 text-accent-800 dark:border-accent-500 dark:bg-accent-900/40 dark:text-accent-200 font-medium"
-          : "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-700"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}// FileChip
 
 function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }) {
   const openVulnPanel = useUiStore((s) => s.openVulnPanel);
