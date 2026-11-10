@@ -7,12 +7,12 @@ import type { HostEntry } from "../types/nessus";
 import SeverityPills from "../components/common/SeverityPills";
 import WaysMap from "../components/topology/WaysMap";
 import type { WaysControls } from "../components/topology/WaysMap";
-import { MachineList, MachinePanel, WayPanel, machineScore, strengthRank } from "../components/topology/TopologyPanel";
+import { CrowdPanel, MachineList, MachinePanel, WayPanel, machineScore, strengthRank } from "../components/topology/TopologyPanel";
 import type { HiddenNet, Level } from "../components/topology/TopologyPanel";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { buildTopology, buildWays, findWay, netEnd } from "../utils/topology";
-import type { Bridge, WayMachine } from "../utils/topology";
+import type { Bridge, WayCrowd } from "../utils/topology";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import { usePageState } from "../stores/pageStore";
 
@@ -53,17 +53,25 @@ export default function Topology() {
 
   const goal = target && graph.nodeOf.has(target) ? target : null;
   const way = useMemo(() => (goal ? findWay(graph, goal) : null), [graph, goal]);
-  const machines = useMemo(() => graph.nodes.filter((n): n is WayMachine => n.kind === "machine"), [graph]);
-  const lit = hovered ? machines.find((m) => m.bridge?.key === hovered.key)?.id ?? null : null;
-  const machine = machines.find((m) => m.id === machineId) ?? null;
+  const machines = useMemo(() => [...graph.machines.values()], [graph]);
+  const crowds = useMemo(() => graph.nodes.filter((n): n is WayCrowd => n.kind === "crowd"), [graph]);
+  const litId = hovered ? machines.find((m) => m.bridge?.key === hovered.key)?.id ?? null : null;
+  const lit = litId ? graph.nodeOf.get(litId) ?? litId : null;
+  const machine = machineId ? graph.machines.get(machineId) ?? null : null;
+  const crowd = crowds.find((c) => c.id === machineId) ?? null;
+  const picked = machineId ? graph.nodeOf.get(machineId) ?? null : null;
 
   const hidden = useMemo<HiddenNet[]>(() => [...graph.nets.values()]
     .filter((n) => !n.group && n.scanners.length === 0)
     .map((n) => {
       const end = netEnd(n.key);
-      const via = graph.edges.filter((e) => e.a === end || e.b === end).map((e) => machines.find((m) => m.id === (e.a === end ? e.b : e.a))?.name).find(Boolean);
+      const nameOf = (id: string) => {
+        const node = graph.nodes.find((x) => x.id === id);
+        return node?.kind === "machine" ? node.name : node?.kind === "crowd" ? `any of ${node.machines.length} machines` : undefined;
+      };
+      const via = graph.edges.filter((e) => e.a === end || e.b === end).map((e) => nameOf(e.a === end ? e.b : e.a)).find(Boolean);
       return { target: end, key: n.key, via: via ?? "a machine" };
-    }), [graph, machines]);
+    }), [graph]);
 
   const choices = useMemo(() => {
     const all = [...graph.nets.values()].filter((n) => n.scanners.length === 0).sort((a, b) => a.net.base - b.net.base || a.net.prefix - b.net.prefix);
@@ -117,23 +125,26 @@ export default function Topology() {
             </optgroup>
           </select>
         </label>
-        <span className="inline-flex items-center h-8 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 overflow-hidden">
-          <button onClick={() => map.current?.zoomBy(1 / 1.25)} className={ICON_BUTTON} aria-label="Zoom out"><Minus size={14} /></button>
-          <span className="w-12 text-center text-xs tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => map.current?.zoomBy(1.25)} className={ICON_BUTTON} aria-label="Zoom in"><Plus size={14} /></button>
+        {/* the view controls wrap as one group */}
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-flex items-center h-8 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 overflow-hidden">
+            <button onClick={() => map.current?.zoomBy(1 / 1.25)} className={ICON_BUTTON} aria-label="Zoom out"><Minus size={14} /></button>
+            <span className="w-12 text-center text-xs tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => map.current?.zoomBy(1.25)} className={ICON_BUTTON} aria-label="Zoom in"><Plus size={14} /></button>
+          </span>
+          <button onClick={() => map.current?.fit()} className="btn-ghost h-8 w-8 p-0 justify-center" title="Show everything" aria-label="Fit"><Maximize2 size={15} /></button>
+          <button
+            onClick={() => {
+              resetLayout();
+              requestAnimationFrame(() => map.current?.fit());
+            }}
+            className="btn-ghost h-8 w-8 p-0 justify-center"
+            title="Put every moved box back"
+            aria-label="Reset layout"
+          >
+            <RotateCcw size={15} />
+          </button>
         </span>
-        <button onClick={() => map.current?.fit()} className="btn-ghost h-8 w-8 p-0 justify-center" title="Show everything" aria-label="Fit"><Maximize2 size={15} /></button>
-        <button
-          onClick={() => {
-            resetLayout();
-            requestAnimationFrame(() => map.current?.fit());
-          }}
-          className="btn-ghost h-8 w-8 p-0 justify-center"
-          title="Put every moved box back"
-          aria-label="Reset layout"
-        >
-          <RotateCcw size={15} />
-        </button>
         <button
           onClick={togglePanel}
           aria-pressed={panel}
@@ -147,10 +158,11 @@ export default function Topology() {
 
       <div className="flex-1 min-h-0 flex gap-3">
         <section className="card flex-1 min-w-0 flex flex-col overflow-hidden">
-          <WaysMap ref={map} graph={graph} way={way} target={goal} lit={lit} picked={machine?.id ?? null} worstShown={worstShown} onPick={pick} onMachine={showMachine} onZoom={setZoom} />
+          <WaysMap ref={map} graph={graph} way={way} target={goal} lit={lit} picked={picked} worstShown={worstShown} onPick={pick} onMachine={showMachine} onZoom={setZoom} />
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 border-t border-ink-100 dark:border-ink-700/50 text-xs text-ink-500 dark:text-ink-400">
             <span className="flex items-center gap-1.5"><span className="w-4 h-3 rounded-[3px] border border-ink-300 dark:border-ink-600 bg-white dark:bg-ink-800" />Network</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-high" />Machine that connects networks, coloured by its worst finding</span>
+            <span className="flex items-center gap-1.5"><span className="relative w-4 h-3"><span className="absolute left-1 -top-0.5 w-3 h-3 rounded-full bg-high/50" /><span className="absolute left-0 top-0 w-3 h-3 rounded-full bg-high" /></span>Group of machines that all reach the same networks</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[4px] bg-medium" />Router</span>
             <span className="flex items-center gap-1.5"><span className="w-5 border-t-2 border-ink-300 dark:border-ink-600" />Confirmed</span>
             <span className="flex items-center gap-1.5"><span className="w-5 border-t-2 border-dashed border-ink-300 dark:border-ink-600" />Likely or possible</span>
@@ -161,9 +173,11 @@ export default function Topology() {
         </section>
 
         {panel && (
-          <aside className="card w-[340px] shrink-0 flex flex-col overflow-hidden" aria-label={machine ? "Machine" : goal ? "Attack path" : "Machines on more than one network"}>
-            {machine ? (
-              <MachinePanel machine={machine} levels={levels} worstShown={worstShown} onClose={() => setMachineId(null)} onHide={togglePanel} />
+          <aside className="card w-[340px] shrink-0 flex flex-col overflow-hidden" aria-label={crowd ? "Group of machines" : machine ? "Machine" : goal ? "Attack path" : "Machines on more than one network"}>
+            {crowd ? (
+              <CrowdPanel crowd={crowd} graph={graph} levels={levels} worstShown={worstShown} onMachine={showMachine} onPick={pick} onClose={() => setMachineId(null)} onHide={togglePanel} />
+            ) : machine ? (
+              <MachinePanel machine={machine} levels={levels} worstShown={worstShown} onClose={() => setMachineId(graph.crowdOf.get(machine.id) ?? null)} onHide={togglePanel} />
             ) : goal ? (
               <WayPanel
                 graph={graph}
@@ -177,7 +191,7 @@ export default function Topology() {
                 onHide={togglePanel}
               />
             ) : (
-              <MachineList bridges={bridges} levels={levels} highlighted={hovered?.key ?? null} hidden={hidden} onPick={pick} onHover={setHovered} onHide={togglePanel} />
+              <MachineList bridges={bridges} crowds={crowds} graph={graph} levels={levels} highlighted={hovered?.key ?? null} hidden={hidden} onPick={pick} onCrowd={showMachine} onHover={setHovered} onHide={togglePanel} />
             )}
           </aside>
         )}

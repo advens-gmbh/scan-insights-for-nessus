@@ -70,10 +70,9 @@ export function rankHosts<T extends { severity_counts: SeverityCounts }>(hosts: 
     .slice(0, limit);
 }// rankHosts
 
-// critical and high findings on the most hosts
 export function topVulnerabilities<T extends { severity: number; host_count: number }>(vulns: T[], limit: number): T[] {
   return vulns
     .filter((v) => v.severity >= 3)
-    .sort((a, b) => b.host_count - a.host_count || b.severity - a.severity)
+    .sort((a, b) => b.severity - a.severity || b.host_count - a.host_count)
     .slice(0, limit);
 }// topVulnerabilities

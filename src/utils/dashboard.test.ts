@@ -77,9 +77,9 @@ describe("rankHosts", () => {
 describe("topVulnerabilities", () => {
   const v = (plugin_id: number, severity: number, host_count: number) => ({ plugin_id, severity, host_count });
 
-  it("keeps critical and high, most widespread first, critical first on a tie", () => {
+  it("keeps critical and high, every critical first, each by how many hosts it is on", () => {
     const list = [v(1, 3, 5), v(2, 4, 5), v(3, 2, 99), v(4, 4, 2), v(5, 3, 30)];
-    expect(topVulnerabilities(list, 10).map((x) => x.plugin_id)).toEqual([5, 2, 1, 4]);
+    expect(topVulnerabilities(list, 10).map((x) => x.plugin_id)).toEqual([2, 4, 5, 1]);
   });
 
   it("returns at most the limit", () => {

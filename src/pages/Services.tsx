@@ -222,7 +222,7 @@ export default function Services() {
           <select
             value={activeFile}
             onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-xs w-auto"
+            className="input h-8 py-0 text-xs w-auto max-w-[16rem]"
           >
             <option value="all">All files</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
@@ -236,13 +236,14 @@ export default function Services() {
           Group by service
         </label>
 
-        <ColumnPicker table={table} />
-
-        <span className="text-xs text-ink-400 shrink-0">
-          {grouped
-            ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
-            : `${filtered.length.toLocaleString()} services`}
-        </span>
+        <div className="flex items-center gap-3 shrink-0">
+          <ColumnPicker table={table} />
+          <span className="text-xs text-ink-400">
+            {grouped
+              ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
+              : `${filtered.length.toLocaleString()} services`}
+          </span>
+        </div>
       </div>
 
       {/* Table - fills remaining height, scrolls internally so thead stays sticky */}

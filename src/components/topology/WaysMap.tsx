@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { ChevronDown, ChevronUp, Monitor, Router } from "lucide-react";
 import type { HostEntry } from "../../types/nessus";
-import type { Link, ScannerNode, WayEdge, WayGraph, WayMachine, WayNet, WayNode } from "../../utils/topology";
+import type { Link, ScannerNode, WayCrowd, WayEdge, WayGraph, WayMachine, WayNet, WayNode } from "../../utils/topology";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
 import { usePageState } from "../../stores/pageStore";
@@ -56,6 +56,7 @@ interface Props {
 }// Props
 
 const isNever = (n: WayNet) => !n.group && n.scanners.length === 0;
+const isMachine = (n: WayNode) => n.kind === "machine" || n.kind === "crowd";
 
 function cellsOf(count: number) {
   const cols = count <= 3 ? count : Math.min(4, Math.ceil(Math.sqrt(count)));
@@ -69,6 +70,7 @@ function sizeOf(n: WayNode): { w: number; h: number } {
     case "scanner":
       return { w: NET_W, h: NET_H };
     case "machine":
+    case "crowd":
       return { w: MACHINE_W, h: MACHINE_H };
     case "block": {
       if (!n.open) {
@@ -80,7 +82,7 @@ function sizeOf(n: WayNode): { w: number; h: number } {
   }
 }// sizeOf
 
-const rank = (n: WayNode) => (n.kind === "net" && isNever(n.net) ? 2 : n.kind === "machine" ? 1 : 0);
+const rank = (n: WayNode) => (n.kind === "net" && isNever(n.net) ? 2 : isMachine(n) ? 1 : 0);
 
 function layout(graph: WayGraph) {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -157,14 +159,14 @@ function layout(graph: WayGraph) {
         x: CELL_GAP + 2 + (i % cols) * (CELL_W + CELL_GAP), y: FRAME_HEAD + Math.floor(i / cols) * (CELL_H + CELL_GAP), w: CELL_W, h: CELL_H,
       }));
     }
-    const x = n.kind === "machine" ? xs[c] + (Math.max(...columns[c].map((id) => sizes.get(id)!.w)) - w) / 2 : xs[c];
+    const x = isMachine(n) ? xs[c] + (Math.max(...columns[c].map((id) => sizes.get(id)!.w)) - w) / 2 : xs[c];
     placed.set(n.id, { node: n, box: { x, y: HEAD + ys.get(n.id)! - top, w, h }, cells });
   }
 
   let steps = 0;
   const titles = columns.map((ids, c) => {
-    const nets = ids.some((id) => byId.get(id)!.kind !== "machine");
-    const machines = ids.some((id) => byId.get(id)!.kind === "machine");
+    const nets = ids.some((id) => !isMachine(byId.get(id)!));
+    const machines = ids.some((id) => isMachine(byId.get(id)!));
     const title = !nets ? null : c === 0 ? "Where Nessus is" : steps === 0 ? "Next to the scanner" : `${steps} ${steps === 1 ? "step" : "steps"} away`;
     if (machines) {
       steps++;
@@ -319,7 +321,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
     if (cell) {
       return { id: `${id}|${end}`, x: b.x + cell.x, y: b.y + cell.y, w: cell.w, h: cell.h, mid: b.y + cell.y + 20 };
     }
-    if (p.node.kind === "machine") {
+    if (isMachine(p.node)) {
       return { id, x: b.x + (b.w - RING) / 2, y: b.y, w: RING, h: RING, mid: b.y + RING / 2 };
     }
     return { id, ...b, mid: b.y + (p.node.kind === "net" && p.node.net.scanners.length ? START_H : 0) + 22 };
@@ -466,6 +468,8 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
       }
       case "machine":
         return <Machine key={n.id} m={n} box={b} worst={worstOf(n.hosts)} ring={picked === n.id ? "ring-4 ring-accent-500/70" : ring(n.id) || (lit === n.id ? "ring-2 ring-accent-500" : "")} drag={drag} onOpen={() => onMachine(n.id)} />;
+      case "crowd":
+        return <Crowd key={n.id} c={n} box={b} worst={worstOf(n.machines.flatMap((m) => m.hosts))} ring={picked === n.id ? "ring-4 ring-accent-500/70" : ring(n.id) || (lit === n.id ? "ring-2 ring-accent-500" : "")} drag={drag} onOpen={() => onMachine(n.id)} />;
       case "block": {
         const nets = n.block.nets;
         const hosts = nets.flatMap((x) => x.group?.hosts ?? []);
@@ -560,6 +564,10 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
 
 export default WaysMap;
 
+export function crowdReach(c: WayCrowd): string {
+  return c.reach.length === 1 ? c.reach[0].replace(/^net:/, "") : `${c.reach.length} networks`;
+}// crowdReach
+
 export function machineNote(m: WayMachine): string {
   if (m.router) {
     const more = m.hops - 1;
@@ -608,3 +616,33 @@ function Machine({ m, box, worst, ring, drag, onOpen }: {
     </div>
   );
 }// Machine
+
+// several machines drawn as one. a stack of circles with their number
+function Crowd({ c, box, worst, ring, drag, onOpen }: {
+  c: WayCrowd;
+  box: Box;
+  worst: number | null;
+  ring: string;
+  drag: { onPointerDown: (e: ReactPointerEvent) => void; onClickCapture: (e: React.MouseEvent) => void };
+  onOpen: () => void;
+}) {
+  const fill = worst === null ? "bg-ink-300 dark:bg-ink-600" : SEVERITY_BG[worst];
+  return (
+    <div {...drag} className="absolute flex flex-col items-center text-center select-none" style={{ left: box.x, top: box.y, width: box.w }}>
+      <span className="relative w-9 h-9">
+        <span className={`absolute inset-0 translate-x-[7px] -translate-y-[5px] rounded-full opacity-35 ${fill}`} aria-hidden="true" />
+        <span className={`absolute inset-0 translate-x-[3.5px] -translate-y-[2.5px] rounded-full opacity-60 ${fill}`} aria-hidden="true" />
+        <button
+          onClick={onOpen}
+          title={`${c.machines.length} machines, each in its own network, that all reach ${crowdReach(c)}`}
+          aria-label={`${c.machines.length} machines`}
+          className={`absolute inset-0 flex items-center justify-center rounded-full text-white text-[12px] font-bold tabular-nums ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ${fill} ${ring}`}
+        >
+          {c.machines.length > 999 ? "999+" : c.machines.length}
+        </button>
+      </span>
+      <span className="mt-1 text-[12.5px] font-semibold leading-4 text-ink-800 dark:text-ink-100 max-w-full truncate">{c.machines.length} machines</span>
+      <span className="text-[11px] leading-[14px] text-ink-500 dark:text-ink-400 max-w-full truncate">all reach {crowdReach(c)}</span>
+    </div>
+  );
+}// Crowd

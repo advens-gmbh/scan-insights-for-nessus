@@ -4,6 +4,7 @@ import { FolderOpen, Trash2, Clock, FileX, ShieldAlert, Server, Layers } from "l
 import type { ReactNode } from "react";
 import { useScanStore } from "../stores/scanStore";
 import { useSeverityStore } from "../stores/severityStore";
+import { usePageStore } from "../stores/pageStore";
 import { severityCounts, buildHostEntries, buildVulnEntries, visibleCounts, ratedScore, SEVERITY_LABELS } from "../types/nessus";
 import { useUiStore } from "../stores/uiStore";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
@@ -118,6 +119,11 @@ export default function Dashboard() {
     navigate("/vulnerabilities");
   };
 
+  const showExploitable = () => {
+    usePageStore.getState().set("sort:vulnerabilities", { key: "exploit", dir: "desc" });
+    showSeverities([]);
+  };
+
   if (files.length === 0) {
     return <EmptyState openFiles={openFiles} recentFiles={recentFiles} loadFile={loadFile} />;
   }
@@ -143,12 +149,16 @@ export default function Dashboard() {
             <span className={`absolute inset-x-0 bottom-0 h-1 ${l.bg}`} />
           </button>
         ))}
-        <div className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5">
-          <span className="text-[13px] font-semibold text-ink-500 dark:text-ink-400" title="Findings Nessus marks as having a public exploit">Exploitable</span>
+        <button
+          onClick={showExploitable}
+          className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5 text-left hover:border-ink-300 dark:hover:border-ink-600 transition-colors"
+          title={`Findings with a public exploit, counted on each host they are on. ${exploits.metasploit.toLocaleString()} of them have a Metasploit module.\nShow them first in Vulnerabilities`}
+        >
+          <span className="text-[13px] font-semibold text-ink-500 dark:text-ink-400">Exploitable</span>
           <span className="text-3xl font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>
-          <span className="text-xs text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} hosts · {exploits.metasploit.toLocaleString()} Metasploit</span>
+          <span className="text-xs text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} hosts</span>
           <span className="absolute inset-x-0 bottom-0 h-1 bg-critical" />
-        </div>
+        </button>
       </section>
 
       {/* Top vulnerabilities */}

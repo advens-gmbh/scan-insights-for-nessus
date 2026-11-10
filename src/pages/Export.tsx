@@ -135,6 +135,11 @@ export default function Export() {
             {findings.toLocaleString()} {findings === 1 ? "finding" : "findings"} from {selected.length} {selected.length === 1 ? "file" : "files"}
           </span>
         </div>
+        {selected.length > 1 && (
+          <p className="-mt-2 text-xs text-ink-500 dark:text-ink-400">
+            Counted per file, as the export writes them, so a host scanned in two files counts twice. The Dashboard counts each host once.
+          </p>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <ExportOption
             icon={<FileSpreadsheet size={16} />}

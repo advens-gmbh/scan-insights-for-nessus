@@ -24,8 +24,13 @@ csv               = "1"
 rust_xlsxwriter   = "0.102"
 chrono            = { version = "0.4", features = ["serde"] }
 
+# Dev builds are optimised
 [profile.dev]
 incremental = true
+opt-level   = 1
+
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.release]
 panic        = "abort"

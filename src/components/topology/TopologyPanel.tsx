@@ -2,13 +2,13 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, X } from "lucide-react";
 import type { HostEntry, SeverityCounts } from "../../types/nessus";
-import type { Bridge, Link, Strength, WayEdge, WayGraph, WayMachine, WayNode } from "../../utils/topology";
+import type { Bridge, Link, Strength, WayCrowd, WayEdge, WayGraph, WayMachine, WayNode } from "../../utils/topology";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
 import { compareHosts } from "../../utils/ip";
 import IpLink from "../common/IpLink";
 import CopyButton from "../common/CopyButton";
-import { SEVERITY_BG } from "./WaysMap";
+import { SEVERITY_BG, crowdReach } from "./WaysMap";
 
 export interface Level { sev: number; key: keyof SeverityCounts; label: string; fg: string }
 
@@ -26,6 +26,10 @@ const SECTION = "text-xs font-semibold text-ink-500 dark:text-ink-400 mb-1.5";
 function countsOf(hosts: HostEntry[], levels: Level[]) {
   return levels.map((l) => ({ ...l, n: hosts.reduce((sum, h) => sum + h.severity_counts[l.key], 0) }));
 }// countsOf
+
+export function exposure(m: WayMachine): number {
+  return m.hosts.reduce((s, h) => s + h.severity_counts.critical * 1e9 + h.severity_counts.high * 1e6 + h.severity_counts.medium * 1e3 + h.severity_counts.low, 0);
+}// exposure
 
 export function machineScore(b: Bridge, levels: Level[]): number {
   return countsOf(b.hosts, levels).reduce((s, c) => s * 1000 + c.n, 0);
@@ -96,15 +100,20 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
   );
 }// Machine
 
-export function MachineList({ bridges, levels, highlighted, hidden, onPick, onHover, onHide }: {
+export function MachineList({ bridges, crowds, graph, levels, highlighted, hidden, onPick, onCrowd, onHover, onHide }: {
   bridges: Bridge[];
+  crowds: WayCrowd[];
+  graph: WayGraph;
   levels: Level[];
   highlighted: string | null;
   hidden: HiddenNet[];
   onPick: (target: string) => void;
+  onCrowd: (id: string) => void;
   onHover: (b: Bridge | null) => void;
   onHide: () => void;
 }) {
+  const grouped = new Set(crowds.flatMap((c) => c.machines.map((m) => m.bridge?.key)));
+  const single = bridges.filter((b) => !grouped.has(b.key));
   return (
     <>
       <div className={HEAD}>
@@ -122,7 +131,13 @@ export function MachineList({ bridges, levels, highlighted, hidden, onPick, onHo
         {bridges.length === 0 && (
           <p className="px-4 py-4 text-[13px] text-ink-500 dark:text-ink-400">None found. Credentialed scans find these best, because they list each machine's network cards.</p>
         )}
-        {bridges.map((b) => <Machine key={b.key} b={b} levels={levels} lit={highlighted === b.key} onHover={onHover} />)}
+        {single.map((b) => <Machine key={b.key} b={b} levels={levels} lit={highlighted === b.key} onHover={onHover} />)}
+        {crowds.length > 0 && (
+          <>
+            <h3 className={`${SECTION} px-4 pt-3 mb-0`}>Groups: machines in different networks that all reach the same ones</h3>
+            {crowds.map((c) => <CrowdCard key={c.id} c={c} graph={graph} levels={levels} onOpen={() => onCrowd(c.id)} onPick={onPick} />)}
+          </>
+        )}
       </div>
       <p className="px-4 py-2.5 text-[11px] leading-4 text-ink-500 dark:text-ink-400 border-t border-ink-100 dark:border-ink-700/50">
         Confirmed: the machine lists these addresses itself. Likely: its routing table knows them, or the same MAC address is on both. Possible: only the same NetBIOS name, or IP forwarding with its other networks unknown.
@@ -130,6 +145,131 @@ export function MachineList({ bridges, levels, highlighted, hidden, onPick, onHo
     </>
   );
 }// MachineList
+
+function ReachChips({ c, graph, onPick }: { c: WayCrowd; graph: WayGraph; onPick: (target: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {c.reach.map((end) => {
+        const key = end.replace(/^net:/, "");
+        const scanned = !!graph.nets.get(key)?.group;
+        return (
+          <button
+            key={end}
+            onClick={() => onPick(end)}
+            title="Show the attack path"
+            className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-[11px] tabular-nums whitespace-nowrap hover:border-accent-500 ${
+              scanned ? "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200" : "border-dashed border-ink-300 dark:border-ink-500 text-ink-500 dark:text-ink-400"
+            }`}
+          >
+            {key}{!scanned && <span className="text-ink-400 dark:text-ink-500">never scanned</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}// ReachChips
+
+const evidenceOf = (c: WayCrowd) => [...new Set(c.machines.flatMap((m) => m.bridge?.evidence ?? []))];
+const talkersOf = (c: WayCrowd) => c.machines.filter((m) => m.talks.length > 0).length;
+
+function CrowdCard({ c, graph, levels, onOpen, onPick }: { c: WayCrowd; graph: WayGraph; levels: Level[]; onOpen: () => void; onPick: (target: string) => void }) {
+  const talkers = talkersOf(c);
+  return (
+    <div className="flex flex-col gap-1.5 px-4 py-3 border-b border-ink-100 dark:border-ink-700/50">
+      <button onClick={onOpen} className="text-left text-sm font-semibold text-ink-800 dark:text-ink-100 hover:underline">
+        {c.machines.length} machines <span className="font-normal text-ink-500 dark:text-ink-400">in {c.homes.length} {c.homes.length === 1 ? "network" : "networks"}</span>
+      </button>
+      <span className="text-xs text-ink-500 dark:text-ink-400">Each one also reaches:</span>
+      <ReachChips c={c} graph={graph} onPick={onPick} />
+      <ul className="text-xs text-ink-600 dark:text-ink-300 leading-[17px]">
+        {evidenceOf(c).map((e) => <li key={e}>{e}</li>)}
+        {talkers > 0 && <li>{talkers} of them have connections there</li>}
+      </ul>
+      <Counts hosts={c.machines.flatMap((m) => m.hosts)} levels={levels} />
+    </div>
+  );
+}// CrowdCard
+
+export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick, onClose, onHide }: {
+  crowd: WayCrowd;
+  graph: WayGraph;
+  levels: Level[];
+  worstShown: (h: HostEntry) => number | null;
+  onMachine: (id: string) => void;
+  onPick: (target: string) => void;
+  onClose: () => void;
+  onHide: () => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const worst = (m: WayMachine) => m.hosts.reduce<number>((w, h) => Math.max(w, worstShown(h) ?? -1), -1);
+  const rows = [...crowd.machines].sort((a, b) => worst(b) - worst(a) || exposure(b) - exposure(a) || compareHosts(a.ips[0] ?? "", b.ips[0] ?? ""));
+  const shown = showAll ? rows : rows.slice(0, HOSTS_COLLAPSED);
+  const homes = [...crowd.homes].map((h) => h.replace(/^net:/, "")).sort((a, b) => compareHosts(a.split("/")[0], b.split("/")[0]));
+  const talkers = talkersOf(crowd);
+  const evidence = evidenceOf(crowd);
+  return (
+    <>
+      <div className={HEAD}>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-ink-500 dark:text-ink-400">Group of machines</div>
+          <h2 className="text-[17px] font-semibold text-ink-800 dark:text-ink-100 truncate">{crowd.machines.length} machines</h2>
+        </div>
+        <button onClick={onClose} className="ml-auto btn-ghost h-7 w-7 p-0 justify-center" title="Back" aria-label="Back"><X size={16} /></button>
+        <button onClick={onHide} className="btn-ghost h-7 w-7 p-0 justify-center" title="Hide" aria-label="Hide the list"><ChevronRight size={16} /></button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 flex flex-col gap-4">
+        <p className="text-[13px] leading-[19px] text-ink-600 dark:text-ink-300">
+          Each of these machines sits in its own network and also reaches the networks below. Taking over any one of them is enough, so the map draws them as one.
+        </p>
+        <div>
+          <h3 className={SECTION}>They all reach</h3>
+          <ReachChips c={crowd} graph={graph} onPick={onPick} />
+        </div>
+        <div>
+          <h3 className={SECTION}>They sit in {homes.length} {homes.length === 1 ? "network" : "networks"}</h3>
+          <p className="text-xs leading-[18px] tabular-nums text-ink-600 dark:text-ink-300">{homes.join(", ")}</p>
+        </div>
+        {(evidence.length > 0 || talkers > 0) && (
+          <div>
+            <h3 className={SECTION}>How we know</h3>
+            <ul className="text-xs leading-[18px] text-ink-600 dark:text-ink-300">
+              {evidence.map((e) => <li key={e}>{e}</li>)}
+              {talkers > 0 && <li>{talkers} of them have connections there</li>}
+            </ul>
+          </div>
+        )}
+        <div>
+          <h3 className={SECTION}>Their findings</h3>
+          <Counts hosts={crowd.machines.flatMap((m) => m.hosts)} levels={levels} bar />
+        </div>
+        <div>
+          <h3 className={SECTION}>The machines, most exposed first</h3>
+          <div className="flex flex-wrap items-center gap-1 mb-1.5">
+            <CopyButton text={rows.map((m) => m.ips[0]).filter(Boolean).join("\n")} label="Copy IPs" />
+            <CopyButton text={rows.map((m) => `${m.ips[0] ?? ""} (${m.name})`).join("\n")} label="Copy IPs with names" />
+          </div>
+          <ul className="flex flex-col gap-1">
+            {shown.map((m) => {
+              const w = worst(m);
+              return (
+                <li key={m.id} className="flex items-center gap-2 min-w-0 text-[13px]">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${w < 0 ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[w]}`} title={w < 0 ? "Nothing at the selected severities" : LEVEL_NAME[w]} />
+                  <button onClick={() => onMachine(m.id)} className="min-w-0 truncate text-left text-accent-700 dark:text-accent-400 hover:underline" title={m.name}>{m.name}</button>
+                  <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-500 dark:text-ink-400 select-text">{m.ips[0]}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {rows.length > HOSTS_COLLAPSED && (
+            <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+              {showAll ? "Show less" : `Show all ${rows.length}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}// CrowdPanel
 
 // a network only a machine can reach, and the machine to take over
 export interface HiddenNet {
@@ -158,7 +298,7 @@ interface Step {
 }// Step
 
 const label = (n: WayNode): string =>
-  n.kind === "net" ? n.net.key : n.kind === "block" ? `${n.block.key} (${n.block.nets.length} networks)` : n.kind === "machine" ? n.name : "Nessus";
+  n.kind === "net" ? n.net.key : n.kind === "block" ? `${n.block.key} (${n.block.nets.length} networks)` : n.kind === "machine" ? n.name : n.kind === "crowd" ? `${n.machines.length} machines` : "Nessus";
 const smooth = (l: Link) => l === "routed" || l === "unknown";
 
 // the attack path steps explained simple
@@ -180,6 +320,21 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
         : n.kind === "scanner"
           ? { title: "Start at Nessus", text: "Its address isn't in the scan, so where it sits is unknown.", files: n.root.fileIds }
           : { title: "Start at Nessus", text: "" });
+      return;
+    }
+    if (n.kind === "crowd") {
+      const prev = nodes[i - 1];
+      const near = n.machines.filter((m) => graph.nodeOf.get(n.homeOf.get(m.id) ?? "") === prev.id);
+      const pool = near.length ? near : n.machines;
+      const best = [...pool].sort((a, b) => exposure(b) - exposure(a))[0];
+      const next = nodes[i + 1];
+      const goes = next ? (i + 1 === nodes.length - 1 && end ? end.key : label(next)) : crowdReach(n);
+      steps.push({
+        title: <>Take over one of <b>{pool.length} machines</b></>,
+        text: `Each of them${prev.kind === "net" || prev.kind === "block" ? ` sits in ${label(prev)} and` : ""} also reaches ${goes}, so any one will do. The most exposed is ${best.name} (${best.ips[0]}).`,
+        hosts: best.hosts,
+      });
+      why.push(...(best.bridge?.evidence ?? []), ...best.talks.map((t) => t.text));
       return;
     }
     if (n.kind === "machine") {
@@ -211,6 +366,8 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
     const prev = nodes[i - 1];
     if (into.link === "unknown") {
       steps.push({ title: <>Reach <b>{name}</b></>, text: "Nessus scanned it, but without a traceroute, so the route there is unknown." });
+    } else if (prev.kind === "crowd") {
+      steps.push({ title: <>You are in <b>{name}</b></>, text: `Every one of the ${prev.machines.length} machines has a way in here.${never ? " Nobody scanned this network." : ""}` });
     } else if (prev.kind !== "machine") {
       steps.push({ title: <>Reach <b>{name}</b></>, text: "It's right next to Nessus." });
     } else {

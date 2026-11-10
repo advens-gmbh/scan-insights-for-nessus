@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { HostEntry, ReportItem } from "../types/nessus";
 import {
-  buildBlocks, buildTopology, buildWays, findWay, FOLD_AT, maskToPrefix, netKey, netOf, parseConnections, parseDhcp, parseRoutes, parseSshInterfaces, parseTraceroute,
+  buildBlocks, buildTopology, buildWays, CROWD_AT, findWay, FOLD_AT, maskToPrefix, netKey, netOf, parseConnections, parseDhcp, parseRoutes, parseSshInterfaces, parseTraceroute,
   parseWmiInterfaces, PLUGIN,
 } from "./topology";
+import type { WayCrowd, WayGraph, WayNode } from "./topology";
 
 function item(plugin_id: number, plugin_output: string | null = null, severity = 0): ReportItem {
   return {
@@ -137,6 +138,13 @@ describe("buildTopology", () => {
     expect(buildTopology([host("10.3.3.3", [], { netbios: "PC1" }), host("10.3.3.4", [], { netbios: "PC1" })]).bridges).toEqual([]);
   });
 
+  it("a router's own network is its most specific route, not a summary around it", () => {
+    const routes = "0.0.0.0/0.0.0.0\n10.101.0.0/255.255.0.0\n10.101.1.0/255.255.255.0\n10.101.10.0/255.255.255.0\n";
+    const t = buildTopology([host("10.101.1.5", [item(PLUGIN.snmpRoutes, routes)]), host("10.101.10.7"), host("10.101.20.9")]);
+    expect(t.groups.map((g) => g.key).sort()).toEqual(["10.101.1.0/24", "10.101.10.0/24", "10.101.20.0/24"]);
+    expect(t.groups.find((g) => g.key === "10.101.1.0/24")!.maskFrom).toBe("routing table");
+  });
+
   it("a summary route around scanned networks isn't a never scanned network", () => {
     const routes = "10.10.0.0/255.255.0.0\n10.10.7.0/255.255.255.0\n10.99.4.0/255.255.255.0\n192.168.10.0/255.255.255.0\n";
     const t = buildTopology([host("192.168.10.1", [item(PLUGIN.snmpRoutes, routes)], { hostname: "core" }), host("10.10.7.20")]);
@@ -245,6 +253,57 @@ describe("ways in", () => {
     const way = findWay(g, "net:10.60.0.0/24")!;
     expect(g.nodes.find((n) => n.id === way.nodes[way.nodes.length - 2])).toMatchObject({ name: "web-03" });
     expect(way.edges.map((e) => e.link).slice(-1)).toEqual(["confirmed"]);
+  });
+
+  const wmi = (pairs: [string, string][]) =>
+    item(PLUGIN.wmiInterfaces, pairs.map(([ip, nic]) => `\n  - Network Interface = ${nic}\n  - IPAddress/IPSubnet = ${ip}/255.255.255.0\n`).join(""));
+  const backupServers = (count: number) => Array.from({ length: count }, (_, i) =>
+    traced(`10.${10 + i}.1.5`, ["10.0.0.1"], [wmi([[`10.${10 + i}.1.5`, "nic1"], [`192.168.50.${i + 10}`, "nic2 (Backup)"]])], { hostname: `srv-${i}` }));
+
+  it("machines in different networks that all reach the same network are one group; a rare one stays on its own", () => {
+    const jump = traced("10.10.1.9", ["10.0.0.1"], [ssh([["10.10.1.9", "eth0"], ["172.20.10.5", "eth1"]])], { hostname: "jump01" });
+    const g = buildWays(buildTopology([traced("10.0.0.9", []), ...backupServers(CROWD_AT + 1), jump]));
+    const crowds = g.nodes.filter((n): n is WayCrowd => n.kind === "crowd");
+    expect(crowds).toHaveLength(1);
+    const c = crowds[0];
+    expect(c.machines.map((m) => m.name).sort()).toEqual(Array.from({ length: CROWD_AT + 1 }, (_, i) => `srv-${i}`));
+    expect(c.reach).toEqual(["net:192.168.50.0/24"]);
+    expect(c.homes).toHaveLength(CROWD_AT + 1);
+    expect(c.homeOf.get(c.machines.find((m) => m.name === "srv-2")!.id)).toBe("net:10.12.1.0/24");
+    // the group replaces its machines on the map, but each machine can still be found
+    expect(g.nodes.some((n) => n.kind === "machine" && n.name === "srv-0")).toBe(false);
+    expect(g.nodes.some((n) => n.kind === "machine" && n.name === "jump01")).toBe(true);
+    expect(g.nodeOf.get(c.machines[0].id)).toBe(c.id);
+    expect(g.crowdOf.get(c.machines[0].id)).toBe(c.id);
+    expect(g.machines.get(c.machines[0].id)?.name).toBe(c.machines[0].name);
+    expect(g.edges.some((e) => g.crowdOf.has(e.a) || g.crowdOf.has(e.b))).toBe(false);
+    // the backup network is reached through the group, with a takeover
+    const way = findWay(g, "net:192.168.50.0/24")!;
+    expect(way.nodes).toContain(c.id);
+    expect(way.edges.slice(-1)[0].link).toBe("confirmed");
+  });
+
+  it("too few alike machines stay on their own", () => {
+    const g = buildWays(buildTopology([traced("10.0.0.9", []), ...backupServers(CROWD_AT - 1)]));
+    expect(g.nodes.filter((n) => n.kind === "crowd")).toHaveLength(0);
+    expect(g.nodes.filter((n) => n.kind === "machine" && n.name.startsWith("srv-"))).toHaveLength(CROWD_AT - 1);
+  });
+
+  it("a group never joins two of its own networks to each other", () => {
+    const net = (key: string): WayNode => ({ id: `net:${key}`, kind: "net", net: { key, net: netOf(key.split("/")[0], 24), group: null, reasons: [], scanners: [] } });
+    const crowd: WayCrowd = { id: "crowd:x", kind: "crowd", machines: [], homeOf: new Map(), homes: ["net:10.1.1.0/24", "net:10.2.1.0/24"], reach: ["net:192.168.50.0/24"] };
+    const nodes = [net("10.1.1.0/24"), net("10.2.1.0/24"), net("192.168.50.0/24"), crowd];
+    const g: WayGraph = {
+      nodes, starts: ["net:10.1.1.0/24"], nets: new Map(), machines: new Map(), crowdOf: new Map(),
+      nodeOf: new Map(nodes.map((n) => [n.id, n.id])),
+      edges: [
+        { a: "net:10.1.1.0/24", b: "crowd:x", link: "confirmed" },
+        { a: "net:10.2.1.0/24", b: "crowd:x", link: "confirmed" },
+        { a: "crowd:x", b: "net:192.168.50.0/24", link: "confirmed" },
+      ],
+    };
+    expect(findWay(g, "net:192.168.50.0/24")!.nodes).toEqual(["net:10.1.1.0/24", "crowd:x", "net:192.168.50.0/24"]);
+    expect(findWay(g, "net:10.2.1.0/24")).toBeNull();
   });
 
   it("folds a long list of networks into address blocks, and opens one on request", () => {

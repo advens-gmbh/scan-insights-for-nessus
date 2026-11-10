@@ -6,7 +6,7 @@ import { severityCounts, totalFindings, buildHostEntries } from "../../types/nes
 
 export default function TopBar() {
   const { theme, toggleTheme, showInfo } = useUiStore();
-  const { files, loading, openFiles, unloadAll } = useScanStore();
+  const { files, loading, progress, openFiles, unloadAll } = useScanStore();
 
   // merged across files, so a host or finding present in two scans counts only once
   const hosts = useMemo(() => buildHostEntries(files), [files]);
@@ -21,11 +21,11 @@ export default function TopBar() {
       {/* stats */}
       {files.length > 0 && (
         <div className="flex items-center gap-4 text-sm text-ink-500 dark:text-ink-400">
-          <Stat label="files" value={files.length} />
+          <Stat label={files.length === 1 ? "file" : "files"} value={files.length} />
           <span className="text-ink-300 dark:text-ink-600">·</span>
-          <Stat label="hosts" value={totalHosts} />
+          <Stat label={totalHosts === 1 ? "host" : "hosts"} value={totalHosts} />
           <span className="text-ink-300 dark:text-ink-600">·</span>
-          <Stat label="findings" value={totalVulns} />
+          <Stat label={totalVulns === 1 ? "finding" : "findings"} value={totalVulns} />
         </div>
       )}
 
@@ -35,10 +35,11 @@ export default function TopBar() {
       <button
         onClick={openFiles}
         disabled={loading}
-        className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn-primary tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+        title={progress ? `${progress.done.toLocaleString()} of ${progress.total.toLocaleString()} hosts received` : undefined}
       >
         <FolderOpen size={15} />
-        {loading ? "Loading…" : "Open File"}
+        {!loading ? "Open File" : progress && progress.total > 0 ? `Loading ${Math.floor((progress.done / progress.total) * 100)}%` : "Loading…"}
       </button>
 
       {/* theme toggle */}

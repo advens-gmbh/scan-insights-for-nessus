@@ -13,6 +13,7 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::load_nessus_file,
+            commands::file_hosts,
             commands::unload_file,
             commands::unload_all_files,
             commands::export_data,

@@ -232,7 +232,7 @@ export default function Hosts() {
 
         {files.length > 1 && (
           <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-xs w-auto">
+            className="input h-8 py-0 text-xs w-auto max-w-[16rem]">
             <option value="all">All files</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
           </select>
@@ -240,10 +240,9 @@ export default function Hosts() {
 
         <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-1 min-w-48" />
 
-        <ColumnPicker table={table} />
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-ink-400">{sorted.length} hosts</span>
+        <div className="flex items-center gap-3 shrink-0">
+          <ColumnPicker table={table} />
+          <span className="text-xs text-ink-400">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
           {sorted.length > 0 && (
             <div className="relative" ref={copyMenuRef}>
               <button

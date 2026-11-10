@@ -267,8 +267,12 @@ export function buildTopology(hosts: HostEntry[]): Topology {
         addKnown(net, "DHCP");
       }
     }
+
     for (const text of outputs(h, PLUGIN.snmpRoutes)) {
-      parseRoutes(text).filter((n) => netContains(n, h.ip)).forEach((n) => addKnown(n, "routing table"));
+      const own = parseRoutes(text).filter((n) => n.prefix >= 16 && n.prefix <= 30 && netContains(n, h.ip)).sort((a, b) => b.prefix - a.prefix)[0];
+      if (own) {
+        addKnown(own, "routing table");
+      }
     }
     for (const text of outputs(h, PLUGIN.wmiInterfaces)) {
       for (const a of parseWmiInterfaces(text)) {
@@ -608,10 +612,21 @@ export interface WayMachine {
   talks: Reason[];          // connections into networks nobody scanned
 }// WayMachine
 
+// machines that each lead from their own network to the same other networks, drawn as one
+export interface WayCrowd {
+  id: string;
+  kind: "crowd";
+  machines: WayMachine[];
+  homeOf: Map<string, string>; // machine id -> the network it sits in
+  homes: string[];             // those networks
+  reach: string[];             // the networks every one of them leads to
+}// WayCrowd
+
 export type WayNode =
   | { id: string; kind: "net"; net: WayNet }
   | { id: string; kind: "block"; block: Block<WayNet>; open: boolean }
   | WayMachine
+  | WayCrowd
   | { id: string; kind: "scanner"; root: ScannerNode };
 
 export type Link = "routed" | "unknown" | Strength;
@@ -626,11 +641,14 @@ export interface WayGraph {
   nodes: WayNode[];
   edges: WayEdge[];
   starts: string[];               // where the scanners are
-  nodeOf: Map<string, string>;    // edge end -> the node drawing it (a folded network draws as its block)
+  nodeOf: Map<string, string>;    // edge end -> the node drawing it (a folded network draws as its block, a grouped machine as its group)
   nets: Map<string, WayNet>;
+  machines: Map<string, WayMachine>; // every machine, grouped or not
+  crowdOf: Map<string, string>;      // machine id -> its group
 }// WayGraph
 
 export const FOLD_AT = 8;
+export const CROWD_AT = 4;
 
 export const netEnd = (key: string) => `net:${key}`;
 
@@ -757,6 +775,48 @@ export function buildWays(topo: Topology, open: ReadonlySet<string> = new Set())
     }
   }
 
+  // machines that each lead from their own network to exactly the same other networks become one group
+  // a jump host or a DMZ server with one foot inside, stay on their own
+  const alike = new Map<string, { machines: WayMachine[]; homeOf: Map<string, string>; homeLink: Map<string, Link>; reach: { end: string; link: Link }[] }>();
+  const linksAt = new Map<string, { end: string; link: Link }[]>();
+  for (const e of edges) {
+    linksAt.set(e.a, [...(linksAt.get(e.a) ?? []), { end: e.b, link: e.link }]);
+    linksAt.set(e.b, [...(linksAt.get(e.b) ?? []), { end: e.a, link: e.link }]);
+  }
+  for (const m of machines.values()) {
+    const homes = new Set(m.hosts.map((h) => groupOfIp(h.ip)).filter((k): k is string => !!k).map(netEnd));
+    const links = linksAt.get(m.id) ?? [];
+    const reach = links.filter((l) => !homes.has(l.end));
+    if (m.router || homes.size !== 1 || reach.length === 0 || links.some((l) => !l.end.startsWith("net:"))) {
+      continue;
+    }
+    const key = reach.map((l) => `${l.end}=${l.link}`).sort().join(",");
+    const entry = alike.get(key) ?? { machines: [] as WayMachine[], homeOf: new Map<string, string>(), homeLink: new Map<string, Link>(), reach };
+    entry.machines.push(m);
+    entry.homeOf.set(m.id, [...homes][0]);
+    links.filter((l) => homes.has(l.end)).forEach((l) => entry.homeLink.set(l.end, l.link));
+    alike.set(key, entry);
+  }
+  const crowds: WayCrowd[] = [];
+  const crowdOf = new Map<string, string>();
+  for (const [key, a] of alike) {
+    if (a.machines.length >= CROWD_AT) {
+      const id = `crowd:${key}`;
+      a.machines.forEach((m) => crowdOf.set(m.id, id));
+      crowds.push({ id, kind: "crowd", machines: a.machines, homeOf: a.homeOf, homes: [...a.homeLink.keys()], reach: a.reach.map((r) => r.end) });
+    }
+  }
+  if (crowds.length) {
+    const kept = edges.filter((e) => !crowdOf.has(e.a) && !crowdOf.has(e.b));
+    edges.length = 0;
+    kept.forEach((e) => edges.push(e));
+    for (const c of crowds) {
+      const a = alike.get(c.id.slice("crowd:".length))!;
+      a.homeLink.forEach((l, end) => link(end, c.id, l));
+      a.reach.forEach((r) => link(c.id, r.end, r.link));
+    }
+  }
+
   // fold long lists of networks into address blocks
   const nodeOf = new Map<string, string>();
   const blocks: WayNode[] = [];
@@ -773,10 +833,11 @@ export function buildWays(topo: Topology, open: ReadonlySet<string> = new Set())
     }
   }
   const netNodes: WayNode[] = [...nets.values()].filter((n) => !nodeOf.has(netEnd(n.key))).map((n) => ({ id: netEnd(n.key), kind: "net", net: n }));
-  const nodes = [...scanners, ...netNodes, ...blocks, ...machines.values()];
+  const nodes = [...scanners, ...netNodes, ...blocks, ...[...machines.values()].filter((m) => !crowdOf.has(m.id)), ...crowds];
+  crowdOf.forEach((crowd, id) => nodeOf.set(id, crowd));
   nodes.forEach((n) => !nodeOf.has(n.id) && nodeOf.set(n.id, n.id));
 
-  return { nodes, edges, starts, nodeOf, nets };
+  return { nodes, edges, starts, nodeOf, nets, machines, crowdOf };
 }// buildWays
 
 const COST: Record<Link, number> = { routed: 1, unknown: 1, confirmed: 10, likely: 16, possible: 24 };
@@ -797,6 +858,7 @@ export function findWay(graph: WayGraph, target: string): { nodes: string[]; edg
       around.set(b, [...(around.get(b) ?? []), { to: a, edge: e }]);
     }
   }
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const cost = new Map<string, number>(graph.starts.map((s) => [graph.nodeOf.get(s)!, 0]));
   const back = new Map<string, { from: string; edge: WayEdge }>();
   const done = new Set<string>();
@@ -814,8 +876,14 @@ export function findWay(graph: WayGraph, target: string): { nodes: string[]; edg
       break;
     }
     done.add(here);
+    const node = byId.get(here);
+    const leaving = node?.kind === "machine" || node?.kind === "crowd";
+    const homes = node?.kind === "crowd" ? new Set(node.homes.map((h) => graph.nodeOf.get(h))) : null;
+    const fromHome = !!homes && homes.has(back.get(here)?.from);
     for (const { to, edge } of around.get(here) ?? []) {
-      const leaving = graph.nodes.find((n) => n.id === here)?.kind === "machine";
+      if (fromHome && homes!.has(to)) {
+        continue;
+      }
       const c = cost.get(here)! + (leaving ? COST[edge.link] : 1);
       if (c < (cost.get(to) ?? Infinity)) {
         cost.set(to, c);

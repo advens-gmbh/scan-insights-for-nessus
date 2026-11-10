@@ -74,7 +74,7 @@ function SeverityDonut({ counts, size = 160, showLegend = false, emptyText = "No
         </ResponsiveContainer>
         {size >= 80 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="font-bold text-ink-800 dark:text-ink-100" style={{ fontSize: Math.max(12, size * 0.14) }}>
+            <span className="font-bold text-ink-800 dark:text-ink-100" style={{ fontSize: Math.max(12, Math.min(size * 0.14, (size * 0.51 * 0.92) / (total.toLocaleString().length * 0.62))) }}>
               {total.toLocaleString()}
             </span>
             <span className="text-ink-500 dark:text-ink-400" style={{ fontSize: Math.max(10, size * 0.10) }}>findings</span>

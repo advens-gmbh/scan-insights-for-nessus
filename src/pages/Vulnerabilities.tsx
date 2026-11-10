@@ -115,7 +115,7 @@ export default function Vulnerabilities() {
         case "metasploit": cmp = Number(a.metasploit_available) - Number(b.metasploit_available); break;
         case "ease":       cmp = (a.exploit_ease ?? "").localeCompare(b.exploit_ease ?? ""); break;
       }
-      return sortDir === "desc" ? -cmp : cmp;
+      return (sortDir === "desc" ? -cmp : cmp) || b.severity - a.severity || b.host_count - a.host_count;
     });
   }, [filtered, sortKey, sortDir]);
 
@@ -171,7 +171,7 @@ export default function Vulnerabilities() {
           <select
             value={fileFilter}
             onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-xs w-auto"
+            className="input h-8 py-0 text-xs w-auto max-w-[16rem]"
           >
             <option value="all">All files</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
@@ -186,11 +186,12 @@ export default function Vulnerabilities() {
           />
         </div>
 
-        <ColumnPicker table={table} />
-
-        <span className="text-xs text-ink-400 shrink-0">
-          {sorted.length.toLocaleString()} results
-        </span>
+        <div className="flex items-center gap-3 shrink-0">
+          <ColumnPicker table={table} />
+          <span className="text-xs text-ink-400">
+            {sorted.length.toLocaleString()} {sorted.length === 1 ? "vulnerability" : "vulnerabilities"}
+          </span>
+        </div>
       </div>
 
       {/* Table - fills remaining height, scrolls internally so thead stays sticky */}

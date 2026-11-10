@@ -20,10 +20,22 @@ fn require_hosts(file: NessusFile) -> Result<NessusFile, String> {
     Ok(file)
 }// require_hosts
 
+// the window gets first the file without its hosts. The hosts follow in pages
+#[derive(Serialize)]
+pub struct LoadedFile {
+    id: String,
+    filename: String,
+    path: String,
+    loaded_at: String,
+    report_name: String,
+    target: Option<String>,
+    host_count: usize,
+}// LoadedFile
+
 // `async` keeps this off the main thread, so the window stays responsive while
-// a large scan is parsed and serialized.
+// a large scan is parsed
 #[tauri::command(async)]
-pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<Arc<NessusFile>, String> {
+pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<LoadedFile, String> {
     let parsed = Arc::new(require_hosts(parse_nessus_file(&path)?)?);
     let mut files = state.files.lock().unwrap();
     // replace if same path already loaded
@@ -31,8 +43,41 @@ pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<Arc
         files.remove(pos);
     }
     files.push(Arc::clone(&parsed));
-    Ok(parsed)
+    Ok(LoadedFile {
+        id: parsed.id.clone(),
+        filename: parsed.filename.clone(),
+        path: parsed.path.clone(),
+        loaded_at: parsed.loaded_at.clone(),
+        report_name: parsed.report_name.clone(),
+        target: parsed.target.clone(),
+        host_count: parsed.hosts.len(),
+    })
 }// load_nessus_file
+
+// Roughly how much one page of hosts may hold
+const PAGE_BYTES: usize = 16 * 1024 * 1024;
+
+fn host_page(file: &NessusFile, start: usize, limit: usize) -> Result<String, String> {
+    let mut json = String::from("{\"hosts\":[");
+    let mut next = start.min(file.hosts.len());
+    while next < file.hosts.len() && (next == start || json.len() < limit) {
+        if next > start {
+            json.push(',');
+        }
+        json.push_str(&serde_json::to_string(&file.hosts[next]).map_err(|e| e.to_string())?);
+        next += 1;
+    }
+    json.push_str(&format!("],\"next\":{next}}}"));
+    Ok(json)
+}// host_page
+
+#[tauri::command(async)]
+pub fn file_hosts(state: State<'_, AppState>, id: String, start: usize) -> Result<tauri::ipc::Response, String> {
+    let file = state.files.lock().unwrap().iter().find(|f| f.id == id).cloned()
+        .ok_or_else(|| "The file was closed while it was loading.".to_string())?;
+    // already JSON, so it goes to the window as it is
+    Ok(tauri::ipc::Response::new(host_page(&file, start, PAGE_BYTES)?))
+}// file_hosts
 
 #[tauri::command]
 pub fn unload_file(state: State<'_, AppState>, id: String) -> Result<(), String> {
@@ -147,7 +192,7 @@ pub fn open_url(url: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_web_url, require_hosts, save_json};
+    use super::{host_page, is_web_url, require_hosts, save_json};
     use crate::parser::parse_str;
     use crate::private_file::testing::TempDir;
 
@@ -181,6 +226,37 @@ mod tests {
         }
         let scan = r#"<NessusClientData_v2><Report name="r"><ReportHost name="10.0.0.1"></ReportHost></Report></NessusClientData_v2>"#;
         assert!(require_hosts(parse_str(scan).unwrap()).is_ok());
+    }
+
+    #[test]
+    fn hosts_go_out_in_pages_that_together_hold_every_host() {
+        let hosts: String = (1..=50)
+            .map(|n| format!(r#"<ReportHost name="10.0.0.{n}"><ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="{n}" pluginName="P{n}" pluginFamily="F"><description>{}</description></ReportItem></ReportHost>"#, "x".repeat(n * 40)))
+            .collect();
+        let file = parse_str(&format!(r#"<NessusClientData_v2><Report name="r">{hosts}</Report></NessusClientData_v2>"#)).unwrap();
+
+        let mut seen = Vec::new();
+        let mut start = 0;
+        let mut pages = 0;
+        while start < file.hosts.len() {
+            let page: serde_json::Value = serde_json::from_str(&host_page(&file, start, 4_000).unwrap()).unwrap();
+            let got = page["hosts"].as_array().unwrap();
+            assert!(!got.is_empty(), "every page moves on");
+            seen.extend(got.iter().map(|h| h["ip"].as_str().unwrap().to_string()));
+            start = page["next"].as_u64().unwrap() as usize;
+            pages += 1;
+        }
+        assert!(pages > 3, "small pages split the file, got {pages}");
+        assert_eq!(seen, file.hosts.iter().map(|h| h.ip.clone()).collect::<Vec<_>>());
+
+        // a host larger than a page still comes through, alone
+        let one: serde_json::Value = serde_json::from_str(&host_page(&file, 49, 10).unwrap()).unwrap();
+        assert_eq!(one["hosts"].as_array().unwrap().len(), 1);
+        assert_eq!(one["next"], 50);
+        // past the end is an empty page, not an error
+        let end: serde_json::Value = serde_json::from_str(&host_page(&file, 99, 10).unwrap()).unwrap();
+        assert_eq!(end["hosts"].as_array().unwrap().len(), 0);
+        assert_eq!(end["next"], 50);
     }
 
     #[test]
