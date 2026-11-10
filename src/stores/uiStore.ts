@@ -38,6 +38,15 @@ interface UiStore {
   exportSeverities: number[];
   setExportSeverities: (severities: number[]) => void;
   setTrendChart: (chart: "lines" | "bars") => void;
+  topologyMoved: Record<string, { x: number; y: number }>; // boxes dragged on the map
+  moveTopologyNode: (id: string, by: { x: number; y: number }) => void;
+  resetTopologyLayout: () => void;
+  topologyPanel: boolean;
+  toggleTopologyPanel: () => void;
+  topologyOpen: string[];               // address blocks unfolded on the map
+  toggleTopologyBlock: (id: string) => void;
+  topologyTarget: string | null;        // the network the way is shown to
+  setTopologyTarget: (target: string | null) => void;
   // Theme
   toggleTheme: () => void;
   setTheme: (t: "light" | "dark") => void;
@@ -76,6 +85,15 @@ export const useUiStore = create<UiStore>((set, get) => ({
   exportSeverities: [4, 3, 2, 1, 0],
   setExportSeverities: (severities) => set({ exportSeverities: severities }),
   setTrendChart: (chart) => set({ trendChart: chart }),
+  topologyMoved: {},
+  moveTopologyNode: (id, by) => set((s) => ({ topologyMoved: { ...s.topologyMoved, [id]: by } })),
+  resetTopologyLayout: () => set({ topologyMoved: {} }),
+  topologyPanel: true,
+  toggleTopologyPanel: () => set((s) => ({ topologyPanel: !s.topologyPanel })),
+  topologyOpen: [],
+  toggleTopologyBlock: (id) => set((s) => ({ topologyOpen: s.topologyOpen.includes(id) ? s.topologyOpen.filter((x) => x !== id) : [...s.topologyOpen, id] })),
+  topologyTarget: null,
+  setTopologyTarget: (target) => set({ topologyTarget: target }),
 
   openVulnPanel: (pluginId, fileId) => set({ vulnPanelId: pluginId, vulnPanelFileId: fileId ?? null, hostPanelIp: null, servicePanelKey: null, filePanelId: null }),
   openHostPanel: (ip, fileId) => set({ hostPanelIp: ip, hostPanelFileId: fileId ?? null, vulnPanelId: null, servicePanelKey: null, filePanelId: null }),

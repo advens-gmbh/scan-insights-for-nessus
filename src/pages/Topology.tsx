@@ -1,107 +1,189 @@
-import { useMemo } from "react";
-import { TriangleAlert } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
-import { buildHostEntries, SEVERITY_ORDER, SEVERITY_LABELS, SEVERITY_COLORS } from "../types/nessus";
-import NetworkGraph from "../components/topology/NetworkGraph";
+import { useUiStore } from "../stores/uiStore";
+import { buildHostEntries } from "../types/nessus";
+import type { HostEntry } from "../types/nessus";
 import SeverityPills from "../components/common/SeverityPills";
+import WaysMap from "../components/topology/WaysMap";
+import type { WaysControls } from "../components/topology/WaysMap";
+import { MachineList, MachinePanel, WayPanel, machineScore, strengthRank } from "../components/topology/TopologyPanel";
+import type { HiddenNet, Level } from "../components/topology/TopologyPanel";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
+import { buildTopology, buildWays, findWay, netEnd } from "../utils/topology";
+import type { Bridge, WayMachine } from "../utils/topology";
 import EmptyFilesNotice from "./EmptyFilesNotice";
-import { accent, ink } from "../theme/colors";
 
-const ALL_SEVERITIES = new Set<number>(SEVERITY_ORDER);
-// hosts with only info findings would bury the rest of the graph
+// hosts with only info findings would bury the rest
 const START_SELECTED = [4, 3, 2, 1];
+
+const LEVELS: Level[] = [
+  { sev: 4, key: "critical", label: "Critical", fg: "text-critical-fg" },
+  { sev: 3, key: "high",     label: "High",     fg: "text-high-fg" },
+  { sev: 2, key: "medium",   label: "Medium",   fg: "text-medium-fg" },
+  { sev: 1, key: "low",      label: "Low",      fg: "text-low-fg" },
+  { sev: 0, key: "info",     label: "Info",     fg: "text-info-fg" },
+];
+
+const ICON_BUTTON = "h-8 w-8 flex items-center justify-center text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-700";
 
 export default function Topology() {
   const files = useScanStore((s) => s.files);
-  const { selected, toggle } = useSeverityFilter("topology", START_SELECTED);
+  const panel = useUiStore((s) => s.topologyPanel);
+  const togglePanel = useUiStore((s) => s.toggleTopologyPanel);
+  const resetLayout = useUiStore((s) => s.resetTopologyLayout);
+  const open = useUiStore((s) => s.topologyOpen);
+  const toggleBlock = useUiStore((s) => s.toggleTopologyBlock);
+  const target = useUiStore((s) => s.topologyTarget);
+  const setTarget = useUiStore((s) => s.setTopologyTarget);
+  const { selected: severities, toggle } = useSeverityFilter("topology", START_SELECTED);
+  const [hovered, setHovered] = useState<Bridge | null>(null);
+  const [machineId, setMachineId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const map = useRef<WaysControls>(null);
+
   const hosts = useMemo(() => buildHostEntries(files), [files]);
-  const shown = useMemo(() => (selected.length === 0 ? ALL_SEVERITIES : new Set(selected)), [selected]);
+  const topo = useMemo(() => buildTopology(hosts), [hosts]);
+  const graph = useMemo(() => buildWays(topo, new Set(open)), [topo, open]);
   const severityCounts = useMemo(() => countBySeverity(hosts.map((h) => severitiesOf(h.severity_counts))), [hosts]);
+  const levels = useMemo(() => LEVELS.filter((l) => severities.length === 0 || severities.includes(l.sev)), [severities]);
+  const worstShown = useCallback((h: HostEntry) => levels.find((l) => h.severity_counts[l.key] > 0)?.sev ?? null, [levels]);
+
+  const goal = target && graph.nodeOf.has(target) ? target : null;
+  const way = useMemo(() => (goal ? findWay(graph, goal) : null), [graph, goal]);
+  const machines = useMemo(() => graph.nodes.filter((n): n is WayMachine => n.kind === "machine"), [graph]);
+  const lit = hovered ? machines.find((m) => m.bridge?.key === hovered.key)?.id ?? null : null;
+  const machine = machines.find((m) => m.id === machineId) ?? null;
+
+  const hidden = useMemo<HiddenNet[]>(() => [...graph.nets.values()]
+    .filter((n) => !n.group && n.scanners.length === 0)
+    .map((n) => {
+      const end = netEnd(n.key);
+      const via = graph.edges.filter((e) => e.a === end || e.b === end).map((e) => machines.find((m) => m.id === (e.a === end ? e.b : e.a))?.name).find(Boolean);
+      return { target: end, key: n.key, via: via ?? "a machine" };
+    }), [graph, machines]);
+
+  const choices = useMemo(() => {
+    const all = [...graph.nets.values()].filter((n) => n.scanners.length === 0).sort((a, b) => a.net.base - b.net.base || a.net.prefix - b.net.prefix);
+    return { never: all.filter((n) => !n.group), scanned: all.filter((n) => n.group) };
+  }, [graph]);
 
   if (files.length === 0) {
     return <EmptyFilesNotice />;
   }
 
+  const pick = (end: string | null) => {
+    setMachineId(null);
+    setTarget(end === target ? null : end);
+    // a network folded into a block opens it, so the way ends at the network itself
+    const home = end ? graph.nodeOf.get(end) : undefined;
+    if (end && home && home !== end && !open.includes(home)) {
+      toggleBlock(home);
+    }
+    if (end && !panel) {
+      togglePanel();
+    }
+  };
+  const showMachine = (id: string) => {
+    setMachineId(id === machineId ? null : id);
+    if (!panel) {
+      togglePanel();
+    }
+  };
+  const bridges = [...topo.bridges].sort((a, b) => strengthRank(b.strength) - strengthRank(a.strength) || machineScore(b, levels) - machineScore(a, levels));
+
   return (
-    <div className="flex flex-col gap-4 h-full" style={{ height: "calc(100vh - 100px)" }}>
-      {/* Controls */}
-      <div className="flex items-center gap-4 flex-wrap shrink-0">
-        <h2 className="font-semibold text-ink-700 dark:text-ink-200">Network Topology</h2>
-        <p className="text-xs text-ink-400">
-          Subnet-inferred topology - hosts grouped by /24 subnet, colored by worst severity.
-        </p>
-        <div className="ml-auto">
-          <SeverityPills counts={severityCounts} selected={selected} onToggle={toggle} />
-        </div>
+    <div className="h-full min-h-[480px] flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <SeverityPills counts={severityCounts} selected={severities} onToggle={toggle} />
+        <span className="flex-1" />
+        <label className="inline-flex items-center gap-2 h-8 pl-2.5 pr-1 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-[13px] text-ink-500 dark:text-ink-400">
+          Attack path to
+          <select
+            value={goal ?? ""}
+            onChange={(e) => pick(e.target.value || null)}
+            className="h-6 max-w-[190px] rounded border border-ink-200 dark:border-ink-600 bg-ink-50 dark:bg-ink-900 px-1.5 text-[13px] font-semibold tabular-nums text-ink-800 dark:text-ink-100"
+          >
+            <option value="">a network…</option>
+            {choices.never.length > 0 && (
+              <optgroup label="Never scanned">
+                {choices.never.map((n) => <option key={n.key} value={netEnd(n.key)}>{n.key}</option>)}
+              </optgroup>
+            )}
+            <optgroup label="Scanned">
+              {choices.scanned.map((n) => <option key={n.key} value={netEnd(n.key)}>{n.key}</option>)}
+            </optgroup>
+          </select>
+        </label>
+        <span className="inline-flex items-center h-8 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 overflow-hidden">
+          <button onClick={() => map.current?.zoomBy(1 / 1.25)} className={ICON_BUTTON} aria-label="Zoom out"><Minus size={14} /></button>
+          <span className="w-12 text-center text-xs tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => map.current?.zoomBy(1.25)} className={ICON_BUTTON} aria-label="Zoom in"><Plus size={14} /></button>
+        </span>
+        <button onClick={() => map.current?.fit()} className="btn-ghost h-8 w-8 p-0 justify-center" title="Show everything" aria-label="Fit"><Maximize2 size={15} /></button>
+        <button
+          onClick={() => {
+            resetLayout();
+            requestAnimationFrame(() => map.current?.fit());
+          }}
+          className="btn-ghost h-8 w-8 p-0 justify-center"
+          title="Put every moved box back"
+          aria-label="Reset layout"
+        >
+          <RotateCcw size={15} />
+        </button>
+        <button
+          onClick={togglePanel}
+          aria-pressed={panel}
+          className={`h-8 px-2.5 rounded-md text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors ${
+            panel ? "bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300" : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-700"
+          }`}
+        >
+          Machines on multiple networks <strong>{topo.bridges.length}</strong>
+        </button>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-3 flex-wrap text-xs text-ink-500 dark:text-ink-400 shrink-0">
-        {SEVERITY_ORDER.map((sev) => (
-          <span key={sev} className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: SEVERITY_COLORS[sev]?.hex }} />
-            {SEVERITY_LABELS[sev]}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5" title="Virtual grouping node - represents a /24 subnet, not a real host">
-          <span className="w-8 h-3.5 rounded shrink-0 bg-ink-200 dark:bg-ink-700 border border-ink-400 dark:border-ink-500" />
-          Subnet hub
-        </span>
-        <span className="flex items-center gap-1.5" title="Two subnets appeared in the same scan file - a connection exists somewhere, but the routing host is unknown">
-          <span className="w-8 h-0 shrink-0" style={{ borderTop: `2px dashed ${ink[500]}` }} />
-          Inter-subnet link
-        </span>
-        <span className="flex items-center gap-1.5" title="Confirmed routing path - the gateway was identified via traceroute data (plugin 10287) and is known to route traffic between these two subnets">
-          <span className="w-8 h-0 shrink-0" style={{ borderTop: `2px solid ${accent[500]}` }} />
-          Gateway link
-        </span>
-        <span className="flex items-center gap-1.5" title="Host identified as a network router via traceroute (plugin 10287) - connected to both subnet hubs with teal lines">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            className="shrink-0">
-            <circle cx="8" cy="8" r="3" />
-            <line x1="8" y1="5" x2="8" y2="1.5" /><polyline points="6.5,3 8,1.5 9.5,3" />
-            <line x1="11" y1="8" x2="14.5" y2="8" /><polyline points="13,6.5 14.5,8 13,9.5" />
-            <line x1="8" y1="11" x2="8" y2="14.5" /><polyline points="6.5,13 8,14.5 9.5,13" />
-            <line x1="5" y1="8" x2="1.5" y2="8" /><polyline points="3,6.5 1.5,8 3,9.5" />
-          </svg>
-          Gateway
-        </span>
-        <span className="flex items-center gap-1.5" title="Same MAC address or NetBIOS name seen on IPs in multiple /24 subnets - likely a firewall, router, or dual-NIC server">
-          <span className="w-3 h-3 rounded-full shrink-0 border-2"
-            style={{ borderStyle: "dashed", borderColor: accent[500] }} />
-          Multi-homed
-        </span>
+      <div className="flex-1 min-h-0 flex gap-3">
+        <section className="card flex-1 min-w-0 flex flex-col overflow-hidden">
+          <WaysMap ref={map} graph={graph} way={way} target={goal} lit={lit} picked={machine?.id ?? null} worstShown={worstShown} onPick={pick} onMachine={showMachine} onZoom={setZoom} />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 border-t border-ink-100 dark:border-ink-700/50 text-xs text-ink-500 dark:text-ink-400">
+            <span className="flex items-center gap-1.5"><span className="w-4 h-3 rounded-[3px] border border-ink-300 dark:border-ink-600 bg-white dark:bg-ink-800" />Network</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-high" />Machine that connects networks, coloured by its worst finding</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[4px] bg-medium" />Router</span>
+            <span className="flex items-center gap-1.5"><span className="w-5 border-t-2 border-ink-300 dark:border-ink-600" />Confirmed</span>
+            <span className="flex items-center gap-1.5"><span className="w-5 border-t-2 border-dashed border-ink-300 dark:border-ink-600" />Likely or possible</span>
+            <span className="flex items-center gap-1.5"><span className="w-5 border-t-4 rounded border-accent-500" />Attack path</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-3 rounded-[3px] border border-dashed border-ink-400" />Never scanned</span>
+            <span className="ml-auto text-ink-400 dark:text-ink-500">Click a network for its attack path · drag to move · scroll to zoom</span>
+          </div>
+        </section>
+
+        {panel && (
+          <aside className="card w-[340px] shrink-0 flex flex-col overflow-hidden" aria-label={machine ? "Machine" : goal ? "Attack path" : "Machines on more than one network"}>
+            {machine ? (
+              <MachinePanel machine={machine} levels={levels} worstShown={worstShown} onClose={() => setMachineId(null)} onHide={togglePanel} />
+            ) : goal ? (
+              <WayPanel
+                graph={graph}
+                way={way}
+                target={goal}
+                levels={levels}
+                worstShown={worstShown}
+                hidden={hidden}
+                onPick={pick}
+                onClose={() => setTarget(null)}
+                onHide={togglePanel}
+              />
+            ) : (
+              <MachineList bridges={bridges} levels={levels} highlighted={hovered?.key ?? null} hidden={hidden} onPick={pick} onHover={setHovered} onHide={togglePanel} />
+            )}
+          </aside>
+        )}
       </div>
 
-      {/* Multi-file reliability warning */}
-      {files.length > 1 && (
-        <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-xs text-amber-800 dark:text-amber-300 shrink-0">
-          <TriangleAlert size={14} className="shrink-0 mt-0.5" />
-          <span>
-            Topology connections are inferred from IP addresses only - no physical device identity is verified.
-            If the loaded scan files are from <strong>different, unrelated environments</strong>, hosts or gateways
-            sharing the same IP (e.g. <span className="font-mono">10.0.0.1</span>) will be incorrectly shown as connected.
-            This view is only reliable when all files come from the <strong>same network environment</strong>.
-          </span>
-        </div>
-      )}
-
-      {/* Graph */}
-      <div className="card flex-1 overflow-hidden">
-        <NetworkGraph
-          key={selected.join(",")}
-          hosts={hosts}
-          files={files}
-          severityFilter={shown}
-        />
-      </div>
-
-      <p className="text-xs text-ink-400 text-center shrink-0">
-        {hosts.length} hosts across {new Set(hosts.map((h) => h.ip.split(".").slice(0, 3).join("."))).size} subnets.
-        Click any host node to view details.
+      <p className="text-xs text-ink-500 dark:text-ink-400">
+        Hosts are placed by IP address, with a /24 network unless a real mask is known. Scans of unrelated networks that reuse the same addresses would share a network here.
       </p>
     </div>
   );

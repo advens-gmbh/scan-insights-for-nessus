@@ -51,7 +51,7 @@ export default function TopBar() {
       </button>
 
       {/* unload all */}
-      {files.length > 1 && (
+      {files.length > 0 && (
         <button
           onClick={unloadAll}
           className="btn-danger text-sm"
