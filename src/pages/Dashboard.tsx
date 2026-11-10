@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Trash2, Clock, FileX, ShieldAlert, Server, Layers } from "lucide-react";
+import { Trash2, ShieldAlert, Server, Layers } from "lucide-react";
 import type { ReactNode } from "react";
 import { useScanStore } from "../stores/scanStore";
 import { useSeverityStore } from "../stores/severityStore";
@@ -19,7 +19,7 @@ import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
 import type { TableColumn } from "../utils/tableColumns";
-import logo from "../../src-tauri/icons/128x128.png";
+import Welcome from "./Welcome";
 
 const TOP_HOSTS = 10;
 const TOP_VULNS = 8;
@@ -35,22 +35,23 @@ const LEVELS = [
 type FileCol = "file" | "scanned" | "hosts" | "critical" | "high" | "medium" | "low" | "info" | "distribution" | "actions";
 
 const FILE_COLUMNS: TableColumn<FileCol>[] = [
-  { key: "file",         label: "File",         width: 200, stretch: true, required: true },
-  { key: "scanned",      label: "Scanned",      width: 160 },
-  { key: "hosts",        label: "Hosts",        width: 84,  align: "center" },
-  { key: "critical",     label: "Critical",     width: 96, align: "center" },
-  { key: "high",         label: "High",         width: 76,  align: "center" },
-  { key: "medium",       label: "Medium",       width: 96, align: "center" },
+  { key: "file",         label: "File",         width: 144, required: true },
+  { key: "scanned",      label: "Scanned",      width: 156 },
+  { key: "hosts",        label: "Hosts",        width: 76,  align: "center" },
+  { key: "critical",     label: "Critical",     width: 88, align: "center" },
+  { key: "high",         label: "High",         width: 74,  align: "center" },
+  { key: "medium",       label: "Medium",       width: 88, align: "center" },
   { key: "low",          label: "Low",          width: 72,  align: "center" },
-  { key: "info",         label: "Info",         width: 72,  align: "center" },
-  { key: "distribution", label: "Distribution", width: 120, sortable: false },
-  { key: "actions",      label: "",             width: 140, sortable: false },
+  { key: "info",         label: "Info",         width: 76,  align: "center" },
+  { key: "distribution", label: "Distribution", width: 88, sortable: false },
+  { key: "actions",      label: "",             width: 136, sortable: false },
 ];// FILE_COLUMNS
 
 const total = (c: SeverityCounts) => c.critical + c.high + c.medium + c.low + c.info;
 
 export default function Dashboard() {
-  const { files, recentFiles, openFiles, loadFile, unloadFile } = useScanStore();
+  const files = useScanStore((s) => s.files);
+  const unloadFile = useScanStore((s) => s.unloadFile);
   const navigate = useNavigate();
   const { showInfo, openVulnPanel } = useUiStore();
   const openFilePanel = useUiStore((s) => s.openFilePanel);
@@ -125,7 +126,7 @@ export default function Dashboard() {
   };
 
   if (files.length === 0) {
-    return <EmptyState openFiles={openFiles} recentFiles={recentFiles} loadFile={loadFile} />;
+    return <Welcome />;
   }
 
   const shownTotal = total(shown);
@@ -294,7 +295,7 @@ export default function Dashboard() {
                         );
                       case "actions":
                         return (
-                          <td key={col.key} className="px-2 py-2.5 text-right">
+                          <td key={col.key} className="px-1 py-2.5 text-right whitespace-nowrap">
                             <FileAction label="Vulnerabilities" onClick={() => navigate("/vulnerabilities", { state: { fileFilter: file.id } })}><ShieldAlert size={15} /></FileAction>
                             <FileAction label="Hosts" onClick={() => navigate("/hosts", { state: { fileFilter: file.id } })}><Server size={15} /></FileAction>
                             <FileAction label="Services" onClick={() => navigate("/services", { state: { fileFilter: file.id } })}><Layers size={15} /></FileAction>
@@ -338,50 +339,3 @@ function FileAction({ label, danger = false, onClick, children }: { label: strin
     </button>
   );
 }// FileAction
-
-function EmptyState({openFiles, recentFiles, loadFile,}: {
-  openFiles: () => void;
-  recentFiles: { path: string; filename: string; last_opened: string }[];
-  loadFile: (path: string) => Promise<unknown>;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <img src={logo} alt="" className="w-16 h-16 rounded-2xl" />
-        <h1 className="text-2xl font-bold text-ink-800 dark:text-ink-100">
-          Scan Insights for Nessus
-        </h1>
-        <p className="text-ink-500 dark:text-ink-400 max-w-sm">
-          Load one or more <code className="bg-ink-100 dark:bg-ink-700 px-1 rounded">.nessus</code> scan
-          files to start analyzing vulnerabilities.
-        </p>
-        <button onClick={openFiles} className="btn-primary mt-2 px-5 py-2.5">
-          <FolderOpen size={16} /> Open .nessus File
-        </button>
-      </div>
-
-      {recentFiles.length > 0 && (
-        <div className="w-full max-w-md">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100 mb-2.5 flex items-center gap-1.5">
-            <Clock size={14} className="text-ink-500 dark:text-ink-400" /> Recent files
-          </h2>
-          <div className="card divide-y divide-ink-100 dark:divide-ink-700">
-            {recentFiles.slice(0, 5).map((f) => (
-              <button
-                key={f.path}
-                onClick={() => loadFile(f.path)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-ink-50 dark:hover:bg-ink-700/50 text-left transition-colors"
-              >
-                <FileX size={14} className="text-ink-400 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-ink-700 dark:text-ink-300 truncate">{f.filename}</p>
-                  <p className="text-xs text-ink-400 truncate">{f.path}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}// EmptyState

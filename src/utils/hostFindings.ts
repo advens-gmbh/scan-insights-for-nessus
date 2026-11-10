@@ -11,8 +11,9 @@ export interface PortGroup {
   worst: number;
 }// PortGroup
 
+const names = new Intl.Collator();
 const bySeverityThenName = (a: ReportItem, b: ReportItem) =>
-  b.severity - a.severity || a.plugin_name.localeCompare(b.plugin_name);
+  b.severity - a.severity || names.compare(a.plugin_name, b.plugin_name);
 
 export function sortFindings(items: ReportItem[]): ReportItem[] {
   return [...items].sort(bySeverityThenName);

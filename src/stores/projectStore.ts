@@ -15,6 +15,7 @@ interface ProjectStore {
   renameProject: (id: string, name: string) => void;
   addFileToProject: (projectId: string, file: ProjectFilePath) => void;
   removeFileFromProject: (projectId: string, filePath: string) => void;
+  markOpened: (id: string) => void;
 }// ProjectStore
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -78,6 +79,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         ? { ...p, file_paths: p.file_paths.filter((fp) => fp.path !== filePath) }
         : p
     );
+    get().save(updated);
+  },
+
+  // for "opened 2 hours ago" on the start screen
+  markOpened: (id) => {
+    const updated = get().projects.map((p) => (p.id === id ? { ...p, last_opened: new Date().toISOString() } : p));
     get().save(updated);
   },
 }));// useProjectStore

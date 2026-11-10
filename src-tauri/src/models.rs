@@ -75,6 +75,8 @@ pub struct Project {
     #[serde(default)]
     pub file_paths: Vec<ProjectFilePath>,
     pub created_at: String,
+    #[serde(default)]
+    pub last_opened: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -88,6 +90,8 @@ pub struct RecentFile {
     pub path: String,
     pub filename: String,
     pub last_opened: String,
+    #[serde(default)]
+    pub report_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

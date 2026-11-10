@@ -283,6 +283,28 @@ describe("ways in", () => {
     expect(way.edges.slice(-1)[0].link).toBe("confirmed");
   });
 
+  it("a way through a block enters and leaves through one network: the one of the most exposed machine", () => {
+    const counts = (critical: number) => ({ critical, high: 0, medium: 0, low: 0, info: 0 });
+    const nets = Array.from({ length: FOLD_AT + 1 }, (_, i) => traced(`10.10.${i + 1}.5`, ["10.0.0.1"]));
+    const servers = Array.from({ length: CROWD_AT + 1 }, (_, i) =>
+      traced(`10.10.${i + 1}.6`, ["10.0.0.1"], [wmi([[`10.10.${i + 1}.6`, "nic1"], [`192.168.50.${i + 10}`, "nic2"]])], { hostname: `srv-${i}`, severity_counts: counts(i === 3 ? 9 : 1) }));
+    const t = buildTopology([traced("10.0.0.9", []), ...nets, ...servers]);
+    const block = buildWays(t).nodes.find((n) => n.kind === "block")!;
+    for (const open of [new Set<string>(), new Set([block.id])]) {
+      const g = buildWays(t, open);
+      const way = findWay(g, "net:192.168.50.0/24")!;
+      const at = way.nodes.indexOf(block.id);
+      expect(g.nodes.find((n) => n.id === way.nodes[at + 1])?.kind).toBe("crowd");
+      const inside = (e: { a: string; b: string }) => (g.nodeOf.get(e.a) === block.id ? e.a : e.b);
+      expect(inside(way.edges[at - 1])).toBe("net:10.10.4.0/24");
+      expect(inside(way.edges[at])).toBe("net:10.10.4.0/24");
+    }
+    // a way ending inside an open block ends at the network asked for
+    const g = buildWays(t, new Set([block.id]));
+    const way = findWay(g, "net:10.10.7.0/24")!;
+    expect([way.edges.slice(-1)[0].a, way.edges.slice(-1)[0].b]).toContain("net:10.10.7.0/24");
+  });
+
   it("too few alike machines stay on their own", () => {
     const g = buildWays(buildTopology([traced("10.0.0.9", []), ...backupServers(CROWD_AT - 1)]));
     expect(g.nodes.filter((n) => n.kind === "crowd")).toHaveLength(0);

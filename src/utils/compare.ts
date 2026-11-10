@@ -1,6 +1,6 @@
 import { severityCounts } from "../types/nessus";
 import type { NessusFile, ReportHost, ReportItem, SeverityCounts } from "../types/nessus";
-import { scanWindow } from "./dashboard";
+import { fileStart, rememberPair } from "./fileFacts";
 
 export interface DeltaItem {
   pluginId: number;
@@ -152,7 +152,33 @@ function coverageGap(pair: HostPair, seenIn: "A" | "B"): string | undefined {
   return undefined;
 }// coverageGap
 
+// kept per pair of files is used when going back to Compare, or swapping back, so there is no delay
+const deltas = new WeakMap<NessusFile, WeakMap<NessusFile, ScanDelta>>();
+
 export function compareScans(a: NessusFile, b: NessusFile): ScanDelta {
+  return rememberPair(deltas, a, b, () => scanDelta(a, b));
+}// compareScans
+
+const infos = new WeakMap<NessusFile, WeakMap<NessusFile, Map<number, { name: string; severity: number }>>>();
+
+export function pluginInfo(a: NessusFile, b: NessusFile): Map<number, { name: string; severity: number }> {
+  return rememberPair(infos, a, b, () => {
+    const m = new Map<number, { name: string; severity: number }>();
+    for (const f of [a, b]) {
+      for (const host of f.hosts) {
+        for (const item of host.items) {
+          const known = m.get(item.plugin_id);
+          if (!known || item.severity > known.severity) {
+            m.set(item.plugin_id, { name: item.plugin_name, severity: item.severity });
+          }
+        }
+      }
+    }
+    return m;
+  });
+}// pluginInfo
+
+function scanDelta(a: NessusFile, b: NessusFile): ScanDelta {
   const pairs = pairHosts(a, b);
   const delta: ScanDelta = { pairs, newItems: [], resolvedItems: [], persistedItems: [], unverifiedItems: [] };
 
@@ -189,7 +215,7 @@ export function compareScans(a: NessusFile, b: NessusFile): ScanDelta {
   }
 
   return delta;
-}// compareScans
+}// scanDelta
 
 export type VulnChange = "new" | "fixed" | "unverified" | "partly" | "increased" | "changed" | "unchanged";
 
@@ -332,8 +358,7 @@ export function defaultPair(files: NessusFile[]): [string, string] | null {
     return null;
   }
 
-  const started = (f: NessusFile) => scanWindow(f.hosts).start?.getTime() ?? new Date(f.loaded_at).getTime();
-  const byTime = [...files].sort((x, y) => started(x) - started(y));
+  const byTime = [...files].sort((x, y) => fileStart(x) - fileStart(y));
   const newest = byTime[byTime.length - 1];
   const earlier = byTime.slice(0, -1);
   const sameScan = earlier.filter((f) => f.report_name && f.report_name === newest.report_name);

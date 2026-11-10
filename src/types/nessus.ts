@@ -57,6 +57,7 @@ export interface NessusFile {
   report_name: string;
   target: string | null;
   hosts: ReportHost[];
+  size?: number;
 }// NessusFile
 
 export interface SeverityCounts {
@@ -79,6 +80,7 @@ export interface Project {
   file_ids: string[];
   file_paths: ProjectFilePath[];
   created_at: string;
+  last_opened?: string | null;
 }// Project
 
 export interface AppSettings {
@@ -90,6 +92,7 @@ export interface RecentFile {
   path: string;
   filename: string;
   last_opened: string;
+  report_name?: string | null;
 }// RecentFile
 
 export interface ExportRequest {

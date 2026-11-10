@@ -6,8 +6,8 @@ import { formatDate } from "../utils/format";
 import { Tag } from "../panels/PanelParts";
 
 export default function Projects() {
-  const { projects, createProject, deleteProject, renameProject, addFileToProject, removeFileFromProject } = useProjectStore();
-  const { files, loadFile, unloadAll } = useScanStore();
+  const { projects, createProject, deleteProject, renameProject, addFileToProject, removeFileFromProject, markOpened } = useProjectStore();
+  const { files, loadFiles, unloadAll } = useScanStore();
   const [newName, setNewName] = useState("");
   const [withLoaded, setWithLoaded] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,10 +48,10 @@ export default function Projects() {
     }
 
     setLoadingId(projectId);
+    markOpened(projectId);
     await unloadAll();
-    for (const fp of project.file_paths) {
-      await loadFile(fp.path);
-    }
+    // one batch, so the progress reads "file 2 of 4"
+    await loadFiles(project.file_paths.map((fp) => fp.path));
     setLoadingId(null);
   };
 

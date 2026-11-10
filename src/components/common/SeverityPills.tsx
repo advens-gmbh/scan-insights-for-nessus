@@ -33,7 +33,7 @@ export default function SeverityPills({ counts, selected, onToggle }: Props) {
             aria-pressed={active}
             className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${active ? COLORS[sev].on : COLORS[sev].off}`}
           >
-            {SEVERITY_LABELS[sev]} {count}
+            {SEVERITY_LABELS[sev]} {count.toLocaleString()}
           </button>
         );
       })}

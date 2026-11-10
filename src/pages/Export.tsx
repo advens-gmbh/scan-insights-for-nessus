@@ -47,7 +47,7 @@ export default function Export() {
   const perFile = useMemo(() => new Map(files.map((f) => [f.id, countsOf(f)])), [files]);
 
   if (files.length === 0) {
-    return <EmptyFilesNotice />;
+    return <EmptyFilesNotice page="export" />;
   }
 
   const excludedIds = new Set(exportExcludedIds);
@@ -100,30 +100,43 @@ export default function Export() {
             <button onClick={() => setExportExcludedIds(files.map((f) => f.id))} className="btn-ghost h-7 px-2 text-xs">Clear</button>
           </span>
         </div>
-        <ul className="-mx-1">
-          {sorted.map((f) => {
-            const start = scanWindow(f.hosts).start;
-            const counts = perFile.get(f.id)!;
-            return (
-              <li key={f.id}>
-                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_5rem_minmax(14rem,auto)] items-center gap-3 px-1 py-1.5 rounded-md cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-sm">
-                  <input type="checkbox" checked={!excludedIds.has(f.id)} onChange={() => toggleFile(f.id)} className="rounded accent-accent-600" />
-                  <span className="truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</span>
-                  <span className="truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</span>
-                  <span className="tabular-nums text-ink-500 dark:text-ink-400">{start ? formatScanStart(start) : "-"}</span>
-                  <span className="tabular-nums text-right text-ink-500 dark:text-ink-400">{f.hosts.length} hosts</span>
-                  <span className="flex justify-end gap-3 tabular-nums text-[13px]">
+        <div className="-mx-1 overflow-x-auto">
+          <table className="w-full text-sm">
+            <tbody>
+              {sorted.map((f) => {
+                const start = scanWindow(f.hosts).start;
+                const counts = perFile.get(f.id)!;
+                return (
+                  <tr key={f.id} onClick={() => toggleFile(f.id)} className="cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50">
+                    <td className="pl-1 pr-3 py-1.5 w-6">
+                      <input
+                        type="checkbox"
+                        checked={!excludedIds.has(f.id)}
+                        onChange={() => toggleFile(f.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Include ${f.filename}`}
+                        className="rounded accent-accent-600 align-middle"
+                      />
+                    </td>
+                    <td className="pr-3 py-1.5 w-[32%] max-w-0 truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</td>
+                    <td className="pr-3 py-1.5 w-[22%] max-w-0 truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</td>
+                    <td className="pr-3 py-1.5 whitespace-nowrap tabular-nums text-ink-500 dark:text-ink-400">{start ? formatScanStart(start) : "-"}</td>
+                    <td className="pr-3 py-1.5 whitespace-nowrap tabular-nums text-right text-ink-500 dark:text-ink-400">{f.hosts.length.toLocaleString()} {f.hosts.length === 1 ? "host" : "hosts"}</td>
                     {SEVERITY_ORDER.map((sev) => (
-                      <span key={sev} title={`${counts[sev]} ${SEVERITY_LABELS[sev]}`} className={`w-9 text-right font-semibold ${counts[sev] > 0 && severities.includes(sev) ? SEVERITY_COUNT_CLASS[sev] : "text-ink-300 dark:text-ink-600"}`}>
-                        {counts[sev]}
-                      </span>
+                      <td
+                        key={sev}
+                        title={`${counts[sev].toLocaleString()} ${SEVERITY_LABELS[sev]}`}
+                        className={`pl-3 py-1.5 last:pr-1 whitespace-nowrap tabular-nums text-right text-[13px] font-semibold ${counts[sev] > 0 && severities.includes(sev) ? SEVERITY_COUNT_CLASS[sev] : "text-ink-300 dark:text-ink-600"}`}
+                      >
+                        {counts[sev].toLocaleString()}
+                      </td>
                     ))}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* What goes in, and the export */}

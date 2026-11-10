@@ -157,7 +157,7 @@ export default function Vulnerabilities() {
   );
 
   if (files.length === 0) {
-    return <EmptyFilesNotice />;
+    return <EmptyFilesNotice page="vulnerabilities" />;
   }
 
   return (
@@ -295,7 +295,7 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
           case "hosts":
             return (
               <td key={col.key} className="table-cell text-center font-semibold text-ink-700 dark:text-ink-200">
-                {vuln.host_count}
+                {vuln.host_count.toLocaleString()}
               </td>
             );
           case "patch":

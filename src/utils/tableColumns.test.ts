@@ -31,6 +31,13 @@ describe("visibleColumns", () => {
     const keys = visibleColumns(COLUMNS, defaultLayout(COLUMNS)).map((c) => c.key);
     expect(keys).toEqual(["ip", "name", "os"]);
   });
+
+  it("shows an Info column exactly when Show Info is on, whatever the stored layout says", () => {
+    const cols: TableColumn[] = [{ key: "host", label: "Host", width: 100 }, { key: "info", label: "Info", width: 80, info: true }];
+    const hiddenBefore = { hidden: ["info"], widths: null, baseline: null };
+    expect(visibleColumns(cols, hiddenBefore, true).map((c) => c.key)).toEqual(["host", "info"]);
+    expect(visibleColumns(cols, defaultLayout(cols), false).map((c) => c.key)).toEqual(["host"]);
+  });
 });
 
 describe("toggleColumn", () => {

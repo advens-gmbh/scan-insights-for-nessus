@@ -219,7 +219,7 @@ export default function Hosts() {
   );
 
   if (files.length === 0) {
-    return <EmptyFilesNotice />;
+    return <EmptyFilesNotice page="hosts" />;
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -440,7 +440,7 @@ function macAddresses(mac: string | null): string[] {
 
 function SevCount({ value, sev }: { value: number; sev: number }) {
   const color = { 4: "text-critical-fg", 3: "text-high-fg", 2: "text-medium-fg", 1: "text-low-fg", 0: "text-info-fg" }[sev] ?? "text-info-fg";
-  return <span className={`font-semibold text-sm ${color}`}>{value}</span>;
+  return <span className={`font-semibold text-sm ${color}`}>{value.toLocaleString()}</span>;
 }// SevCount
 
 function Dash() {

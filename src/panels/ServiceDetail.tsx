@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useAfterPaint } from "../hooks/useAfterPaint";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
 import { buildHostEntries, buildServiceEntries, buildVulnEntries, isHttps, isPlainHttp, ratedScore } from "../types/nessus";
@@ -27,8 +28,9 @@ export default function ServiceDetail({ serviceKey }: { serviceKey: string }) {
 
 function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: () => void }) {
   const fileId = useUiStore((s) => s.servicePanelFileId) ?? undefined;
-  const showInfo = useUiStore((s) => s.showInfo);
-  const grouped = useUiStore((s) => s.groupServiceFindings);
+  const showInfo = useAfterPaint(useUiStore((s) => s.showInfo));
+  const groupedNow = useUiStore((s) => s.groupServiceFindings);
+  const grouped = useAfterPaint(groupedNow);
   const toggleGrouped = useUiStore((s) => s.toggleGroupServiceFindings);
   const allFiles = useScanStore((s) => s.files);
 
@@ -40,6 +42,10 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
   const hosts = buildHostEntries(files);
   const hostnames = useMemo(() => new Map(hosts.map((h) => [h.ip, h.hostname ?? h.netbios])), [hosts]);
   const scores = useMemo(() => new Map(buildVulnEntries(files).map((v) => [v.plugin_id, ratedScore(v)])), [files]);
+  const hostGroups = useMemo(
+    () => (grouped && service ? groupByHost(hosts, service.port, service.protocol, (i) => showInfo || i.severity > 0) : []),
+    [grouped, service, hosts, showInfo]
+  );
 
   if (!service) {
     return null;
@@ -100,7 +106,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
             <div className="flex items-center gap-3">
               <ShowInfoCheckbox />
               <label className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
-                <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
+                <input type="checkbox" checked={groupedNow} onChange={toggleGrouped} className="rounded accent-accent-600" />
                 Group by host
               </label>
             </div>
@@ -110,7 +116,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
             <p className="text-ink-500 dark:text-ink-400 text-center py-4">No findings above Info on this port.</p>
           ) : grouped ? (
             <FindingGroups
-              groups={groupByHost(hosts, port, protocol, (i) => showInfo || i.severity > 0)}
+              groups={hostGroups}
               noun={["host", "hosts"]}
               fileId={fileId}
               showInfo={showInfo}
@@ -173,7 +179,7 @@ function FindingRow({ pluginId, name, severity, hostCount, fileId, children }: {
     <tr onClick={() => openVulnPanel(pluginId, fileId)} className="border-t border-ink-100 dark:border-ink-700 cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-800">
       <td className="px-3 py-1.5"><SeverityBadge severity={severity} size="sm" /></td>
       <td className="px-3 py-1.5 truncate"><FindingName pluginId={pluginId} name={name} fileId={fileId} /></td>
-      <td className="px-3 py-1.5 text-right text-ink-700 dark:text-ink-200">{hostCount}</td>
+      <td className="px-3 py-1.5 text-right text-ink-700 dark:text-ink-200">{hostCount.toLocaleString()}</td>
       <td className="px-3 py-1.5 text-right">{children}</td>
     </tr>
   );

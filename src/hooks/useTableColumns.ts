@@ -12,14 +12,15 @@ import {
 } from "../utils/tableColumns";
 import type { TableColumn } from "../utils/tableColumns";
 
-export function useTableColumns<K extends string>(tableId: string, columns: TableColumn<K>[]) {
+export function useTableColumns<K extends string>(tableId: string, columns: TableColumn<K>[], showInfo = false) {
   const stored = useTableStore((s) => s.layouts[tableId]);
   const setLayout = useTableStore((s) => s.setLayout);
   const clearLayout = useTableStore((s) => s.clearLayout);
   const dragged = useRef(false);
 
   const layout = useMemo(() => stored ?? defaultLayout(columns), [stored, columns]);
-  const visible = useMemo(() => visibleColumns(columns, layout), [columns, layout]);
+  const visible = useMemo(() => visibleColumns(columns, layout, showInfo), [columns, layout, showInfo]);
+  const pickable = useMemo(() => columns.filter((c) => !c.info), [columns]);
   const style = useMemo(() => tableStyle(visible, layout), [visible, layout]);
 
   const latestLayout = () => useTableStore.getState().layouts[tableId] ?? defaultLayout(columns);
@@ -52,7 +53,7 @@ export function useTableColumns<K extends string>(tableId: string, columns: Tabl
   };
 
   return {
-    columns,
+    columns: pickable,
     visible,
     style,
     isVisible: (key: K) => !layout.hidden.includes(key),

@@ -10,13 +10,14 @@ import type { WaysControls } from "../components/topology/WaysMap";
 import { CrowdPanel, MachineList, MachinePanel, WayPanel, machineScore, strengthRank } from "../components/topology/TopologyPanel";
 import type { HiddenNet, Level } from "../components/topology/TopologyPanel";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
+import { useSeverityStore } from "../stores/severityStore";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
-import { buildTopology, buildWays, findWay, netEnd } from "../utils/topology";
+import { findWay, netEnd, topologyOf, waysOf } from "../utils/topology";
 import type { Bridge, WayCrowd } from "../utils/topology";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import { usePageState } from "../stores/pageStore";
 
-// hosts with only info findings would bury the rest
+// every criticality selected expect info
 const START_SELECTED = [4, 3, 2, 1];
 
 const LEVELS: Level[] = [
@@ -38,17 +39,30 @@ export default function Topology() {
   const toggleBlock = useUiStore((s) => s.toggleTopologyBlock);
   const target = useUiStore((s) => s.topologyTarget);
   const setTarget = useUiStore((s) => s.setTopologyTarget);
-  const { selected: severities, toggle } = useSeverityFilter("topology", START_SELECTED);
+  const { selected: chosenLevels } = useSeverityFilter("topology", START_SELECTED);
+  const setSelection = useSeverityStore((s) => s.setSelection);
+  const showInfo = useUiStore((s) => s.showInfo);
+  const toggleShowInfo = useUiStore((s) => s.toggleShowInfo);
+  // the pills as shown: the picked levels from Critical to Low, and Info when it is shown
+  const severities = useMemo(() => [...chosenLevels.filter((sev) => sev !== 0), ...(showInfo ? [0] : [])], [chosenLevels, showInfo]);
+  const toggle = (sev: number) => {
+    if (sev === 0) {
+      toggleShowInfo();
+      return;
+    }
+    const others = chosenLevels.filter((x) => x !== 0);
+    setSelection("topology", others.includes(sev) ? others.filter((x) => x !== sev) : [...others, sev]);
+  };
   const [hovered, setHovered] = useState<Bridge | null>(null);
   const [machineId, setMachineId] = usePageState<string | null>("topology:machine", null);
   const [zoom, setZoom] = useState(1);
   const map = useRef<WaysControls>(null);
 
   const hosts = useMemo(() => buildHostEntries(files), [files]);
-  const topo = useMemo(() => buildTopology(hosts), [hosts]);
-  const graph = useMemo(() => buildWays(topo, new Set(open)), [topo, open]);
+  const topo = useMemo(() => topologyOf(hosts), [hosts]);
+  const graph = useMemo(() => waysOf(topo, open), [topo, open]);
   const severityCounts = useMemo(() => countBySeverity(hosts.map((h) => severitiesOf(h.severity_counts))), [hosts]);
-  const levels = useMemo(() => LEVELS.filter((l) => severities.length === 0 || severities.includes(l.sev)), [severities]);
+  const levels = useMemo(() => LEVELS.filter((l) => severities.includes(l.sev)), [severities]);
   const worstShown = useCallback((h: HostEntry) => levels.find((l) => h.severity_counts[l.key] > 0)?.sev ?? null, [levels]);
 
   const goal = target && graph.nodeOf.has(target) ? target : null;
@@ -79,7 +93,7 @@ export default function Topology() {
   }, [graph]);
 
   if (files.length === 0) {
-    return <EmptyFilesNotice />;
+    return <EmptyFilesNotice page="topology" />;
   }
 
   const pick = (end: string | null) => {
@@ -187,6 +201,7 @@ export default function Topology() {
                 worstShown={worstShown}
                 hidden={hidden}
                 onPick={pick}
+                onMachine={showMachine}
                 onClose={() => setTarget(null)}
                 onHide={togglePanel}
               />

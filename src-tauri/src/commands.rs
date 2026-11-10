@@ -30,13 +30,55 @@ pub struct LoadedFile {
     report_name: String,
     target: Option<String>,
     host_count: usize,
+    finding_count: usize,
+    size: u64,
 }// LoadedFile
+
+// why a file couldn't be opened
+#[derive(Serialize, Debug, PartialEq)]
+pub struct LoadError {
+    kind: &'static str,
+    message: String,
+}// LoadError
+
+fn load_error(kind: &'static str, message: impl Into<String>) -> LoadError {
+    LoadError { kind, message: message.into() }
+}// load_error
+
+// sorts the parser's message into a kind
+fn classify(message: String, size: u64) -> LoadError {
+    let kind = if message.starts_with("Cannot read file") {
+        "unreadable"
+    } else if message.starts_with("Not a Nessus scan file") {
+        "not_nessus"
+    } else if message.starts_with("This is the old .nessus v1") {
+        "old_format"
+    } else if message.starts_with("The file is incomplete") {
+        "truncated"
+    } else if let Some(rest) = message.strip_prefix("XML parse error at byte ") {
+        let at: u64 = rest.chars().take_while(char::is_ascii_digit).collect::<String>().parse().unwrap_or(0);
+        if at + 64 >= size { "truncated" } else { "damaged" }
+    } else if message.starts_with("This file has no scanned hosts") {
+        "no_hosts"
+    } else {
+        "other"
+    };
+    load_error(kind, message)
+}// classify
 
 // `async` keeps this off the main thread, so the window stays responsive while
 // a large scan is parsed
 #[tauri::command(async)]
-pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<LoadedFile, String> {
-    let parsed = Arc::new(require_hosts(parse_nessus_file(&path)?)?);
+pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<LoadedFile, LoadError> {
+    let size = match std::fs::metadata(&path) {
+        Ok(m) => m.len(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(load_error("missing", e.to_string())),
+        Err(e) => return Err(load_error("unreadable", e.to_string())),
+    };
+    let parsed = parse_nessus_file(&path)
+        .and_then(require_hosts)
+        .map_err(|m| classify(m, size))?;
+    let parsed = Arc::new(parsed);
     let mut files = state.files.lock().unwrap();
     // replace if same path already loaded
     if let Some(pos) = files.iter().position(|f| f.path == parsed.path) {
@@ -51,8 +93,16 @@ pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<Loa
         report_name: parsed.report_name.clone(),
         target: parsed.target.clone(),
         host_count: parsed.hosts.len(),
+        finding_count: parsed.hosts.iter().map(|h| h.items.len()).sum(),
+        size,
     })
 }// load_nessus_file
+
+// the size of each file, or nothing when it isn't there any more (for the recent files list)
+#[tauri::command(async)]
+pub fn file_sizes(paths: Vec<String>) -> Vec<Option<u64>> {
+    paths.iter().map(|p| std::fs::metadata(p).ok().filter(|m| m.is_file()).map(|m| m.len())).collect()
+}// file_sizes
 
 // Roughly how much one page of hosts may hold
 const PAGE_BYTES: usize = 16 * 1024 * 1024;
@@ -192,7 +242,7 @@ pub fn open_url(url: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{host_page, is_web_url, require_hosts, save_json};
+    use super::{classify, file_sizes, host_page, is_web_url, load_error, require_hosts, save_json};
     use crate::parser::parse_str;
     use crate::private_file::testing::TempDir;
 
@@ -257,6 +307,30 @@ mod tests {
         let end: serde_json::Value = serde_json::from_str(&host_page(&file, 99, 10).unwrap()).unwrap();
         assert_eq!(end["hosts"].as_array().unwrap().len(), 0);
         assert_eq!(end["next"], 50);
+    }
+
+    #[test]
+    fn a_failed_load_says_what_kind_of_problem_it_was() {
+        let kind = |m: &str, size: u64| classify(m.to_string(), size).kind;
+        assert_eq!(kind("Cannot read file: access denied", 10), "unreadable");
+        assert_eq!(kind("Not a Nessus scan file: unexpected root element <html>", 10), "not_nessus");
+        assert_eq!(kind("This is the old .nessus v1 format, which is not supported.", 10), "old_format");
+        assert_eq!(kind("The file is incomplete: it ends before the scan data is closed", 10), "truncated");
+        assert_eq!(kind("This file has no scanned hosts. It may contain only a scan policy.", 10), "no_hosts");
+        // an XML error at the very end is a cut-off file, earlier it is damage
+        assert_eq!(kind("XML parse error at byte 999990: unexpected end", 1_000_000), "truncated");
+        assert_eq!(kind("XML parse error at byte 1200: bad name", 1_000_000), "damaged");
+        assert_eq!(kind("something new", 10), "other");
+        assert_eq!(classify("Cannot read file: x".into(), 1), load_error("unreadable", "Cannot read file: x"));
+    }
+
+    #[test]
+    fn file_sizes_are_nothing_for_a_missing_file() {
+        let temp = TempDir::new();
+        let there = temp.path().join("a.nessus");
+        std::fs::write(&there, "12345").unwrap();
+        let sizes = file_sizes(vec![there.to_string_lossy().into(), temp.path().join("gone.nessus").to_string_lossy().into(), temp.path().to_string_lossy().into()]);
+        assert_eq!(sizes, vec![Some(5), None, None]);
     }
 
     #[test]

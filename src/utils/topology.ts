@@ -840,6 +840,36 @@ export function buildWays(topo: Topology, open: ReadonlySet<string> = new Set())
   return { nodes, edges, starts, nodeOf, nets, machines, crowdOf };
 }// buildWays
 
+const topologies = new WeakMap<HostEntry[], Topology>();
+const graphs = new WeakMap<Topology, Map<string, WayGraph>>();
+
+export function topologyOf(hosts: HostEntry[]): Topology {
+  let topo = topologies.get(hosts);
+  if (!topo) {
+    topo = buildTopology(hosts);
+    topologies.set(hosts, topo);
+  }
+  return topo;
+}// topologyOf
+
+export function waysOf(topo: Topology, open: readonly string[]): WayGraph {
+  const key = [...open].sort().join("|");
+  let byOpen = graphs.get(topo);
+  if (!byOpen) {
+    byOpen = new Map();
+    graphs.set(topo, byOpen);
+  }
+  let graph = byOpen.get(key);
+  if (!graph) {
+    if (byOpen.size > 20) {
+      byOpen.clear();
+    }
+    graph = buildWays(topo, new Set(open));
+    byOpen.set(key, graph);
+  }
+  return graph;
+}// waysOf
+
 const COST: Record<Link, number> = { routed: 1, unknown: 1, confirmed: 10, likely: 16, possible: 24 };
 
 // the cheapest way from any scanner to a network: routed steps first, then the surest takeovers;
@@ -898,6 +928,49 @@ export function findWay(graph: WayGraph, target: string): { nodes: string[]; edg
     nodes.unshift(step.from);
     edges.unshift(step.edge);
   }
+  throughOneNetwork(graph, byId, nodes, edges, target);
 
   return { nodes, edges };
 }// findWay
+
+// critical first, then high, medium and low, over all of a machine's hosts
+export function exposure(m: WayMachine): number {
+  return m.hosts.reduce((s, h) => s + h.severity_counts.critical * 1e9 + h.severity_counts.high * 1e6 + h.severity_counts.medium * 1e3 + h.severity_counts.low, 0);
+}// exposure
+
+// the machines of a group that sit in a node of the map (a network, or a block holding it)
+export function crowdMembersIn(graph: WayGraph, crowd: WayCrowd, nodeId: string): WayMachine[] {
+  return crowd.machines.filter((m) => graph.nodeOf.get(crowd.homeOf.get(m.id) ?? "") === nodeId);
+}// crowdMembersIn
+
+function throughOneNetwork(graph: WayGraph, byId: Map<string, WayNode>, nodes: string[], edges: WayEdge[], target: string) {
+  const endIn = (e: WayEdge, node: string) => (graph.nodeOf.get(e.a) === node ? e.a : e.b);
+  const edgeBetween = (end: string, node: string) =>
+    graph.edges.find((e) => (e.a === end && graph.nodeOf.get(e.b) === node) || (e.b === end && graph.nodeOf.get(e.a) === node));
+  for (let i = 1; i < nodes.length; i++) {
+    if (byId.get(nodes[i])?.kind !== "block") {
+      continue;
+    }
+    let leave: string | null = null;
+    const next = byId.get(nodes[i + 1] ?? "");
+    if (i === nodes.length - 1) {
+      leave = graph.nodeOf.get(target) === nodes[i] ? target : null;
+    } else if (next?.kind === "crowd") {
+      const best = [...crowdMembersIn(graph, next, nodes[i])].sort((a, b) => exposure(b) - exposure(a))[0];
+      const home = best ? next.homeOf.get(best.id)! : null;
+      const e = home ? edgeBetween(home, next.id) : undefined;
+      if (e) {
+        edges[i] = e;
+        leave = home;
+      }
+    } else {
+      leave = endIn(edges[i], nodes[i]);
+    }
+    if (leave && endIn(edges[i - 1], nodes[i]) !== leave) {
+      const e = edgeBetween(leave, nodes[i - 1]);
+      if (e) {
+        edges[i - 1] = e;
+      }
+    }
+  }
+}// throughOneNetwork

@@ -1,13 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useAfterPaint } from "../hooks/useAfterPaint";
 import { useLocation } from "react-router-dom";
 import { ArrowLeftRight } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { severityCounts, SEVERITY_COLORS } from "../types/nessus";
+import { SEVERITY_COLORS } from "../types/nessus";
 import type { NessusFile, SeverityCounts } from "../types/nessus";
-import { compareScans, defaultPair, deltaByHost, deltaByVuln } from "../utils/compare";
-import type { HostChange, HostDelta, MatchedBy, VulnChange, VulnDelta } from "../utils/compare";
-import { formatScanStart, scanWindow } from "../utils/dashboard";
+import { compareScans, defaultPair, deltaByHost, deltaByVuln, pluginInfo } from "../utils/compare";
+import type { HostChange, HostDelta, MatchedBy, ScanDelta, VulnChange, VulnDelta } from "../utils/compare";
+import { formatScanStart } from "../utils/dashboard";
+import { fileCounts, fileWindow } from "../utils/fileFacts";
 import { compareHosts } from "../utils/ip";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import Segmented from "../components/common/Segmented";
@@ -71,16 +73,16 @@ const VULN_COLUMNS: TableColumn<VulnKey>[] = [
 
 type HostKey = "host" | "change" | "by" | "critical" | "high" | "medium" | "low" | "info" | "added" | "fixed";
 const HOST_COLUMNS: TableColumn<HostKey>[] = [
-  { key: "host",     label: "Host",     width: 220, stretch: true, required: true },
-  { key: "change",   label: "Change",   width: 150 },
-  { key: "by",       label: "Matched by", width: 120 },
-  { key: "critical", label: "Critical", width: 112, align: "center", dot: "bg-critical" },
-  { key: "high",     label: "High",     width: 112, align: "center", dot: "bg-high" },
-  { key: "medium",   label: "Medium",   width: 112, align: "center", dot: "bg-medium" },
-  { key: "low",      label: "Low",      width: 112, align: "center", dot: "bg-low" },
-  { key: "info",     label: "Info",     width: 112, align: "center", dot: "bg-info", defaultHidden: true },
-  { key: "added",    label: "New",      width: 88,  align: "center" },
-  { key: "fixed",    label: "Fixed",    width: 88,  align: "center" },
+  { key: "host",     label: "Host",     width: 170, required: true },
+  { key: "change",   label: "Change",   width: 124 },
+  { key: "by",       label: "Matched by", width: 112 },
+  { key: "critical", label: "Critical", width: 96,  align: "center", dot: "bg-critical" },
+  { key: "high",     label: "High",     width: 84,  align: "center", dot: "bg-high" },
+  { key: "medium",   label: "Medium",   width: 96,  align: "center", dot: "bg-medium" },
+  { key: "low",      label: "Low",      width: 84,  align: "center", dot: "bg-low" },
+  { key: "info",     label: "Info",     width: 84,  align: "center", dot: "bg-info", info: true },
+  { key: "added",    label: "New",      width: 72,  align: "center" },
+  { key: "fixed",    label: "Fixed",    width: 76,  align: "center" },
 ];// HOST_COLUMNS
 
 const CHANGE_ORDER: Record<string, number> = { new: 0, increased: 1, worsened: 1, changed: 2, missing: 2, replaced: 2, unverified: 3, partly: 4, improved: 4, fixed: 5, unchanged: 6, same: 6 };
@@ -98,6 +100,7 @@ export default function Compare() {
   const location = useLocation();
   const [picked, setPicked] = usePageState<[string, string] | null>("compare:pair", null);
   const [view, setView] = usePageState<View>("compare:view", "vulns");
+  const shownView = useAfterPaint(view);
   const [vulnFilter, setVulnFilter] = usePageState<VulnFilter>("compare:vulns", "changes");
   const [hostFilter, setHostFilter] = usePageState<HostFilter>("compare:hosts", "all");
 
@@ -109,40 +112,23 @@ export default function Compare() {
   }, [location.key, location.state, setPicked]);
 
   // what was picked while both files are still loaded, else the newest pair
-  const pair = picked && picked.every((id) => files.some((f) => f.id === id)) ? picked : defaultPair(files);
+  const newest = useMemo(() => defaultPair(files), [files]);
+  const livePair = picked && picked.every((id) => files.some((f) => f.id === id)) ? picked : newest;
+  const pair = useAfterPaint(livePair);
+  const shownInfo = useAfterPaint(showInfo);
+  const liveA = files.find((f) => f.id === livePair?.[0]);
+  const liveB = files.find((f) => f.id === livePair?.[1]);
   const fileA = files.find((f) => f.id === pair?.[0]);
   const fileB = files.find((f) => f.id === pair?.[1]);
 
   const delta = useMemo(() => (fileA && fileB ? compareScans(fileA, fileB) : null), [fileA, fileB]);
-
-  const info = useMemo(() => {
-    const m = new Map<number, { name: string; severity: number }>();
-    for (const f of [fileA, fileB]) {
-      for (const host of f?.hosts ?? []) {
-        for (const item of host.items) {
-          const known = m.get(item.plugin_id);
-          if (!known || item.severity > known.severity) {
-            m.set(item.plugin_id, { name: item.plugin_name, severity: item.severity });
-          }
-        }
-      }
-    }
-
-    return m;
-  }, [fileA, fileB]);
-
-  const vulnRows = useMemo(
-    () => (delta ? deltaByVuln(delta, info).filter((r) => showInfo || r.severity > 0) : []),
-    [delta, info, showInfo]
-  );
-  const hostRows = useMemo(
-    () => (delta ? deltaByHost(delta, (id) => showInfo || (info.get(id)?.severity ?? 0) > 0, showInfo) : []),
-    [delta, info, showInfo]
-  );
+  const info = useMemo(() => (fileA && fileB ? pluginInfo(fileA, fileB) : new Map<number, { name: string; severity: number }>()), [fileA, fileB]);
+  const vulnRows = useMemo(() => (delta ? vulnRowsOf(delta, info, shownInfo) : []), [delta, info, shownInfo]);
+  const hostRows = useMemo(() => (delta ? hostRowsOf(delta, info, shownInfo) : []), [delta, info, shownInfo]);
 
   const vulnTable = useTableColumns("compare-vulns", VULN_COLUMNS);
   const vulnSort = useTableSort("compare-vulns", vulnTable.visible, "severity", "desc", ["name", "change"]);
-  const hostTable = useTableColumns("compare-hosts", HOST_COLUMNS);
+  const hostTable = useTableColumns("compare-hosts", HOST_COLUMNS, shownInfo);
   const hostSort = useTableSort("compare-hosts", hostTable.visible, "change", "asc", ["host", "change"]);
 
   const vulnCounts = countBy(vulnRows.map((r) => r.change));
@@ -181,43 +167,36 @@ export default function Compare() {
     return hostRows.filter((r) => hostFilter === "all" || r.change === hostFilter).sort((a, b) => (hostSort.sortDir === "desc" ? -cmp(a, b) : cmp(a, b)));
   }, [hostRows, hostFilter, hostSort.sortKey, hostSort.sortDir]);
 
-  const rowCount = view === "vulns" ? shownVulns.length : shownHosts.length;
+  const rowCount = shownView === "vulns" ? shownVulns.length : shownHosts.length;
   const { scrollRef, rows, paddingTop, paddingBottom, measureRow } = useVirtualRows(rowCount);
 
   if (files.length < 2) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center text-ink-500 dark:text-ink-400">
-          <p className="text-lg font-medium mb-2">Load at least 2 scan files to compare.</p>
-          <EmptyFilesNotice />
-        </div>
-      </div>
-    );
+    return <EmptyFilesNotice page="compare" />;
   }
 
-  if (!fileA || !fileB || !pair) {
+  if (!fileA || !fileB || !liveA || !liveB || !pair) {
     return null;
   }
 
-  const countsA = severityCounts(fileA.hosts);
-  const countsB = severityCounts(fileB.hosts);
-  const table = view === "vulns" ? vulnTable : hostTable;
+  const countsA = fileCounts(fileA);
+  const countsB = fileCounts(fileB);
+  const table = shownView === "vulns" ? vulnTable : hostTable;
   const columnCount = table.visible.length;
 
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Scans */}
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3 shrink-0">
-        <ScanPicker label="Before (A)" file={fileA} files={files.filter((f) => f.id !== fileB.id)} onPick={(id) => setPicked([id, fileB.id])} onOpen={() => openFilePanel(fileA.id)} />
+        <ScanPicker label="Before (A)" file={liveA} files={files.filter((f) => f.id !== liveB.id)} onPick={(id) => setPicked([id, liveB.id])} onOpen={() => openFilePanel(liveA.id)} />
         <button
-          onClick={() => setPicked([fileB.id, fileA.id])}
+          onClick={() => setPicked([liveB.id, liveA.id])}
           className="btn-ghost h-10 w-10 p-0 justify-center border border-ink-200 dark:border-ink-700 mb-6"
           title="Swap A and B"
           aria-label="Swap A and B"
         >
           <ArrowLeftRight size={16} />
         </button>
-        <ScanPicker label="After (B)" file={fileB} files={files.filter((f) => f.id !== fileA.id)} onPick={(id) => setPicked([fileA.id, id])} onOpen={() => openFilePanel(fileB.id)} />
+        <ScanPicker label="After (B)" file={liveB} files={files.filter((f) => f.id !== liveA.id)} onPick={(id) => setPicked([liveA.id, id])} onOpen={() => openFilePanel(liveB.id)} />
       </div>
 
       {/* Before and after */}
@@ -279,12 +258,12 @@ export default function Compare() {
       <div className="card flex-1 min-h-[320px] overflow-hidden">
         <div ref={scrollRef} className="overflow-auto h-full">
           <table style={table.style}>
-            {view === "vulns"
+            {shownView === "vulns"
               ? <TableHead table={vulnTable} sortKey={vulnSort.sortKey} sortDir={vulnSort.sortDir} onSort={vulnSort.toggleSort} />
               : <TableHead table={hostTable} sortKey={hostSort.sortKey} sortDir={hostSort.sortDir} onSort={hostSort.toggleSort} />}
             <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
               <SpacerRow height={paddingTop} colSpan={columnCount} />
-              {rows.map((row) => view === "vulns" ? (
+              {rows.map((row) => shownView === "vulns" ? (
                 <VulnRow
                   key={shownVulns[row.index].pluginId}
                   row={shownVulns[row.index]}
@@ -324,6 +303,28 @@ export default function Compare() {
   );
 }// Compare
 
+// table rows kept per comparison and Show Info setting
+const vulnRowCache = new WeakMap<ScanDelta, Map<boolean, VulnDelta[]>>();
+const hostRowCache = new WeakMap<ScanDelta, Map<boolean, HostDelta[]>>();
+
+function vulnRowsOf(delta: ScanDelta, info: Map<number, { name: string; severity: number }>, showInfo: boolean): VulnDelta[] {
+  const byInfo = vulnRowCache.get(delta) ?? new Map<boolean, VulnDelta[]>();
+  vulnRowCache.set(delta, byInfo);
+  if (!byInfo.has(showInfo)) {
+    byInfo.set(showInfo, deltaByVuln(delta, info).filter((r) => showInfo || r.severity > 0));
+  }
+  return byInfo.get(showInfo)!;
+}// vulnRowsOf
+
+function hostRowsOf(delta: ScanDelta, info: Map<number, { name: string; severity: number }>, showInfo: boolean): HostDelta[] {
+  const byInfo = hostRowCache.get(delta) ?? new Map<boolean, HostDelta[]>();
+  hostRowCache.set(delta, byInfo);
+  if (!byInfo.has(showInfo)) {
+    byInfo.set(showInfo, deltaByHost(delta, (id) => showInfo || (info.get(id)?.severity ?? 0) > 0, showInfo));
+  }
+  return byInfo.get(showInfo)!;
+}// hostRowsOf
+
 function countBy<T extends string>(values: T[]): Partial<Record<T, number>> {
   const counts: Partial<Record<T, number>> = {};
   for (const v of values) {
@@ -341,8 +342,8 @@ function ScanPicker({ label, file, files, onPick, onOpen }: {
   onOpen: () => void;
 }) {
   const id = `scan-${label.slice(0, label.indexOf(" ")).toLowerCase()}`;
-  const start = scanWindow(file.hosts).start;
-  const details = [file.report_name, start && formatScanStart(start), `${file.hosts.length} hosts`].filter(Boolean).join(" · ");
+  const start = fileWindow(file).start;
+  const details = [file.report_name, start && formatScanStart(start), `${file.hosts.length.toLocaleString()} hosts`].filter(Boolean).join(" · ");
 
   return (
     <div className="flex flex-col gap-1 min-w-0">
@@ -363,22 +364,52 @@ function Change({ label, dot, a, b, color, neutral = false }: { label: string; d
   const d = b - a;
   const tone = d === 0 || neutral ? "text-ink-500 dark:text-ink-400" : d > 0 ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400";
   const text = d === 0 ? "no change" : d > 0 ? `▲ ${d.toLocaleString()} more` : `▼ ${(-d).toLocaleString()} fewer`;
+  const line = useFitLine([a, b]);
 
   return (
-    <div className="card px-4 py-3 flex flex-col gap-1">
+    <div className="card px-4 py-3 flex flex-col gap-1 min-w-0">
       <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">
         {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
         {label}
       </span>
-      <span className="flex items-baseline gap-1.5 tabular-nums">
-        <span className="text-[15px] font-semibold text-ink-400 dark:text-ink-500">{a.toLocaleString()}</span>
-        <span className="text-ink-400 dark:text-ink-500">→</span>
-        <span className={`text-2xl font-bold ${b > 0 && color ? color : "text-ink-900 dark:text-ink-50"}`}>{b.toLocaleString()}</span>
+      {/* sized in em from the line's 24px, which shrinks only as far as long counts need */}
+      <span ref={line} className="flex items-baseline gap-[0.25em] whitespace-nowrap tabular-nums leading-8" style={{ fontSize: LINE_PX }}>
+        <span className="text-[0.625em] font-semibold text-ink-400 dark:text-ink-500">{a.toLocaleString()}</span>
+        <span className="text-[0.58em] text-ink-400 dark:text-ink-500">→</span>
+        <span className={`font-bold ${b > 0 && color ? color : "text-ink-900 dark:text-ink-50"}`}>{b.toLocaleString()}</span>
       </span>
       <span className={`text-xs font-semibold ${tone}`}>{text}</span>
     </div>
   );
 }// Change
+
+const LINE_PX = 24;
+
+// the "before → after" line keeps its 24px when it fits the card, else gets just small enough to fit
+function useFitLine(deps: unknown[]) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const line = ref.current;
+    const card = line?.parentElement;
+    if (!line || !card) {
+      return;
+    }
+
+    const fit = () => {
+      line.style.fontSize = `${LINE_PX}px`;
+      const room = card.clientWidth - parseFloat(getComputedStyle(card).paddingLeft) - parseFloat(getComputedStyle(card).paddingRight);
+      if (line.scrollWidth > room) {
+        line.style.fontSize = `${Math.floor((LINE_PX * room) / line.scrollWidth * 2) / 2}px`;
+      }
+    };
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(card);
+    return () => watch.disconnect();
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return ref;
+}// useFitLine
 
 function Pill({ change, map }: { change: string; map: Record<string, { label: string; tone: string; title: string }> }) {
   const c = map[change];
@@ -390,7 +421,7 @@ function Delta({ value, sign }: { value: number; sign: "+" | "−" }) {
     return <span className="text-ink-300 dark:text-ink-600">-</span>;
   }
 
-  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>{sign}{value}</span>;
+  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>{sign}{value.toLocaleString()}</span>;
 }// Delta
 
 function VulnRow({ row, cols, index, selected, measureRow, onClick }: {
@@ -408,8 +439,8 @@ function VulnRow({ row, cols, index, selected, measureRow, onClick }: {
           case "severity": return <td key={col.key} className="table-cell"><SeverityBadge severity={row.severity} size="sm" /></td>;
           case "name":     return <td key={col.key} className="table-cell text-ink-800 dark:text-ink-100"><span className="block truncate" title={row.name}>{row.name}</span></td>;
           case "change":   return <td key={col.key} className="table-cell"><Pill change={row.change} map={VULN_CHANGE} /></td>;
-          case "hostsA":   return <td key={col.key} className="table-cell text-center text-ink-500 dark:text-ink-400">{row.hostsA || "-"}</td>;
-          case "hostsB":   return <td key={col.key} className="table-cell text-center font-semibold text-ink-800 dark:text-ink-100">{row.hostsB || "-"}</td>;
+          case "hostsA":   return <td key={col.key} className="table-cell text-center text-ink-500 dark:text-ink-400">{row.hostsA ? row.hostsA.toLocaleString() : "-"}</td>;
+          case "hostsB":   return <td key={col.key} className="table-cell text-center font-semibold text-ink-800 dark:text-ink-100">{row.hostsB ? row.hostsB.toLocaleString() : "-"}</td>;
           case "added":    return <td key={col.key} className="table-cell text-center"><Delta value={row.added} sign="+" /></td>;
           case "fixed":
             return (
@@ -476,9 +507,9 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
               : b ? SEVERITY_COLORS[sev[col.key]].text : "text-ink-400 dark:text-ink-500";
             return (
               <td key={col.key} className="table-cell text-center whitespace-nowrap tabular-nums">
-                <span className="text-ink-400 dark:text-ink-500">{a ?? "–"}</span>
+                <span className="text-ink-400 dark:text-ink-500">{a?.toLocaleString() ?? "–"}</span>
                 <span className="mx-1 text-ink-300 dark:text-ink-600">→</span>
-                <span className={`font-semibold ${color}`}>{b ?? "–"}</span>
+                <span className={`font-semibold ${color}`}>{b?.toLocaleString() ?? "–"}</span>
               </td>
             );
           }

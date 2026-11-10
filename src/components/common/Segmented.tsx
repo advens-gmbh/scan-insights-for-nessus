@@ -11,14 +11,14 @@ export default function Segmented<T extends string>({ label, value, onChange, op
           key={o.value}
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
-          className={`px-3 h-8 text-[13px] border-l first:border-l-0 border-ink-200 dark:border-ink-700 transition-colors ${
+          className={`px-3 h-8 text-[13px] border-l first:border-l-0 border-ink-200 dark:border-ink-700 ${
             value === o.value
               ? "bg-accent-600 text-white font-semibold"
               : "bg-white dark:bg-ink-800 text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700"
           }`}
         >
           {o.label}
-          {o.count !== undefined && <span className="ml-1.5 tabular-nums opacity-80">{o.count}</span>}
+          {o.count !== undefined && <span className="ml-1.5 tabular-nums opacity-80">{o.count.toLocaleString()}</span>}
         </button>
       ))}
     </div>

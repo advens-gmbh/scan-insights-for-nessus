@@ -12,6 +12,7 @@ export interface TableColumn<K extends string = string> {
   align?: "left" | "center";
   sortable?: boolean;      // false: the header doesn't sort
   dot?: string;            // colour class of a dot before the label
+  info?: boolean;          // is the Info column shown with Show Info and not in the column picker?
 }// TableColumn
 
 export interface TableLayout {
@@ -24,8 +25,8 @@ export function defaultLayout(columns: TableColumn[]): TableLayout {
   return { hidden: columns.filter((c) => c.defaultHidden).map((c) => c.key), widths: null, baseline: null };
 }// defaultLayout
 
-export function visibleColumns<K extends string>(columns: TableColumn<K>[], layout: TableLayout): TableColumn<K>[] {
-  return columns.filter((c) => !layout.hidden.includes(c.key));
+export function visibleColumns<K extends string>(columns: TableColumn<K>[], layout: TableLayout, showInfo = false): TableColumn<K>[] {
+  return columns.filter((c) => (c.info ? showInfo : !layout.hidden.includes(c.key)));
 }// visibleColumns
 
 export function toggleColumn(columns: TableColumn[], layout: TableLayout, key: string): TableLayout {

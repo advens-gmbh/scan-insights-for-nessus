@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ChevronRight, X } from "lucide-react";
 import type { HostEntry, SeverityCounts } from "../../types/nessus";
 import type { Bridge, Link, Strength, WayCrowd, WayEdge, WayGraph, WayMachine, WayNode } from "../../utils/topology";
+import { crowdMembersIn, exposure } from "../../utils/topology";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
 import { compareHosts } from "../../utils/ip";
@@ -26,10 +27,6 @@ const SECTION = "text-xs font-semibold text-ink-500 dark:text-ink-400 mb-1.5";
 function countsOf(hosts: HostEntry[], levels: Level[]) {
   return levels.map((l) => ({ ...l, n: hosts.reduce((sum, h) => sum + h.severity_counts[l.key], 0) }));
 }// countsOf
-
-export function exposure(m: WayMachine): number {
-  return m.hosts.reduce((s, h) => s + h.severity_counts.critical * 1e9 + h.severity_counts.high * 1e6 + h.severity_counts.medium * 1e3 + h.severity_counts.low, 0);
-}// exposure
 
 export function machineScore(b: Bridge, levels: Level[]): number {
   return countsOf(b.hosts, levels).reduce((s, c) => s * 1000 + c.n, 0);
@@ -75,8 +72,9 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
           <span key={a.ip} className="truncate" title={a.iface ? `${a.ip} on ${a.iface}` : a.ip}>
             {a.host ? (
               <button onClick={() => openHostPanel(a.ip)} className="tabular-nums text-accent-700 dark:text-accent-400 hover:underline">{a.ip}</button>
-            ) : <span className="tabular-nums">{a.ip}</span>}
+            ) : <span className="tabular-nums text-ink-700 dark:text-ink-200" title="Nessus didn't scan this address, so there are no findings for it">{a.ip}</span>}
             {a.iface && <span> on {a.iface}</span>}
+            {!a.host && <span className="ml-1.5 px-1 rounded bg-ink-100 dark:bg-ink-700 text-[10.5px] font-semibold text-ink-500 dark:text-ink-400">not scanned</span>}
           </span>
         ))}
       </div>
@@ -271,7 +269,7 @@ export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick
   );
 }// CrowdPanel
 
-// a network only a machine can reach, and the machine to take over
+// a network only a machine can reach, and the machine needs to be taken over
 export interface HiddenNet {
   target: string;
   key: string;
@@ -294,7 +292,8 @@ interface Step {
   title: ReactNode;
   text: string;
   hosts?: HostEntry[];
-  files?: string[]; // the scan files Nessus ran from
+  files?: string[];          // the scan files Nessus ran from
+  machines?: WayMachine[];   // a group's machines to choose from, most exposed first
 }// Step
 
 const label = (n: WayNode): string =>
@@ -324,17 +323,17 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
     }
     if (n.kind === "crowd") {
       const prev = nodes[i - 1];
-      const near = n.machines.filter((m) => graph.nodeOf.get(n.homeOf.get(m.id) ?? "") === prev.id);
-      const pool = near.length ? near : n.machines;
-      const best = [...pool].sort((a, b) => exposure(b) - exposure(a))[0];
+      const near = crowdMembersIn(graph, n, prev.id);
+      const pool = [...(near.length ? near : n.machines)].sort((a, b) => exposure(b) - exposure(a));
       const next = nodes[i + 1];
       const goes = next ? (i + 1 === nodes.length - 1 && end ? end.key : label(next)) : crowdReach(n);
+      const cards = pool.some((m) => m.bridge?.evidence[0]?.startsWith("Network cards"));
       steps.push({
-        title: <>Take over one of <b>{pool.length} machines</b></>,
-        text: `Each of them${prev.kind === "net" || prev.kind === "block" ? ` sits in ${label(prev)} and` : ""} also reaches ${goes}, so any one will do. The most exposed is ${best.name} (${best.ips[0]}).`,
-        hosts: best.hosts,
+        title: <>Take over one of <b>{pool.length} machines</b>{prev.kind === "net" || prev.kind === "block" ? <> in <b>{label(prev)}</b></> : null}</>,
+        text: `Each ${cards ? "has a network card in" : "reaches"} ${goes}, so any one will do.`,
+        machines: pool,
       });
-      why.push(...(best.bridge?.evidence ?? []), ...best.talks.map((t) => t.text));
+      why.push(...(pool[0].bridge?.evidence ?? []), ...pool[0].talks.map((t) => t.text));
       return;
     }
     if (n.kind === "machine") {
@@ -367,7 +366,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
     if (into.link === "unknown") {
       steps.push({ title: <>Reach <b>{name}</b></>, text: "Nessus scanned it, but without a traceroute, so the route there is unknown." });
     } else if (prev.kind === "crowd") {
-      steps.push({ title: <>You are in <b>{name}</b></>, text: `Every one of the ${prev.machines.length} machines has a way in here.${never ? " Nobody scanned this network." : ""}` });
+      steps.push({ title: <>You are in <b>{name}</b></>, text: never ? "It wasn't scanned." : "" });
     } else if (prev.kind !== "machine") {
       steps.push({ title: <>Reach <b>{name}</b></>, text: "It's right next to Nessus." });
     } else {
@@ -375,7 +374,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
       const how = m.kind === "machine" ? (never ? net!.reasons.filter((r) => m.ips.includes(r.ip)).map((r) => r.text)[0] : null) : null;
       steps.push({
         title: <>You are in <b>{name}</b></>,
-        text: `${how ? `${how}. ` : m.kind === "machine" ? `${m.name} is on this network too. ` : ""}${never ? "Nobody scanned this network." : ""}`.trim(),
+        text: `${how ? `${how}. ` : m.kind === "machine" ? `${m.name} is on this network too. ` : ""}${never ? "It wasn't scanned." : ""}`.trim(),
       });
     }
   });
@@ -383,7 +382,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
   return { steps, why: [...new Set(why)] };
 }// stepsOf
 
-export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPick, onClose, onHide }: {
+export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPick, onMachine, onClose, onHide }: {
   graph: WayGraph;
   way: { nodes: string[]; edges: WayEdge[] } | null;
   target: string;
@@ -391,6 +390,7 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
   worstShown: (h: HostEntry) => number | null;
   hidden: HiddenNet[];
   onPick: (target: string) => void;
+  onMachine: (id: string) => void;
   onClose: () => void;
   onHide: () => void;
 }) {
@@ -424,6 +424,7 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
                   <div className="text-[13.5px] text-ink-800 dark:text-ink-100 [&_b]:font-semibold">{s.title}</div>
                   {s.text && <p className="mt-0.5 text-[12.5px] leading-[18px] text-ink-500 dark:text-ink-400">{s.text}</p>}
                   {s.files && s.files.length > 0 && <FileLinks ids={s.files} />}
+                  {s.machines && <StepMachines machines={s.machines} worstShown={worstShown} onMachine={onMachine} />}
                   {s.hosts && s.hosts.length > 0 && (
                     countsOf(s.hosts, levels).some((c) => c.n > 0)
                       ? <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[12.5px] text-ink-500 dark:text-ink-400">Its findings: <Counts hosts={s.hosts} levels={levels} /></div>
@@ -459,6 +460,34 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
     </>
   );
 }// WayPanel
+
+const MACHINES_COLLAPSED = 5;
+
+function StepMachines({ machines, worstShown, onMachine }: { machines: WayMachine[]; worstShown: (h: HostEntry) => number | null; onMachine: (id: string) => void }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? machines : machines.slice(0, MACHINES_COLLAPSED);
+  return (
+    <div className="mt-1.5">
+      <ul className="flex flex-col gap-0.5">
+        {shown.map((m) => {
+          const worst = m.hosts.reduce<number>((w, h) => Math.max(w, worstShown(h) ?? -1), -1);
+          return (
+            <li key={m.id} className="flex items-center gap-2 min-w-0 text-[12.5px]">
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${worst < 0 ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[worst]}`} title={worst < 0 ? "Nothing at the selected severities" : LEVEL_NAME[worst]} />
+              <button onClick={() => onMachine(m.id)} className="min-w-0 truncate text-left font-semibold text-accent-700 dark:text-accent-400 hover:underline" title={m.name}>{m.name}</button>
+              <span className="ml-auto shrink-0 tabular-nums text-ink-500 dark:text-ink-400 select-text">{m.ips[0]}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {machines.length > MACHINES_COLLAPSED && (
+        <button onClick={() => setAll((a) => !a)} className="mt-1 text-[12.5px] font-semibold text-accent-700 dark:text-accent-400 hover:underline">
+          {all ? "Show fewer" : `Show all ${machines.length}`}
+        </button>
+      )}
+    </div>
+  );
+}// StepMachines
 
 function FileLinks({ ids }: { ids: string[] }) {
   const openFilePanel = useUiStore((s) => s.openFilePanel);

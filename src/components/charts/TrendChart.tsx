@@ -50,12 +50,12 @@ function TrendTooltip({ active, payload, coordinate }: any) {
         <div key={s.key} className="flex items-center gap-2 py-0.5">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: severity[s.key].fill }} />
           <span className="text-ink-500 dark:text-ink-400 w-14">{s.name}</span>
-          <strong className="ml-auto text-ink-800 dark:text-ink-100">{d[s.key]}</strong>
+          <strong className="ml-auto text-ink-800 dark:text-ink-100">{d[s.key].toLocaleString()}</strong>
         </div>
       ))}
       <div className="border-t border-ink-100 dark:border-ink-700 mt-1.5 pt-1.5 flex items-center gap-2">
         <span className="text-ink-500 dark:text-ink-400 w-14 ml-4">Total</span>
-        <strong className="ml-auto text-ink-800 dark:text-ink-100">{total}</strong>
+        <strong className="ml-auto text-ink-800 dark:text-ink-100">{total.toLocaleString()}</strong>
       </div>
     </div>
   );
@@ -83,7 +83,7 @@ function TrendChart({ data, mode, showInfo, height = 300 }: Props) {
     <>
       <CartesianGrid vertical={false} stroke={dark ? ink[700] : ink[200]} />
       <XAxis dataKey="date" tick={{ fontSize: 12, fill: muted }} tickLine={false} axisLine={{ stroke: dark ? ink[600] : ink[300] }} />
-      <YAxis tick={{ fontSize: 12, fill: muted }} tickLine={false} axisLine={false} allowDecimals={false} width={44} domain={[0, top]} ticks={[0, 1, 2, 3, 4, 5].map((i) => (top * i) / 5)} />
+      <YAxis tick={{ fontSize: 12, fill: muted }} tickLine={false} axisLine={false} allowDecimals={false} width={Math.max(44, top.toLocaleString().length * 7.5 + 10)} tickFormatter={(v: number) => v.toLocaleString()} domain={[0, top]} ticks={[0, 1, 2, 3, 4, 5].map((i) => (top * i) / 5)} />
       <Tooltip content={<TrendTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ zIndex: 50 }} cursor={mode === "bars" ? { fill: dark ? ink[700] : ink[100] } : { stroke: muted }} />
       <Legend
         iconType="circle"
@@ -105,9 +105,9 @@ function TrendChart({ data, mode, showInfo, height = 300 }: Props) {
               <LabelList
                 dataKey={s.key}
                 content={(p: any) =>
-                  p.value > 0 && p.height >= 14 && p.width >= String(p.value).length * 7 + 4 ? (
+                  p.value > 0 && p.height >= 14 && p.width >= Number(p.value).toLocaleString().length * 7 + 4 ? (
                     <text x={p.x + p.width / 2} y={p.y + p.height / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={severity[s.key].on}>
-                      {p.value}
+                      {Number(p.value).toLocaleString()}
                     </text>
                   ) : null}
               />
@@ -126,6 +126,7 @@ function TrendChart({ data, mode, showInfo, height = 300 }: Props) {
         {series.map((s) => (
           <Line
             key={s.key}
+            type="monotone"
             dataKey={s.key}
             name={s.name}
             stroke={severity[s.key].fill}
@@ -172,7 +173,7 @@ function BarTotals({ data, total, top, color }: { data: TrendPoint[]; total: (d:
       <g style={AFTER_ANIMATION}>
         {data.map((d, i) => (
           <text key={d.id} x={area.x + band * (i + 0.5)} y={area.y + area.height * (1 - total(d) / top) - 6} textAnchor="middle" fontSize={12} fontWeight={600} fill={color}>
-            {total(d)}
+            {total(d).toLocaleString()}
           </text>
         ))}
       </g>

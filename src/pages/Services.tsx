@@ -34,7 +34,7 @@ const ASCENDING_FIRST: SortKey[] = ["port", "service"];
 
 const COLUMNS: ColDef[] = [
   { key: "port",     label: "Port",     width: 120, required: true },
-  { key: "service",  label: "Service",  width: 240, stretch: true },
+  { key: "service",  label: "Service",  width: 240 },
   { key: "hosts",    label: "Hosts",    width: 96,  align: "center" },
   { key: "findings", label: "Findings", width: 112, align: "center", defaultHidden: true },
   { key: "critical", label: "Critical", width: 96,  align: "center", dot: "bg-critical" },
@@ -189,7 +189,7 @@ export default function Services() {
   }, [openKey, rows, fileId, openServicePanel, scrollToIndex]);
 
   if (files.length === 0) {
-    return <EmptyFilesNotice />;
+    return <EmptyFilesNotice page="services" />;
   }
 
   const columnCount = table.visible.length;
@@ -347,9 +347,9 @@ function ServiceRow({ service, visibleCols, index, nested = false, selected = fa
               <td key={col.key} className="table-cell text-ink-700 dark:text-ink-300 truncate" title={names}>{names || "-"}</td>
             );
           case "hosts":
-            return <td key={col.key} className="table-cell text-center text-ink-700 dark:text-ink-200">{service.host_ips.length}</td>;
+            return <td key={col.key} className="table-cell text-center text-ink-700 dark:text-ink-200">{service.host_ips.length.toLocaleString()}</td>;
           case "findings":
-            return <td key={col.key} className="table-cell text-center text-ink-700 dark:text-ink-200">{service.findings.length}</td>;
+            return <td key={col.key} className="table-cell text-center text-ink-700 dark:text-ink-200">{service.findings.length.toLocaleString()}</td>;
           case "critical":
             return <Count key={col.key} value={sc.critical} color="text-critical-fg" />;
           case "high":
@@ -378,7 +378,7 @@ function Count({ value, color }: { value: number; color: string }) {
   return (
     <td className="table-cell text-center">
       {value > 0
-        ? <span className={`font-semibold text-sm ${color}`}>{value}</span>
+        ? <span className={`font-semibold text-sm ${color}`}>{value.toLocaleString()}</span>
         : <span className="text-ink-300 dark:text-ink-600">-</span>}
     </td>
   );

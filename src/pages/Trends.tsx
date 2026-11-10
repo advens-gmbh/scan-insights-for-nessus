@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { severityCounts } from "../types/nessus";
 import type { NessusFile, SeverityCounts } from "../types/nessus";
-import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
-import { byScanDate, defaultTrendSelection, fileStart, previousRuns, runChanges, sameScan } from "../utils/trends";
+import { formatDuration, formatScanStart } from "../utils/dashboard";
+import { byScanDate, defaultTrendSelection, fileCounts, fileStart, fileWindow, previousRuns, runChanges, sameScan } from "../utils/trends";
 import type { TableColumn } from "../utils/tableColumns";
 import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
@@ -28,17 +27,17 @@ const LEVELS: { key: keyof SeverityCounts; label: string; fg: string; dot: strin
 type RunKey = "file" | "scanned" | "hosts" | "critical" | "high" | "medium" | "low" | "info" | "added" | "fixed" | "compared";
 
 const RUN_COLUMNS: TableColumn<RunKey>[] = [
-  { key: "file",     label: "File",          width: 190, stretch: true, required: true },
-  { key: "scanned",  label: "Scanned",       width: 140 },
-  { key: "hosts",    label: "Hosts",         width: 70,  align: "center" },
+  { key: "file",     label: "File",          width: 150, required: true },
+  { key: "scanned",  label: "Scanned",       width: 160 },
+  { key: "hosts",    label: "Hosts",         width: 84,  align: "center" },
   { key: "critical", label: "Critical",      width: 88,  align: "center", dot: "bg-critical" },
   { key: "high",     label: "High",          width: 80,  align: "center", dot: "bg-high" },
   { key: "medium",   label: "Medium",        width: 88,  align: "center", dot: "bg-medium" },
   { key: "low",      label: "Low",           width: 76,  align: "center", dot: "bg-low" },
-  { key: "info",     label: "Info",          width: 80,  align: "center", dot: "bg-info" },
+  { key: "info",     label: "Info",          width: 88,  align: "center", dot: "bg-info" },
   { key: "added",    label: "New",           width: 64,  align: "center" },
   { key: "fixed",    label: "Fixed",         width: 64,  align: "center" },
-  { key: "compared", label: "Compared with", width: 160, sortable: false },
+  { key: "compared", label: "Compared with", width: 140, sortable: false },
 ];// RUN_COLUMNS
 const RUN_COLUMNS_NO_INFO = RUN_COLUMNS.filter((c) => c.key !== "info");
 
@@ -70,7 +69,7 @@ export default function Trends() {
   }, [runs]);
 
   const points: TrendPoint[] = useMemo(
-    () => runs.map((f) => ({ id: f.id, date: label(f), filename: f.filename, ...severityCounts(f.hosts) })),
+    () => runs.map((f) => ({ id: f.id, date: label(f), filename: f.filename, ...fileCounts(f) })),
     [runs, label]
   );
 
@@ -81,10 +80,10 @@ export default function Trends() {
       return {
         file: f,
         start: fileStart(f),
-        counts: severityCounts(f.hosts),
-        window: scanWindow(f.hosts),
+        counts: fileCounts(f),
+        window: fileWindow(f),
         previous: before,
-        countsBefore: before ? severityCounts(before.file.hosts) : null,
+        countsBefore: before ? fileCounts(before.file) : null,
         changes: before ? runChanges(before.file, f, showInfo) : null,
       };
     });
@@ -119,7 +118,7 @@ export default function Trends() {
   }, [rows, sortKey, sortDir]);
 
   if (files.length === 0) {
-    return <EmptyFilesNotice />;
+    return <EmptyFilesNotice page="trends" />;
   }
 
   const toggle = (id: string) => {
@@ -146,15 +145,15 @@ export default function Trends() {
         </div>
         <ul className="max-h-56 overflow-y-auto -mx-1">
           {[...sorted].reverse().map((f) => {
-            const start = scanWindow(f.hosts).start;
+            const start = fileWindow(f).start;
             return (
               <li key={f.id}>
-                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_5rem] items-center gap-3 px-1 py-1.5 rounded-md cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-sm">
+                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_6.5rem] items-center gap-3 px-1 py-1.5 rounded-md cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-sm">
                   <input type="checkbox" checked={selectedIds.has(f.id)} onChange={() => toggle(f.id)} className="rounded accent-accent-600" />
                   <span className="truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</span>
                   <span className="truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</span>
                   <span className="tabular-nums text-ink-500 dark:text-ink-400">{start ? formatScanStart(start) : "-"}</span>
-                  <span className="tabular-nums text-right text-ink-500 dark:text-ink-400">{f.hosts.length} hosts</span>
+                  <span className="tabular-nums text-right whitespace-nowrap text-ink-500 dark:text-ink-400">{f.hosts.length.toLocaleString()} {f.hosts.length === 1 ? "host" : "hosts"}</span>
                 </label>
               </li>
             );
@@ -217,7 +216,7 @@ export default function Trends() {
                               </td>
                             );
                           case "hosts":
-                            return <td key={col.key} className="table-cell text-center">{file.hosts.length}</td>;
+                            return <td key={col.key} className="table-cell text-center tabular-nums">{file.hosts.length.toLocaleString()}</td>;
                           case "added":
                             return <td key={col.key} className="table-cell text-center" title={versus}>{changes ? <Count value={changes.added} sign="+" /> : <Dash />}</td>;
                           case "fixed":
@@ -244,8 +243,8 @@ export default function Trends() {
                             const level = LEVELS.find((l) => l.key === col.key)!;
                             const n = counts[level.key];
                             return (
-                              <td key={col.key} className="table-cell text-center whitespace-nowrap" title={countsBefore ? `${versus}: ${countsBefore[level.key]} then` : versus}>
-                                <span className={`font-semibold ${n > 0 ? level.fg : "text-ink-400 dark:text-ink-500"}`}>{n}</span>
+                              <td key={col.key} className="table-cell text-center whitespace-nowrap" title={countsBefore ? `${versus}: ${countsBefore[level.key].toLocaleString()} then` : versus}>
+                                <span className={`font-semibold tabular-nums ${n > 0 ? level.fg : "text-ink-400 dark:text-ink-500"}`}>{n.toLocaleString()}</span>
                                 {countsBefore && <Step value={n - countsBefore[level.key]} />}
                               </td>
                             );
@@ -271,7 +270,7 @@ function Step({ value }: { value: number }) {
 
   return (
     <span className={`ml-1 text-[11px] font-semibold ${value > 0 ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>
-      {value > 0 ? `▲${value}` : `▼${-value}`}
+      {value > 0 ? `▲${value.toLocaleString()}` : `▼${(-value).toLocaleString()}`}
     </span>
   );
 }// Step
@@ -285,5 +284,5 @@ function Count({ value, sign }: { value: number; sign: "+" | "−" }) {
     return <span className="text-ink-300 dark:text-ink-600">0</span>;
   }
 
-  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>{sign}{value}</span>;
+  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>{sign}{value.toLocaleString()}</span>;
 }// Count

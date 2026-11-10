@@ -14,6 +14,10 @@ export const COUNTS = [
   { sev: 0, label: "Info",     key: "info" },
 ] as const;
 
+const GROUPS_PAGE = 25;
+// groups with high or critical findings start open, up to this many
+const OPEN_AT_START = 10;
+
 const CHIP: Record<number, string> = {
   4: "bg-critical text-critical-on",
   3: "bg-high text-high-on",
@@ -36,7 +40,7 @@ export function CountBoxes({ counts }: { counts: SeverityCounts }) {
         const n = counts[c.key];
         return (
           <div key={c.sev} className="flex flex-col gap-0.5 min-w-[4.5rem] px-2.5 py-1.5 rounded-md border border-ink-200 dark:border-ink-700">
-            <span className={`text-lg font-bold leading-tight tabular-nums ${n > 0 ? SEVERITY_COLORS[c.sev].text : "text-ink-300 dark:text-ink-600"}`}>{n}</span>
+            <span className={`text-lg font-bold leading-tight tabular-nums ${n > 0 ? SEVERITY_COLORS[c.sev].text : "text-ink-300 dark:text-ink-600"}`}>{n.toLocaleString()}</span>
             <span className="text-[11px] font-semibold text-ink-500 dark:text-ink-400">{c.label}</span>
           </div>
         );
@@ -101,7 +105,8 @@ export function FindingGroups<G extends FindingGroup>({ groups, noun, header, fi
   fileId?: string;
   showInfo: boolean;
 }) {
-  const [open, setOpen] = useState<Set<string>>(() => new Set(groups.filter((g) => g.worst >= 3).map((g) => g.key)));
+  const [open, setOpen] = useState<Set<string>>(() => new Set(groups.filter((g) => g.worst >= 3).slice(0, OPEN_AT_START).map((g) => g.key)));
+  const [shown, setShown] = useState(GROUPS_PAGE);
   const allOpen = groups.every((g) => open.has(g.key));
 
   const toggle = (key: string) => {
@@ -120,12 +125,12 @@ export function FindingGroups<G extends FindingGroup>({ groups, noun, header, fi
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-[13px] text-ink-500 dark:text-ink-400">
-        <span>{groups.length} {groups.length === 1 ? noun[0] : noun[1]}</span>
+        <span>{groups.length.toLocaleString()} {groups.length === 1 ? noun[0] : noun[1]}</span>
         <button onClick={() => setOpen(allOpen ? new Set() : new Set(groups.map((g) => g.key)))} className="btn-ghost h-7 px-2 text-xs">
           {allOpen ? "Collapse all" : "Expand all"}
         </button>
       </div>
-      {groups.map((g) => {
+      {groups.slice(0, shown).map((g) => {
         const expanded = open.has(g.key);
         return (
           <div key={g.key} className="rounded-md border border-ink-200 dark:border-ink-700 overflow-hidden">
@@ -164,6 +169,11 @@ export function FindingGroups<G extends FindingGroup>({ groups, noun, header, fi
           </div>
         );
       })}
+      {groups.length > shown && (
+        <button onClick={() => setShown((n) => n + GROUPS_PAGE)} className="btn-ghost w-full justify-center text-xs">
+          Show {Math.min(GROUPS_PAGE, groups.length - shown)} more of {(groups.length - shown).toLocaleString()} remaining
+        </button>
+      )}
     </div>
   );
 }// FindingGroups

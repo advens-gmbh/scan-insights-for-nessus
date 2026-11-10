@@ -9,7 +9,7 @@ export default function Notifications() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div className="flex flex-col items-end gap-2 w-[380px] max-w-full">
       {notifications.map((n) => {
         const styles = {
           error:   "bg-red-50    dark:bg-red-950/90   border-red-200   dark:border-red-800   text-red-700   dark:text-red-300",
@@ -20,7 +20,7 @@ export default function Notifications() {
         return (
           <div
             key={n.id}
-            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm ${styles}`}
+            className={`pointer-events-auto w-full flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm ${styles}`}
           >
             <Icon size={16} className="shrink-0 mt-0.5 opacity-80" />
             <span className="flex-1 min-w-0 leading-snug [overflow-wrap:anywhere]">{n.message}</span>

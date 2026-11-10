@@ -364,7 +364,8 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
     ));
   }
 
-  const ordered = [...lines.entries()].sort(([a], [b]) => Number(onWay.has(a)) - Number(onWay.has(b))).map(([, l]) => l);
+  const below = [...lines.entries()].filter(([k]) => !onWay.has(k)).map(([, l]) => l);
+  const above = [...lines.entries()].filter(([k]) => onWay.has(k)).map(([, l]) => l);
 
   const onWayNode = new Set(way?.nodes ?? []);
   const worstOf = (hosts: HostEntry[]) => hosts.reduce<number | null>((w, h) => {
@@ -555,8 +556,9 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
         {titles.map((t, i) => t.title && (
           <span key={i} className="absolute top-0 text-xs font-semibold text-ink-400 dark:text-ink-500 whitespace-nowrap" style={{ left: t.x }}>{t.title}</span>
         ))}
-        <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible" aria-hidden="true">{ordered}</svg>
+        <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible" aria-hidden="true">{below}</svg>
         {[...placed.values()].map(render)}
+        {above.length > 0 && <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible pointer-events-none" aria-hidden="true">{above}</svg>}
       </div>
     </div>
   );

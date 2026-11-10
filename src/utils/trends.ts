@@ -1,11 +1,12 @@
 import type { NessusFile } from "../types/nessus";
 import { compareScans, pairHosts } from "./compare";
-import { scanWindow } from "./dashboard";
+import { fileStart, rememberPair as remember } from "./fileFacts";
 import { splitTargets } from "./fileTargets";
 
-export function fileStart(file: NessusFile): number {
-  return scanWindow(file.hosts).start?.getTime() ?? new Date(file.loaded_at).getTime();
-}// fileStart
+export { fileCounts, fileStart, fileWindow } from "./fileFacts";
+
+const sameScans = new WeakMap<NessusFile, WeakMap<NessusFile, string | null>>();
+const deltas = new WeakMap<NessusFile, WeakMap<NessusFile, { severity: Map<number, number>; delta: ReturnType<typeof compareScans> }>>();
 
 export function byScanDate(files: NessusFile[]): NessusFile[] {
   return [...files].sort((a, b) => fileStart(a) - fileStart(b));
@@ -13,6 +14,10 @@ export function byScanDate(files: NessusFile[]): NessusFile[] {
 
 // Two files are runs of the same scan when they list the same targets, or when at least half of all hosts
 export function sameScan(a: NessusFile, b: NessusFile): string | null {
+  return remember(sameScans, a, b, () => sameScanOf(a, b));
+}// sameScan
+
+function sameScanOf(a: NessusFile, b: NessusFile): string | null {
   const targetsA = splitTargets(a.target).map((t) => t.toLowerCase()).sort();
   const targetsB = splitTargets(b.target).map((t) => t.toLowerCase()).sort();
   if (targetsA.length > 0 && targetsA.join(",") === targetsB.join(",")) {
@@ -23,7 +28,7 @@ export function sameScan(a: NessusFile, b: NessusFile): string | null {
   const all = a.hosts.length + b.hosts.length - shared;
 
   return shared > 0 && shared * 2 >= all ? `${shared} of ${all} hosts in both` : null;
-}// sameScan
+}// sameScanOf
 
 // every run of the newest scan, or everything when that scan only ran once
 export function defaultTrendSelection(files: NessusFile[]): string[] {
@@ -39,16 +44,18 @@ export function defaultTrendSelection(files: NessusFile[]): string[] {
 }// defaultTrendSelection
 
 export function runChanges(previous: NessusFile, current: NessusFile, showInfo: boolean): { added: number; fixed: number } {
-  const severity = new Map<number, number>();
-  for (const f of [previous, current]) {
-    for (const host of f.hosts) {
-      for (const item of host.items) {
-        severity.set(item.plugin_id, Math.max(severity.get(item.plugin_id) ?? 0, item.severity));
+  const { severity, delta } = remember(deltas, previous, current, () => {
+    const severity = new Map<number, number>();
+    for (const f of [previous, current]) {
+      for (const host of f.hosts) {
+        for (const item of host.items) {
+          severity.set(item.plugin_id, Math.max(severity.get(item.plugin_id) ?? 0, item.severity));
+        }
       }
     }
-  }
+    return { severity, delta: compareScans(previous, current) };
+  });
   const counted = (pluginId: number) => showInfo || (severity.get(pluginId) ?? 0) > 0;
-  const delta = compareScans(previous, current);
 
   return {
     added: delta.newItems.filter((d) => counted(d.pluginId)).length,
