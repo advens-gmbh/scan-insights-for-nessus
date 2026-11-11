@@ -12,6 +12,7 @@ import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import SearchBar from "../components/common/SearchBar";
 import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
+import type { VulnEntry } from "../types/nessus";
 
 const HOST_ROWS_PAGE = 200;
 
@@ -93,6 +94,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           <SeverityBadge severity={vuln.severity} />
           {vuln.exploit_available && <Tag danger>Exploit</Tag>}
           {vuln.metasploit_available && <Tag>Metasploit</Tag>}
+          {vuln.unsupported_by_vendor && <Tag title="The vendor no longer supports this software, so no fix will come: upgrade or replace it">Unsupported</Tag>}
           <PanelButtons onClose={onClose} />
         </div>
         <h2 className="text-lg font-semibold leading-snug text-ink-900 dark:text-ink-50">{vuln.plugin_name}</h2>
@@ -161,13 +163,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           </Section>
         )}
 
-        {vuln.metasploit_name && (
-          <Section title="Metasploit module" copy={vuln.metasploit_name}>
-            <ExtLink onClick={() => openExternal(metasploitSearchUrl(vuln.metasploit_name!))} title="Search for this module on rapid7.com">
-              {vuln.metasploit_name}
-            </ExtLink>
-          </Section>
-        )}
+        <ExploitSection vuln={vuln} />
 
         {vuln.cve.length > 0 && (
           <Section title={`CVEs (${vuln.cve.length})`} copy={vuln.cve.join("\n")}>
@@ -324,6 +320,46 @@ function HostRows({ open, columns, output, children }: { open: boolean; columns:
     </>
   );
 }// HostRows
+
+function ExploitSection({ vuln }: { vuln: VulnEntry }) {
+  // the ease only repeats yes or no, except for "No exploit is required"
+  const ease = vuln.exploit_ease && !/^(exploits are available|no known exploits are available)$/i.test(vuln.exploit_ease.trim()) ? vuln.exploit_ease : null;
+  const kits = [...(vuln.metasploit_available ? ["Metasploit"] : []), ...vuln.exploit_frameworks];
+  const known = vuln.exploit_available || ease !== null || kits.length > 0 || vuln.exploited_by_malware || vuln.exploited_by_nessus || vuln.cisa_known_exploited !== null;
+  if (!known) {
+    return null;
+  }
+
+  const all: [string, ReactNode][] = [
+    ["Public exploit", vuln.exploit_available ? "Yes" : "None known"],
+    ["Exploitability", ease],
+    ["Code maturity", vuln.exploit_maturity],
+    ["In exploit tools", kits.join(", ")],
+    ["Metasploit module", vuln.metasploit_name && (
+      <ExtLink onClick={() => openExternal(metasploitSearchUrl(vuln.metasploit_name!))} title="Search for this module on rapid7.com">
+        {vuln.metasploit_name}
+      </ExtLink>
+    )],
+    ["Used by malware", vuln.exploited_by_malware && "Yes"],
+    ["CISA known exploited", vuln.cisa_known_exploited && `Yes, fix by ${formatNessusDate(vuln.cisa_known_exploited)}`],
+    ["Exploited by Nessus", vuln.exploited_by_nessus && "Yes, the check itself exploits it"],
+  ];
+  const rows = all.filter(([, value]) => Boolean(value));
+
+  return (
+    <Section title="Exploit">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-ink-500 dark:text-ink-400">{label}</dt>
+            <dd className="break-words">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-xs text-ink-500 dark:text-ink-400">From Tenable's plugin data in the scan file.</p>
+    </Section>
+  );
+}// ExploitSection
 
 function ExtLink({ onClick, title, children }: { onClick: () => void; title: string; children: ReactNode }) {
   return (

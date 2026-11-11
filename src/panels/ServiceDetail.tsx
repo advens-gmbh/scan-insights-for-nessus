@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useAfterPaint } from "../hooks/useAfterPaint";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { buildHostEntries, buildServiceEntries, buildVulnEntries, isHttps, isPlainHttp, ratedScore } from "../types/nessus";
+import { buildHostEntries, buildServiceEntries, isHttps, isPlainHttp } from "../types/nessus";
 import { groupByHost } from "../utils/hostFindings";
 import { httpUrl, httpsUrl } from "../utils/webUrls";
 import SeverityBadge from "../components/common/SeverityBadge";
@@ -41,7 +41,6 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
   const service = useMemo(() => buildServiceEntries(files).find((s) => s.key === serviceKey), [files, serviceKey]);
   const hosts = buildHostEntries(files);
   const hostnames = useMemo(() => new Map(hosts.map((h) => [h.ip, h.hostname ?? h.netbios])), [hosts]);
-  const scores = useMemo(() => new Map(buildVulnEntries(files).map((v) => [v.plugin_id, ratedScore(v)])), [files]);
   const hostGroups = useMemo(
     () => (grouped && service ? groupByHost(hosts, service.port, service.protocol, (i) => showInfo || i.severity > 0) : []),
     [grouped, service, hosts, showInfo]
@@ -147,7 +146,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
                 <tbody>
                   {findings.slice(0, visibleFindings).map((f) => (
                     <FindingRow key={f.plugin_id} pluginId={f.plugin_id} name={f.plugin_name} severity={f.severity} hostCount={f.host_count} fileId={fileId}>
-                      <Cvss score={scores.get(f.plugin_id) ?? null} severity={f.severity} />
+                      <Cvss score={f.score} severity={f.severity} />
                     </FindingRow>
                   ))}
                 </tbody>

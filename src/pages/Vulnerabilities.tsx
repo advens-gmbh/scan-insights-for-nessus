@@ -57,6 +57,7 @@ export default function Vulnerabilities() {
       setFileFilter(handed);
     }
   }, [location.key, location.state, setFileFilter]);
+  const [exploitOnly, setExploitOnly] = usePageState("vulns:exploit", false);
   const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("vulnerabilities");
   const table = useTableColumns("vulnerabilities", COLUMNS);
   const { sortKey, sortDir, toggleSort } = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
@@ -74,7 +75,7 @@ export default function Vulnerabilities() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return vulnsForFilter.filter((v) => {
-      if (!matchesSeverity([v.severity])) {
+      if (!matchesSeverity([v.severity]) || (exploitOnly && !v.exploit_available)) {
         return false;
       }
 
@@ -90,7 +91,7 @@ export default function Vulnerabilities() {
 
       return true;
     });
-  }, [vulnsForFilter, search, matchesSeverity]);
+  }, [vulnsForFilter, search, matchesSeverity, exploitOnly]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -152,8 +153,12 @@ export default function Vulnerabilities() {
   }, [openPluginId, sorted, fileFilter, openVulnPanel, scrollToIndex]);
 
   const severityCounts = useMemo(
-    () => countBySeverity(vulnsForFilter.map((v) => [v.severity])),
-    [vulnsForFilter]
+    () => countBySeverity(vulnsForFilter.filter((v) => !exploitOnly || v.exploit_available).map((v) => [v.severity])),
+    [vulnsForFilter, exploitOnly]
+  );
+  const exploitCount = useMemo(
+    () => vulnsForFilter.filter((v) => v.exploit_available && matchesSeverity([v.severity])).length,
+    [vulnsForFilter, matchesSeverity]
   );
 
   if (files.length === 0) {
@@ -165,6 +170,18 @@ export default function Vulnerabilities() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 shrink-0">
         <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} />
+        {(exploitCount > 0 || exploitOnly) && (
+          <button
+            onClick={() => setExploitOnly(!exploitOnly)}
+            aria-pressed={exploitOnly}
+            title={exploitOnly ? "Show all vulnerabilities" : "Show only vulnerabilities with a public exploit"}
+            className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${
+              exploitOnly ? "bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900" : "bg-ink-100 text-ink-700 hover:bg-ink-200 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600"
+            }`}
+          >
+            Exploit available {exploitCount.toLocaleString()}
+          </button>
+        )}
 
         {/* File filter */}
         {files.length > 1 && (

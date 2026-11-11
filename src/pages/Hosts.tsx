@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { ChevronDown, Check, Copy, AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { buildHostEntries } from "../types/nessus";
+import { buildHostEntries, osGuesses } from "../types/nessus";
 import type { HostEntry } from "../types/nessus";
 import { compareHosts } from "../utils/ip";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
@@ -189,7 +189,7 @@ export default function Hosts() {
           switch (col.key) {
             case "ip":           return h.ip;
             case "hostname":     return h.hostname ?? h.netbios ?? "";
-            case "os":           return h.os ?? "";
+            case "os":           return osGuesses(h.os).join(" / ");
             case "system_type":  return h.system_type ?? "";
             case "netbios":      return h.netbios ?? "";
             case "mac":          return macAddresses(h.mac).join(", ");
@@ -374,12 +374,21 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
               </td>
             );
 
-          case "os":
+          case "os": {
+            const guesses = osGuesses(host.os);
+            const title = guesses.length > 1 ? `Nessus could not tell which of these it is:\n${guesses.join("\n")}` : guesses[0];
             return (
               <td key="os" className="table-cell text-ink-500">
-                <span className="truncate block">{host.os ?? "-"}</span>
+                <span className="flex items-center gap-1.5 min-w-0" title={title}>
+                  <span className="truncate">{guesses[0] ?? "-"}</span>
+                  {guesses.length > 1 && <span className="shrink-0 text-ink-400">+{guesses.length - 1}</span>}
+                </span>
+                {host.os_unsupported && (
+                  <span className="block mt-1 leading-none"><Tag title="The vendor no longer supports this operating system">Unsupported</Tag></span>
+                )}
               </td>
             );
+          }
 
           case "system_type":
             return (

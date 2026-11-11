@@ -115,14 +115,10 @@ export default function Dashboard() {
   }), [fileRows, fileSort.sortKey, fileSort.sortDir]);
 
   // opens Vulnerabilities with these severity pills selected
-  const showSeverities = (sevs: number[]) => {
+  const showSeverities = (sevs: number[], exploitOnly = false) => {
     useSeverityStore.getState().setSelection("vulnerabilities", sevs);
+    usePageStore.getState().set("vulns:exploit", exploitOnly);
     navigate("/vulnerabilities");
-  };
-
-  const showExploitable = () => {
-    usePageStore.getState().set("sort:vulnerabilities", { key: "exploit", dir: "desc" });
-    showSeverities([]);
   };
 
   if (files.length === 0) {
@@ -151,9 +147,9 @@ export default function Dashboard() {
           </button>
         ))}
         <button
-          onClick={showExploitable}
+          onClick={() => showSeverities([], true)}
           className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5 text-left hover:border-ink-300 dark:hover:border-ink-600 transition-colors"
-          title={`Findings with a public exploit, counted on each host they are on. ${exploits.metasploit.toLocaleString()} of them have a Metasploit module.\nShow them first in Vulnerabilities`}
+          title={`Findings with a public exploit, counted on each host they are on. ${exploits.metasploit.toLocaleString()} of them have a Metasploit module.\nShow them in Vulnerabilities`}
         >
           <span className="text-[13px] font-semibold text-ink-500 dark:text-ink-400">Exploitable</span>
           <span className="text-3xl font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>

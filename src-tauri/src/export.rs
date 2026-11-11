@@ -251,6 +251,7 @@ impl MergedHost<'_> {
                 netbios: host.netbios.clone(),
                 system_type: host.system_type.clone(),
                 credentialed_scan: host.credentialed_scan,
+                os_unsupported: host.os_unsupported,
                 host_start: host.host_start.clone(),
                 host_end: host.host_end.clone(),
             },
@@ -276,6 +277,7 @@ impl MergedHost<'_> {
             }
         }
         p.credentialed_scan |= host.credentialed_scan;
+        p.os_unsupported |= host.os_unsupported;
     }
 }
 
@@ -367,6 +369,9 @@ fn write_host_props(out: &mut String, host: &ReportHost) {
         "Credentialed_Scan",
         if host.credentialed_scan { "true" } else { "false" },
     );
+    if host.os_unsupported {
+        write_tag(out, "operating-system-unsupported", "true");
+    }
     if let Some(st) = &host.host_start {
         write_tag(out, "HOST_START", st);
     }
@@ -433,9 +438,30 @@ fn write_report_item(out: &mut String, item: &ReportItem, source_file: &str) {
     if item.metasploit_available {
         write_elem(out, "exploit_framework_metasploit", "true");
     }
+    for framework in &item.exploit_frameworks {
+        let tag = match framework.as_str() {
+            "Core Impact" => "exploit_framework_core",
+            "CANVAS" => "exploit_framework_canvas",
+            "D2 Elliot" => "exploit_framework_d2_elliot",
+            "ExploitHub" => "exploit_framework_exploithub",
+            _ => continue,
+        };
+        write_elem(out, tag, "true");
+    }
+    if item.exploited_by_malware {
+        write_elem(out, "exploited_by_malware", "true");
+    }
+    if item.exploited_by_nessus {
+        write_elem(out, "exploited_by_nessus", "true");
+    }
+    if item.unsupported_by_vendor {
+        write_elem(out, "unsupported_by_vendor", "true");
+    }
     let optional = [
         ("metasploit_name", &item.metasploit_name),
         ("exploitability_ease", &item.exploit_ease),
+        ("exploit_code_maturity", &item.exploit_maturity),
+        ("cisa-known-exploited", &item.cisa_known_exploited),
         ("patch_publication_date", &item.patch_publication_date),
         ("vuln_publication_date", &item.vuln_publication_date),
         ("script_version", &item.script_version),

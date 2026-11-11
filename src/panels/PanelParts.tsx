@@ -42,9 +42,9 @@ export function Section({ title, copy, actions, children }: { title: string; cop
   );
 }// Section
 
-export function Tag({ danger = false, children }: { danger?: boolean; children: ReactNode }) {
+export function Tag({ danger = false, title, children }: { danger?: boolean; title?: string; children: ReactNode }) {
   return (
-    <span className={`px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 ${danger ? "text-critical-fg" : "text-ink-700 dark:text-ink-200"}`}>
+    <span title={title} className={`px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 ${danger ? "text-critical-fg" : "text-ink-700 dark:text-ink-200"}`}>
       {children}
     </span>
   );

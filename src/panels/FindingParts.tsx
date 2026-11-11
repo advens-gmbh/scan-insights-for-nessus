@@ -14,7 +14,7 @@ export const COUNTS = [
   { sev: 0, label: "Info",     key: "info" },
 ] as const;
 
-const GROUPS_PAGE = 25;
+const GROUPS_PAGE = 100;
 // groups with high or critical findings start open, up to this many
 const OPEN_AT_START = 10;
 

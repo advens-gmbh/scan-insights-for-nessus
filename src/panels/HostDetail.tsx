@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { buildHostEntries } from "../types/nessus";
+import { buildHostEntries, osGuesses } from "../types/nessus";
 import type { ReportItem } from "../types/nessus";
 import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
 import { groupByPort, openPorts, sortFindings } from "../utils/hostFindings";
@@ -52,7 +52,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
   const scopeFileId = fileScope === "all" ? undefined : fileScope;
   const findings = (scoped ?? acrossFiles).items.filter((i) => showInfo || i.severity > 0);
   const { tcp, udp } = openPorts(host.items);
-  const osValues = host.os ? host.os.split(/\n+/).map((o) => o.trim()).filter(Boolean) : [];
+  const osValues = osGuesses(host.os);
   const macs = host.mac ? host.mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
   const scan = scanWindow([host]);
   const multiFile = acrossFiles.file_ids.length > 1;
@@ -65,6 +65,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
           <h2 className="text-xl font-semibold tabular-nums text-ink-900 dark:text-ink-50">{host.ip}</h2>
           <CopyButton text={host.ip} variant="icon" label="Copy IP" />
           {host.credentialed_scan && <Tag>Credentialed</Tag>}
+          {host.os_unsupported && <Tag title="The vendor no longer supports this operating system">Unsupported OS</Tag>}
           {multiFile && <Tag>{acrossFiles.file_ids.length} files</Tag>}
           <PanelButtons onClose={onClose} />
         </div>

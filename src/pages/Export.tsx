@@ -10,6 +10,7 @@ import { SEVERITY_LABELS, SEVERITY_ORDER } from "../types/nessus";
 import { formatScanStart, scanWindow } from "../utils/dashboard";
 import { byScanDate } from "../utils/trends";
 import SeverityPills from "../components/common/SeverityPills";
+import FileExt from "../components/common/FileExt";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 
 const SAVE_FILTER: Record<ExportFormat, { name: string; extensions: string[] }> = {
@@ -160,7 +161,7 @@ export default function Export() {
             busy={exporting === "xlsx"}
             disabled={!canExport}
             onClick={() => doExport("xlsx")}
-            text="One row per finding on each host in an Excel (.xlsx) file."
+            text={<>One row per finding on each host in an Excel <FileExt ext=".xlsx" /> file.</>}
           />
           <ExportOption
             icon={<FileText size={16} />}
@@ -168,7 +169,7 @@ export default function Export() {
             busy={exporting === "csv"}
             disabled={!canExport}
             onClick={() => doExport("csv")}
-            text="One row per finding on each host in a text (.csv) file."
+            text={<>One row per finding on each host in a text <FileExt ext=".csv" /> file.</>}
           />
           <ExportOption
             icon={<Download size={16} />}
@@ -176,7 +177,7 @@ export default function Export() {
             busy={exporting === "nessus"}
             disabled={!canExport}
             onClick={() => doExport("nessus")}
-            text="The selected files will be merged into one scan file (.nessus) and the duplicates will be removed."
+            text={<>The selected files will be merged into one <FileExt /> scan file and the duplicates will be removed.</>}
           />
         </div>
         {!canExport && exporting === null && (
@@ -192,7 +193,7 @@ export default function Export() {
 function ExportOption({ icon, label, text, busy, disabled, onClick }: {
   icon: React.ReactNode;
   label: string;
-  text: string;
+  text: React.ReactNode;
   busy: boolean;
   disabled: boolean;
   onClick: () => void;

@@ -56,6 +56,7 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
         loaded_at: chrono::Local::now().to_rfc3339(),
         report_name: String::new(),
         target: None,
+        compliance_skipped: 0,
         hosts: Vec::new(),
     };
 
@@ -150,6 +151,7 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
                                 netbios: None,
                                 system_type: None,
                                 credentialed_scan: false,
+                                os_unsupported: false,
                                 host_start: None,
                                 host_end: None,
                                 alt_hostnames: Vec::new(),
@@ -231,10 +233,17 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
                     }
                     S::ReportItem => {
                         if tag == "ReportItem" {
+                            // Every check of an audit shares one plugin ID, so they would all
+                            // merge into one finding. Until they get their own view, they are
+                            // only counted.
                             if let (Some(host), Some(item)) =
                                 (current_host.as_mut(), current_item.take())
                             {
-                                host.items.push(item);
+                                if item.compliance {
+                                    nessus_file.compliance_skipped += 1;
+                                } else {
+                                    host.items.push(item);
+                                }
                             }
                             state = S::ReportHost;
                         }
@@ -248,6 +257,7 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
                                     host.name.clone_from(&host.ip);
                                 }
                                 host.alt_hostnames = extract_alt_hostnames(&host.items);
+                                host.credentialed_scan |= scan_info_says_credentialed(&host.items);
                                 nessus_file.hosts.push(host);
                             }
                             state = S::Report;
@@ -412,10 +422,43 @@ fn apply_item_field(item: &mut ReportItem, field: &str, text: String) {
             item.metasploit_available = true;
         }
         "exploitability_ease" => item.exploit_ease = Some(text),
+        "exploit_code_maturity" if !text.is_empty() => item.exploit_maturity = Some(single_line(&text)),
+        "exploit_framework_core" if text == "true" => add_framework(item, "Core Impact"),
+        "exploit_framework_canvas" if text == "true" => add_framework(item, "CANVAS"),
+        "exploit_framework_d2_elliot" if text == "true" => add_framework(item, "D2 Elliot"),
+        "exploit_framework_exploithub" if text == "true" => add_framework(item, "ExploitHub"),
+        "exploited_by_malware" => item.exploited_by_malware = text == "true",
+        "exploited_by_nessus" => item.exploited_by_nessus = text == "true",
+        "unsupported_by_vendor" => item.unsupported_by_vendor = text == "true",
+        "compliance" if text == "true" => item.compliance = true,
+        f if f.starts_with("cm:compliance") => item.compliance = true,
+        "cisa-known-exploited" if !text.is_empty() => item.cisa_known_exploited = Some(single_line(&text)),
         "patch_publication_date" => item.patch_publication_date = Some(text),
         "vuln_publication_date" => item.vuln_publication_date = Some(text),
         "script_version" => item.script_version = Some(text),
         _ => {}
+    }
+}
+
+// Older Nessus versions leave out the Credentialed_Scan tag even when the login worked,
+// but the Nessus Scan Information finding always has a "Credentialed checks : yes" line.
+fn scan_info_says_credentialed(items: &[ReportItem]) -> bool {
+    items.iter().any(|i| {
+        i.plugin_id == 19506
+            && i.plugin_output.as_deref().is_some_and(|output| {
+                output.lines().any(|line| {
+                    line.trim()
+                        .strip_prefix("Credentialed checks")
+                        .map(|rest| rest.trim_start().trim_start_matches(':').trim_start())
+                        .is_some_and(|value| value.to_lowercase().starts_with("yes"))
+                })
+            })
+    })
+}
+
+fn add_framework(item: &mut ReportItem, name: &str) {
+    if !item.exploit_frameworks.iter().any(|f| f == name) {
+        item.exploit_frameworks.push(name.to_string());
     }
 }
 
@@ -436,6 +479,7 @@ fn apply_host_props(current_host: &mut Option<ReportHost>, props: &HashMap<Strin
     host.mac = props.get("mac-address").cloned();
     host.netbios = props.get("netbios-name").map(|n| single_line(n));
     host.system_type = props.get("system-type").cloned();
+    host.os_unsupported = props.get("operating-system-unsupported").is_some_and(|v| v == "true");
     host.host_start = props.get("HOST_START").cloned();
     host.host_end = props.get("HOST_END").cloned();
     host.credentialed_scan = props
@@ -492,6 +536,13 @@ fn parse_item_attrs(e: &quick_xml::events::BytesStart<'_>) -> ReportItem {
         metasploit_available: false,
         metasploit_name: None,
         exploit_ease: None,
+        exploit_maturity: None,
+        exploit_frameworks: Vec::new(),
+        exploited_by_malware: false,
+        exploited_by_nessus: false,
+        cisa_known_exploited: None,
+        unsupported_by_vendor: false,
+        compliance: false,
         patch_publication_date: None,
         vuln_publication_date: None,
         script_version: None,
@@ -769,6 +820,68 @@ mod tests {
         assert_eq!(i.synopsis.as_deref(), Some("Short summary."));
         assert_eq!(i.metasploit_name.as_deref(), Some("MS08-067 Service"));
         assert!(i.metasploit_available);
+    }
+
+    #[test]
+    fn scan_information_marks_a_host_credentialed() {
+        let info = |answer: &str| format!(
+            r#"<ReportItem port="0" protocol="tcp" severity="0" pluginID="19506" pluginName="Nessus Scan Information" pluginFamily="Settings"><plugin_output>Scan type : Normal
+Credentialed checks : {answer}
+Patch management checks : None</plugin_output></ReportItem>"#
+        );
+        for (answer, expected) in [("yes, as 'admin' via ssh", true), ("no", false)] {
+            let f = parse_str(&scan(&info(answer))).unwrap();
+            assert_eq!(f.hosts[0].credentialed_scan, expected, "{answer}");
+        }
+    }
+
+    #[test]
+    fn leaves_compliance_results_out_and_counts_them() {
+        let check = |result: &str| format!(
+            r#"<ReportItem port="0" svc_name="general" protocol="tcp" severity="3" pluginID="21157" pluginName="Unix Compliance Checks" pluginFamily="Policy Compliance"><cm:compliance-check-name>1.1 Check {result}</cm:compliance-check-name><cm:compliance-result>{result}</cm:compliance-result></ReportItem>"#
+        );
+        let f = parse_str(&scan(&format!("{}{}{}", check("FAILED"), check("PASSED"), item("<cvss_base_score>5.0</cvss_base_score>")))).unwrap();
+        assert_eq!(f.compliance_skipped, 2);
+        assert_eq!(f.hosts[0].items.len(), 1);
+        assert_eq!(f.hosts[0].items[0].plugin_id, 7);
+    }
+
+    #[test]
+    fn reads_unsupported_flags() {
+        let f = parse_str(&scan(&format!(
+            "{}{}",
+            r#"<HostProperties><tag name="operating-system-unsupported">true</tag></HostProperties>"#,
+            item("<unsupported_by_vendor>true</unsupported_by_vendor>"),
+        )))
+        .unwrap();
+        assert!(f.hosts[0].os_unsupported);
+        assert!(f.hosts[0].items[0].unsupported_by_vendor);
+    }
+
+    #[test]
+    fn reads_exploit_details() {
+        let f = parse_str(&scan(&item(
+            concat!(
+                "<exploit_available>true</exploit_available><exploit_code_maturity>Functional</exploit_code_maturity>",
+                "<exploit_framework_canvas>true</exploit_framework_canvas><exploit_framework_core>true</exploit_framework_core>",
+                "<exploit_framework_core>true</exploit_framework_core><exploit_framework_exploithub>false</exploit_framework_exploithub>",
+                "<exploited_by_malware>true</exploited_by_malware><exploited_by_nessus>false</exploited_by_nessus>",
+                "<cisa-known-exploited>2022/05/03</cisa-known-exploited>",
+            ),
+        )))
+        .unwrap();
+        let i = &f.hosts[0].items[0];
+        assert_eq!(i.exploit_maturity.as_deref(), Some("Functional"));
+        assert_eq!(i.exploit_frameworks, ["CANVAS", "Core Impact"]);
+        assert!(i.exploited_by_malware && !i.exploited_by_nessus);
+        assert_eq!(i.cisa_known_exploited.as_deref(), Some("2022/05/03"));
+    }
+
+    #[test]
+    fn leaves_empty_exploit_details_out_of_the_json() {
+        let f = parse_str(&scan(&item("<exploit_available>true</exploit_available>"))).unwrap();
+        let json = serde_json::to_string(&f.hosts[0].items[0]).unwrap();
+        assert!(!json.contains("exploit_maturity") && !json.contains("exploit_frameworks") && !json.contains("exploited_by"));
     }
 
     #[test]

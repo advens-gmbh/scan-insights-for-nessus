@@ -28,6 +28,12 @@ export interface ReportItem {
   metasploit_available: boolean;
   metasploit_name: string | null;
   exploit_ease: string | null;
+  exploit_maturity?: string;
+  exploit_frameworks?: string[]; // other than Metasploit
+  exploited_by_malware?: boolean;
+  exploited_by_nessus?: boolean;
+  cisa_known_exploited?: string; // the date CISA set for fixing it
+  unsupported_by_vendor?: boolean;
   patch_publication_date: string | null;
   vuln_publication_date: string | null;
   script_version: string | null;
@@ -43,6 +49,7 @@ export interface ReportHost {
   netbios: string | null;
   system_type: string | null;
   credentialed_scan: boolean;
+  os_unsupported?: boolean;
   host_start: string | null;
   host_end: string | null;
   alt_hostnames: string[];
@@ -56,6 +63,7 @@ export interface NessusFile {
   loaded_at: string;
   report_name: string;
   target: string | null;
+  compliance_skipped?: number;
   hosts: ReportHost[];
   size?: number;
 }// NessusFile
@@ -129,6 +137,12 @@ export interface VulnEntry {
   see_also: string[];
   risk_factor: string;
   exploit_ease: string | null;
+  exploit_maturity: string | null;
+  exploit_frameworks: string[];
+  exploited_by_malware: boolean;
+  exploited_by_nessus: boolean;
+  cisa_known_exploited: string | null;
+  unsupported_by_vendor: boolean;
   affected_hosts: AffectedHost[]; // one per host + port + file
   file_ratings: { file_id: string; filename: string; severity: number }[]; // worst per file
   host_count: number;             // unique hosts in affected_hosts
@@ -138,6 +152,7 @@ export interface ServiceFinding {
   plugin_id: number;
   plugin_name: string;
   severity: number;
+  score: CvssScore | null; // from a finding with this severity
   host_count: number; // unique hosts with this finding on this port
 }// ServiceFinding
 
@@ -172,6 +187,7 @@ export interface HostEntry {
   netbios: string | null;
   system_type: string | null;
   credentialed_scan: boolean;
+  os_unsupported: boolean;
   host_start: string | null;
   host_end: string | null;
   alt_hostnames: string[];
@@ -368,6 +384,12 @@ export const buildVulnEntries = cachedByFiles((files: NessusFile[]): VulnEntry[]
             cwe: item.cwe,
             see_also: item.see_also,
             exploit_ease: item.exploit_ease,
+            exploit_maturity: item.exploit_maturity ?? null,
+            exploit_frameworks: [],
+            exploited_by_malware: false,
+            exploited_by_nessus: false,
+            cisa_known_exploited: null,
+            unsupported_by_vendor: false,
             affected_hosts: [],
             file_ratings: [],
             host_count: 0,
@@ -387,6 +409,16 @@ export const buildVulnEntries = cachedByFiles((files: NessusFile[]): VulnEntry[]
         }
         entry.exploit_available ||= item.exploit_available;
         entry.metasploit_available ||= item.metasploit_available;
+        entry.exploited_by_malware ||= item.exploited_by_malware ?? false;
+        entry.exploited_by_nessus ||= item.exploited_by_nessus ?? false;
+        entry.unsupported_by_vendor ||= item.unsupported_by_vendor ?? false;
+        entry.exploit_maturity ??= item.exploit_maturity ?? null;
+        entry.cisa_known_exploited ??= item.cisa_known_exploited ?? null;
+        for (const framework of item.exploit_frameworks ?? []) {
+          if (!entry.exploit_frameworks.includes(framework)) {
+            entry.exploit_frameworks.push(framework);
+          }
+        }
         // An older plugin version in another file may not have these yet.
         entry.synopsis ??= item.synopsis;
         entry.metasploit_name ??= item.metasploit_name;
@@ -412,6 +444,11 @@ export const buildVulnEntries = cachedByFiles((files: NessusFile[]): VulnEntry[]
   return Array.from(map.values()).sort((a, b) => b.severity - a.severity || a.plugin_name.localeCompare(b.plugin_name));
 });// buildVulnEntries
 
+// Nessus writes one line per guess when it can't tell the operating system apart
+export function osGuesses(os: string | null): string[] {
+  return os ? os.split(/\n+/).map((o) => o.trim()).filter(Boolean) : [];
+}// osGuesses
+
 export const buildHostEntries = cachedByFiles((files: NessusFile[]): HostEntry[] => {
   const map = new Map<string, HostEntry>();
   // per IP, where each plugin+port+protocol combo was first added to entry.items
@@ -432,6 +469,7 @@ export const buildHostEntries = cachedByFiles((files: NessusFile[]): HostEntry[]
           netbios: host.netbios,
           system_type: host.system_type,
           credentialed_scan: host.credentialed_scan,
+          os_unsupported: host.os_unsupported ?? false,
           host_start: host.host_start,
           host_end: host.host_end,
           alt_hostnames: [...host.alt_hostnames],
@@ -481,6 +519,7 @@ export const buildHostEntries = cachedByFiles((files: NessusFile[]): HostEntry[]
         if (!existing.netbios) {
           existing.netbios  = host.netbios;
         }
+        existing.os_unsupported ||= host.os_unsupported ?? false;
         if (host.credentialed_scan) {
           existing.credentialed_scan = true;
         }
@@ -501,7 +540,7 @@ export const buildHostEntries = cachedByFiles((files: NessusFile[]): HostEntry[]
 
 // One entry per port and protocol that has at least one finding. Port 0 is excluded
 export const buildServiceEntries = cachedByFiles((files: NessusFile[]): ServiceEntry[] => {
-  interface Plugin { name: string; severity: number; ips: Set<string> }
+  interface Plugin { name: string; severity: number; score: CvssScore | null; ips: Set<string> }
   interface Service { port: number; protocol: string; names: Set<string>; ips: Set<string>; plugins: Map<number, Plugin>; exploit: boolean }
   const services = new Map<string, Service>();
 
@@ -525,12 +564,17 @@ export const buildServiceEntries = cachedByFiles((files: NessusFile[]): ServiceE
         service.ips.add(host.ip);
         service.exploit ||= item.exploit_available;
 
+        // rated by the scans of this port only. another file can rate the same plugin
+        // differently. The score comes from the finding that set the severity
         let plugin = service.plugins.get(item.plugin_id);
         if (!plugin) {
-          plugin = { name: item.plugin_name, severity: item.severity, ips: new Set() };
+          plugin = { name: item.plugin_name, severity: -1, score: null, ips: new Set() };
           service.plugins.set(item.plugin_id, plugin);
         }
-        plugin.severity = Math.max(plugin.severity, item.severity);
+        if (item.severity > plugin.severity) {
+          plugin.severity = item.severity;
+          plugin.score = ratedScore({ cvss4: item.cvss4_base_score, cvss3: item.cvss3_base_score, cvss2: item.cvss_base_score, severity: item.severity });
+        }
         plugin.ips.add(host.ip);
       }
     }
@@ -541,6 +585,7 @@ export const buildServiceEntries = cachedByFiles((files: NessusFile[]): ServiceE
       plugin_id,
       plugin_name: p.name,
       severity: p.severity,
+      score: p.score,
       host_count: p.ips.size,
     })).sort((a, b) => b.severity - a.severity || a.plugin_name.localeCompare(b.plugin_name));
 

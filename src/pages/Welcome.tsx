@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { FileText, FolderOpen, Upload } from "lucide-react";
+import { FileText, FolderOpen, Upload, X } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useProjectStore } from "../stores/projectStore";
 import type { Project, RecentFile } from "../types/nessus";
 import { folderOf, formatBytes, timeAgo } from "../utils/format";
-import NessusExt from "../components/common/NessusExt";
+import FileExt from "../components/common/FileExt";
 import logo from "../../src-tauri/icons/128x128.png";
 
 const PROJECTS_SHOWN = 3;
@@ -55,7 +55,7 @@ export default function Welcome() {
         <img src={logo} alt="" className="w-11 h-11 rounded-xl" />
         <div className="min-w-0">
           <h1 className="text-[19px] font-bold text-ink-900 dark:text-ink-50">Pick up where you left off</h1>
-          <p className="mt-0.5 text-[13px] text-ink-600 dark:text-ink-300">Tick files to open them together, or drop new <NessusExt /> files anywhere.</p>
+          <p className="mt-0.5 text-[13px] text-ink-600 dark:text-ink-300">Tick files to open them together, or drop new <FileExt /> files anywhere.</p>
         </div>
         <span className="flex-1" />
         <button onClick={openFiles} className="btn-secondary h-9">Choose other files…</button>
@@ -80,6 +80,7 @@ export default function Welcome() {
               <col />
               <col className="w-24" />
               <col className="w-32" />
+              <col className="w-12" />
             </colgroup>
             <thead className="sticky top-0 z-10">
               <tr className="text-left text-xs font-semibold text-ink-500 dark:text-ink-400 bg-ink-50 dark:bg-[color-mix(in_srgb,theme(colors.ink.900)_50%,theme(colors.ink.800))] shadow-[inset_0_-1px_0_theme(colors.ink.200)] dark:shadow-[inset_0_-1px_0_theme(colors.ink.700)]">
@@ -90,7 +91,8 @@ export default function Welcome() {
                 <th className="px-3 py-2.5">Scan</th>
                 <th className="px-3 py-2.5">Folder</th>
                 <th className="px-3 py-2.5 text-right">Size</th>
-                <th className="pl-3 pr-4 py-2.5 text-right">Opened</th>
+                <th className="px-3 py-2.5 text-right">Opened</th>
+                <th className="pr-3 py-2.5"><span className="sr-only">Remove</span></th>
               </tr>
             </thead>
             <tbody>
@@ -137,7 +139,7 @@ function RecentRow({ file, size, picked, onToggle, onOpen, onRemove }: {
     <tr
       onClick={gone ? undefined : onToggle}
       onDoubleClick={gone ? undefined : onOpen}
-      className={`border-t border-ink-100 dark:border-ink-700/50 first:border-t-0 select-none ${
+      className={`group border-t border-ink-100 dark:border-ink-700/50 first:border-t-0 select-none ${
         gone ? "text-ink-400 dark:text-ink-500" : `cursor-pointer ${picked ? "bg-accent-50 dark:bg-accent-900/20" : "hover:bg-ink-50 dark:hover:bg-ink-700/40"}`
       }`}
     >
@@ -163,10 +165,17 @@ function RecentRow({ file, size, picked, onToggle, onOpen, onRemove }: {
       </td>
       <td className="px-3 py-2 truncate text-ink-500 dark:text-ink-400" title={folder}>{folder}</td>
       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap text-ink-600 dark:text-ink-300">{typeof size === "number" ? formatBytes(size) : ""}</td>
-      <td className="pl-3 pr-4 py-2 text-right whitespace-nowrap text-ink-600 dark:text-ink-300">
-        {gone ? (
-          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="btn-ghost h-6 px-2 text-xs">Remove</button>
-        ) : timeAgo(file.last_opened)}
+      <td className="px-3 py-2 text-right whitespace-nowrap text-ink-600 dark:text-ink-300">{timeAgo(file.last_opened)}</td>
+      <td className="pr-3 py-2 text-right">
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          onDoubleClick={(e) => e.stopPropagation()}
+          title="Remove from the list"
+          aria-label={`Remove ${file.filename} from the list`}
+          className={`w-7 h-7 inline-flex items-center justify-center rounded-md text-ink-400 hover:text-ink-700 hover:bg-ink-100 dark:hover:text-ink-100 dark:hover:bg-ink-700 focus-visible:opacity-100 ${gone ? "" : "opacity-0 group-hover:opacity-100"}`}
+        >
+          <X size={15} />
+        </button>
       </td>
     </tr>
   );
@@ -234,7 +243,7 @@ function FirstRun({ openFiles, projects, loadFiles }: { openFiles: () => void; p
       </div>
       <section aria-label="Open files" className="rounded-2xl border-2 border-dashed border-accent-300 dark:border-accent-700 bg-accent-50 dark:bg-accent-900/20 min-h-[230px] flex flex-col items-center justify-center gap-3 text-center px-6 py-8">
         <span className="w-14 h-14 rounded-2xl bg-white dark:bg-ink-800 text-accent-600 dark:text-accent-300 flex items-center justify-center shadow-sm"><Upload size={26} /></span>
-        <div className="text-lg font-semibold text-ink-900 dark:text-ink-50">Drop <NessusExt /> files here</div>
+        <div className="text-lg font-semibold text-ink-900 dark:text-ink-50">Drop <FileExt /> files here</div>
         <div className="flex items-center gap-3 text-sm text-ink-600 dark:text-ink-300">or <button onClick={openFiles} className="btn-primary h-9">Choose files</button></div>
       </section>
       {projects.length > 0 && <Projects projects={projects} loadFiles={loadFiles} />}

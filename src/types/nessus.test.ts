@@ -105,8 +105,26 @@ describe("buildServiceEntries", () => {
       file("a", host("10.0.0.1", [onPort(1, 80, { severity: 1 })]), host("10.0.0.2", [onPort(1, 80, { severity: 1 })])),
       file("b", host("10.0.0.1", [onPort(1, 80, { severity: 3 })])),
     ]);
-    expect(service.findings).toEqual([{ plugin_id: 1, plugin_name: "plugin 1", severity: 3, host_count: 2 }]);
+    expect(service.findings).toEqual([{ plugin_id: 1, plugin_name: "plugin 1", severity: 3, score: null, host_count: 2 }]);
     expect(service.severity_counts).toMatchObject({ high: 1, low: 0 });
+  });
+
+  it("rates a finding on each port by the scans of that port only", () => {
+    // a newer plugin version re-rated it, but only the scan of port 23 used that version
+    const services = buildServiceEntries([
+      file("old", host("10.0.0.1", [onPort(1, 2002, { severity: 1, cvss_base_score: 2.6 })])),
+      file("new", host("10.0.0.2", [onPort(1, 23, { severity: 2, cvss_base_score: 5.8 })])),
+    ]);
+    expect(services.map((s) => [s.key, s.findings[0].severity, s.findings[0].score?.score])).toEqual([["23/tcp", 2, 5.8], ["2002/tcp", 1, 2.6]]);
+  });
+
+  it("takes the score from the finding that set the severity", () => {
+    const [service] = buildServiceEntries([
+      file("a", host("10.0.0.1", [onPort(1, 80, { severity: 1, cvss_base_score: 2.6 })])),
+      file("b", host("10.0.0.1", [onPort(1, 80, { severity: 2, cvss_base_score: 5.8 })])),
+      file("c", host("10.0.0.1", [onPort(1, 80, { severity: 1, cvss_base_score: 2.6 })])),
+    ]);
+    expect(service.findings[0]).toMatchObject({ severity: 2, score: { score: 5.8, version: 2 } });
   });
 
   it("flags a service when any of its findings has an exploit", () => {

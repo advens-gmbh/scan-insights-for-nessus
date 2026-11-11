@@ -8,6 +8,8 @@ pub struct NessusFile {
     pub loaded_at: String,
     pub report_name: String,
     pub target: Option<String>,   // raw target string from <Policy><Preferences><ServerPreferences>
+    #[serde(default)]
+    pub compliance_skipped: usize,
     pub hosts: Vec<ReportHost>,
 }
 
@@ -22,6 +24,8 @@ pub struct ReportHost {
     pub netbios: Option<String>,
     pub system_type: Option<String>,
     pub credentialed_scan: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub os_unsupported: bool,
     pub host_start: Option<String>,
     pub host_end: Option<String>,
     pub alt_hostnames: Vec<String>,
@@ -54,9 +58,28 @@ pub struct ReportItem {
     pub metasploit_available: bool,
     pub metasploit_name: Option<String>,
     pub exploit_ease: Option<String>,
+    // left out of the JSON when empty. most findings have none of these
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exploit_maturity: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exploit_frameworks: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub exploited_by_malware: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub exploited_by_nessus: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cisa_known_exploited: Option<String>, // the date CISA set for fixing it
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub unsupported_by_vendor: bool,
+    #[serde(skip)]
+    pub compliance: bool,
     pub patch_publication_date: Option<String>,
     pub vuln_publication_date: Option<String>,
     pub script_version: Option<String>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

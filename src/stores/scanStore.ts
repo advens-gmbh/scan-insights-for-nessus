@@ -118,6 +118,13 @@ export const useScanStore = create<ScanStore>((set, get) => {
       update({ stage: "preparing" });
       await nextFrame();
       const file: NessusFile = { ...head, hosts, size };
+      const compliance = file.compliance_skipped ?? 0;
+      if (compliance > 0) {
+        useNotificationStore.getState().add(
+          `"${file.filename}" has ${compliance.toLocaleString()} compliance check ${compliance === 1 ? "result" : "results"}. The app doesn't show compliance results yet.`,
+          "warning",
+        );
+      }
       arrived = [...arrived.filter((f) => !samePath(f.path, file.path)), file];
       const recent: RecentFile = { path: file.path, filename: file.filename, last_opened: new Date().toISOString(), report_name: file.report_name || null };
       await saveRecent([recent, ...get().recentFiles.filter((r) => r.path !== file.path)].slice(0, 20));

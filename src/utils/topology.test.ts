@@ -18,7 +18,7 @@ function item(plugin_id: number, plugin_output: string | null = null, severity =
 
 function host(ip: string, items: ReportItem[] = [], extra: Partial<HostEntry> = {}): HostEntry {
   return {
-    ip, hostname: null, domain: null, os: null, mac: null, netbios: null, system_type: null, credentialed_scan: false,
+    ip, hostname: null, domain: null, os: null, mac: null, netbios: null, system_type: null, credentialed_scan: false, os_unsupported: false,
     host_start: null, host_end: null, alt_hostnames: [], file_id: "f", filename: "f.nessus", file_ids: ["f"], filenames: ["f.nessus"],
     severity_counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, open_ports: [], items, conflicts: [], ...extra,
   };

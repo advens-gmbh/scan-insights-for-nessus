@@ -3,7 +3,7 @@ import type { ServiceEntry } from "../types/nessus";
 import { groupServices, primaryName } from "./serviceGroups";
 
 function service(port: number, names: string[], ips: string[], findings: [number, number][], exploit = false): ServiceEntry {
-  const list = findings.map(([plugin_id, severity]) => ({ plugin_id, plugin_name: `p${plugin_id}`, severity, host_count: 1 }));
+  const list = findings.map(([plugin_id, severity]) => ({ plugin_id, plugin_name: `p${plugin_id}`, severity, score: null, host_count: 1 }));
   return {
     key: `${port}/tcp`, port, protocol: "tcp", svc_names: names, host_ips: ips,
     severity_counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, findings: list, exploit_available: exploit,

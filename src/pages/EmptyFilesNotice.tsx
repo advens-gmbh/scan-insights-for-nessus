@@ -3,7 +3,7 @@ import { Download, FolderOpen, GitCompare, Layers, Network, Server, ShieldAlert,
 import type { LucideIcon } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { timeAgo } from "../utils/format";
-import NessusExt from "../components/common/NessusExt";
+import FileExt from "../components/common/FileExt";
 
 export type EmptyPage = "vulnerabilities" | "hosts" | "services" | "topology" | "compare" | "trends" | "export";
 
@@ -33,7 +33,7 @@ export default function EmptyFilesNotice({ page }: { page: EmptyPage }) {
         <span className="w-16 h-16 rounded-[18px] bg-accent-50 dark:bg-accent-900/30 text-accent-600 dark:text-accent-300 flex items-center justify-center"><Icon size={30} /></span>
         <h1 className="text-xl font-bold text-ink-900 dark:text-ink-50">{second ? "Compare needs a second scan" : title ?? "No scan open"}</h1>
         <p className="text-sm leading-[21px] text-ink-600 dark:text-ink-300">
-          {second ? "Open another run of the same scan." : text ?? <>Open a <NessusExt /> file, or drop one anywhere in this window.</>}
+          {second ? "Open another run of the same scan." : text ?? <>Open a <FileExt /> file, or drop one anywhere in this window.</>}
         </p>
         <div className="flex flex-wrap justify-center gap-2.5 mt-1">
           <button onClick={openFiles} className="btn-primary h-9"><FolderOpen size={15} /> Open files</button>
