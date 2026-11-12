@@ -21,6 +21,7 @@ const NO_GROUPS = new Set<string>();
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+import { ExploitTag } from "../panels/PanelParts";
 
 type SortKey = "port" | "service" | "hosts" | "findings" | "critical" | "high" | "medium" | "low" | "info" | "exploit";
 type ColDef = TableColumn<SortKey>;
@@ -66,7 +67,7 @@ export default function Services() {
       setFileFilter(handed);
     }
   }, [location.key, location.state, setFileFilter]);
-  const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("services");
+  const { selected: selectedSeverities, toggle: toggleSeverity, clear: clearSeverities, matches: matchesSeverity } = useSeverityFilter("services");
 
   const table = useTableColumns("services", COLUMNS);
   const { sortKey: activeSort, sortDir, toggleSort } = useTableSort("services", table.visible, "port", "asc", ASCENDING_FIRST);
@@ -199,7 +200,7 @@ export default function Services() {
     <div className="h-full flex flex-col gap-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 shrink-0">
-        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} />
+        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
 
         <div className="flex items-center gap-1.5">
           {(["all", "tcp", "udp"] as const).map((p) => (
@@ -364,7 +365,7 @@ function ServiceRow({ service, visibleCols, index, nested = false, selected = fa
             return (
               <td key={col.key} className="table-cell">
                 {service.exploit_available && (
-                  <span className="px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 text-critical-fg">Exploit</span>
+                  <ExploitTag />
                 )}
               </td>
             );

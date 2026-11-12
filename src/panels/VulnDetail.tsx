@@ -11,7 +11,7 @@ import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import SearchBar from "../components/common/SearchBar";
-import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
+import { ExploitTag, PanelButtons, Section, Tag, useEscape } from "./PanelParts";
 import type { VulnEntry } from "../types/nessus";
 
 const HOST_ROWS_PAGE = 200;
@@ -92,7 +92,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
       <div className="px-6 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
           <SeverityBadge severity={vuln.severity} />
-          {vuln.exploit_available && <Tag danger>Exploit</Tag>}
+          {vuln.exploit_available && <ExploitTag />}
           {vuln.metasploit_available && <Tag>Metasploit</Tag>}
           {vuln.unsupported_by_vendor && <Tag title="The vendor no longer supports this software, so no fix will come: upgrade or replace it">Unsupported</Tag>}
           <PanelButtons onClose={onClose} />

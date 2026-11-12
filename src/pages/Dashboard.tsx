@@ -19,6 +19,7 @@ import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
 import type { TableColumn } from "../utils/tableColumns";
 import Welcome from "./Welcome";
+import { ExploitTag, Tag } from "../panels/PanelParts";
 
 const TOP_HOSTS = 10;
 const TOP_VULNS = 8;
@@ -218,8 +219,8 @@ export default function Dashboard() {
                 <span><SeverityBadge severity={v.severity} size="sm" /></span>
                 <span className="truncate text-sm font-medium text-ink-800 dark:text-ink-100" title={v.plugin_name}>{v.plugin_name}</span>
                 <span className="flex gap-1">
-                  {v.exploit_available && <span className="px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 text-critical-fg">Exploit</span>}
-                  {v.metasploit_available && <span className="px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-200">Metasploit</span>}
+                  {v.exploit_available && <ExploitTag />}
+                  {v.metasploit_available && <Tag>Metasploit</Tag>}
                 </span>
                 <span className="text-right text-[13px] text-ink-500 dark:text-ink-400 tabular-nums">
                   {cvss ? <>CVSS <b className="text-ink-800 dark:text-ink-100">{cvss.score.toFixed(1)}</b> <span className="text-[10px]">v{cvss.version}</span></> : "-"}

@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { ExploitTag, Tag } from "../panels/PanelParts";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useScanStore } from "../stores/scanStore";
@@ -60,7 +61,7 @@ export default function Vulnerabilities() {
   }, [location.key, location.state, setFileFilter]);
   const [exploitOnly, setExploitOnly] = usePageState("vulns:exploit", false);
   const [familyFilter, setFamilyFilter] = usePageState("vulns:family", "");
-  const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("vulnerabilities");
+  const { selected: selectedSeverities, toggle: toggleSeverity, clear: clearSeverities, matches: matchesSeverity } = useSeverityFilter("vulnerabilities");
   const table = useTableColumns("vulnerabilities", COLUMNS);
   const { sortKey, sortDir, toggleSort } = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
 
@@ -175,7 +176,7 @@ export default function Vulnerabilities() {
     <div className="h-full flex flex-col gap-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 shrink-0">
-        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} />
+        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
         {(exploitCount > 0 || exploitOnly) && (
           <button
             onClick={() => setExploitOnly(!exploitOnly)}
@@ -339,7 +340,7 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
           case "exploit":
             return (
               <td key={col.key} className="table-cell">
-                {vuln.exploit_available && <Tag danger>Exploit</Tag>}
+                {vuln.exploit_available && <ExploitTag />}
               </td>
             );
           case "metasploit":
@@ -359,14 +360,6 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
     </tr>
   );
 }// VulnRow
-
-function Tag({ danger = false, children }: { danger?: boolean; children: string }) {
-  return (
-    <span className={`px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 ${danger ? "text-critical-fg" : "text-ink-700 dark:text-ink-200"}`}>
-      {children}
-    </span>
-  );
-}// Tag
 
 function Dash() {
   return <span className="text-ink-300 dark:text-ink-600">-</span>;

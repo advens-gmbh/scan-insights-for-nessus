@@ -9,7 +9,7 @@ import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
-import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
+import { ExploitTag, PanelButtons, Section, useEscape } from "./PanelParts";
 import { CountBoxes, Cvss, FindingGroups, FindingName } from "./FindingParts";
 
 const ROWS_PAGE = 200;
@@ -69,7 +69,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
       <div className="px-6 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold tabular-nums text-ink-900 dark:text-ink-50">{service.key}</h2>
-          {service.exploit_available && <Tag danger>Exploit available</Tag>}
+          {service.exploit_available && <ExploitTag>Exploit available</ExploitTag>}
           <PanelButtons onClose={onClose} />
         </div>
         <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate" title={subtitle}>{subtitle}</p>

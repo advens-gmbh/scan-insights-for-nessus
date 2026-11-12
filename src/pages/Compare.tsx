@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useAfterPaint } from "../hooks/useAfterPaint";
 import { useLocation } from "react-router-dom";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, Check, CircleHelp, Minus, Plus } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import { SEVERITY_COLORS } from "../types/nessus";
@@ -56,11 +57,18 @@ const MATCHED_BY: Record<MatchedBy, { label: string; title: string }> = {
 const TONE: Record<string, string> = {
   bad:  "bg-critical/10 text-critical-fg dark:bg-critical/20",
   good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-  warn: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  same: "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-300",
+  // neither better nor worse ==> grey, so it isn't read as a severity
+  warn: "bg-ink-100 text-ink-700 dark:bg-ink-700 dark:text-ink-200",
+  same: "bg-ink-100 text-ink-500 dark:bg-ink-700 dark:text-ink-400",
 };
 
-type VulnKey = "severity" | "name" | "change" | "hostsA" | "hostsB" | "added" | "fixed";
+// a symbol per change, so the grey ones still differ at a glance
+const CHANGE_ICON: Record<string, LucideIcon> = {
+  new: Plus, increased: ArrowUp, worsened: ArrowUp, changed: ArrowUpDown, partly: ArrowDown, improved: ArrowDown,
+  fixed: Check, unverified: CircleHelp, missing: CircleHelp, replaced: ArrowLeftRight, unchanged: Minus, same: Minus,
+};
+
+type VulnKey = "severity" | "name" | "change" | "hostsA" | "hostsB" | "added" | "fixed" | "unverified";
 const VULN_COLUMNS: TableColumn<VulnKey>[] = [
   { key: "severity", label: "Severity",   width: 112, required: true },
   { key: "name",     label: "Name",       width: 260, stretch: true, required: true },
@@ -68,7 +76,8 @@ const VULN_COLUMNS: TableColumn<VulnKey>[] = [
   { key: "hostsA",   label: "Hosts in A", width: 112, align: "center" },
   { key: "hostsB",   label: "Hosts in B", width: 112, align: "center" },
   { key: "added",    label: "New",        width: 88,  align: "center" },
-  { key: "fixed",    label: "Fixed",      width: 104, align: "center" },
+  { key: "fixed",    label: "Fixed",      width: 88,  align: "center" },
+  { key: "unverified", label: "Not verified", width: 120, align: "center" },
 ];// VULN_COLUMNS
 
 type HostKey = "host" | "change" | "by" | "critical" | "high" | "medium" | "low" | "info" | "added" | "fixed";
@@ -143,7 +152,8 @@ export default function Compare() {
         case "hostsA":   return a.hostsA - b.hostsA;
         case "hostsB":   return a.hostsB - b.hostsB;
         case "added":    return a.added - b.added;
-        case "fixed":    return a.fixed + a.unverified - b.fixed - b.unverified;
+        case "fixed":    return a.fixed - b.fixed;
+        case "unverified": return a.unverified - b.unverified;
       }
     };
 
@@ -413,7 +423,12 @@ function useFitLine(deps: unknown[]) {
 
 function Pill({ change, map }: { change: string; map: Record<string, { label: string; tone: string; title: string }> }) {
   const c = map[change];
-  return <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${TONE[c.tone]}`} title={c.title}>{c.label}</span>;
+  const Icon = CHANGE_ICON[change];
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${TONE[c.tone]}`} title={c.title}>
+      {Icon && <Icon size={11} strokeWidth={2.6} aria-hidden="true" />}{c.label}
+    </span>
+  );
 }// Pill
 
 function Delta({ value, sign }: { value: number; sign: "+" | "−" }) {
@@ -442,15 +457,11 @@ function VulnRow({ row, cols, index, selected, measureRow, onClick }: {
           case "hostsA":   return <td key={col.key} className="table-cell text-center text-ink-500 dark:text-ink-400">{row.hostsA ? row.hostsA.toLocaleString() : "-"}</td>;
           case "hostsB":   return <td key={col.key} className="table-cell text-center font-semibold text-ink-800 dark:text-ink-100">{row.hostsB ? row.hostsB.toLocaleString() : "-"}</td>;
           case "added":    return <td key={col.key} className="table-cell text-center"><Delta value={row.added} sign="+" /></td>;
-          case "fixed":
+          case "fixed":    return <td key={col.key} className="table-cell text-center"><Delta value={row.fixed} sign="−" /></td>;
+          case "unverified":
             return (
-              <td key={col.key} className="table-cell text-center whitespace-nowrap">
-                {(row.fixed > 0 || row.unverified === 0) && <Delta value={row.fixed} sign="−" />}
-                {row.unverified > 0 && (
-                  <span className="ml-1.5 text-amber-700 dark:text-amber-400 font-semibold" title={`${row.unverified} gone but not verified: the host was not rescanned or lost its credentials`}>
-                    ?{row.unverified}
-                  </span>
-                )}
+              <td key={col.key} className="table-cell text-center font-semibold text-ink-500 dark:text-ink-400" title={row.unverified ? `Gone in B on ${row.unverified.toLocaleString()} ${row.unverified === 1 ? "host" : "hosts"}, but B can't confirm it: not rescanned, or no credentials` : undefined}>
+                {row.unverified ? row.unverified.toLocaleString() : <span className="text-ink-300 dark:text-ink-600">-</span>}
               </td>
             );
         }

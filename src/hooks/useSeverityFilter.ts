@@ -12,7 +12,8 @@ export function useSeverityFilter(pageId: string, initial: readonly number[] = N
     (sev: number) => setSelection(pageId, toggleSeverity(useSeverityStore.getState().selections[pageId] ?? initial, sev)),
     [pageId, initial, setSelection]
   );
+  const clear = useCallback(() => setSelection(pageId, []), [pageId, setSelection]);
   const matches = useCallback((rowSeverities: readonly number[]) => matchesSeverities(rowSeverities, selected), [selected]);
 
-  return { selected, toggle, matches };
+  return { selected, toggle, clear, matches };
 }// useSeverityFilter

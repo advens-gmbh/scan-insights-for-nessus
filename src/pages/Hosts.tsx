@@ -68,7 +68,7 @@ export default function Hosts() {
       setFileFilter(handed);
     }
   }, [location.key, location.state, setFileFilter]);
-  const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("hosts");
+  const { selected: selectedSeverities, toggle: toggleSeverity, clear: clearSeverities, matches: matchesSeverity } = useSeverityFilter("hosts");
 
   const table = useTableColumns("hosts", COLUMNS);
   const visibleCols = table.visible;
@@ -228,7 +228,7 @@ export default function Hosts() {
     <div className="h-full flex flex-col gap-4">
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3 shrink-0">
-        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} />
+        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
 
         {files.length > 1 && (
           <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)}
