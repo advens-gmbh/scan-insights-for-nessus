@@ -62,8 +62,8 @@ export default function Projects() {
       {/* New project */}
       <section className="card p-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">New project</h2>
-          <span className="text-[13px] text-ink-500 dark:text-ink-400">A project remembers a set of scan files so you can open them again with one click.</span>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">New project</h2>
+          <span className="text-small text-ink-500 dark:text-ink-400">A project remembers a set of scan files so you can open them again with one click.</span>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -75,7 +75,7 @@ export default function Projects() {
             className="input flex-1 min-w-64"
           />
           {files.length > 0 && (
-            <label className="flex items-center gap-1.5 text-[13px] text-ink-600 dark:text-ink-300 cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 text-small text-ink-600 dark:text-ink-300 cursor-pointer select-none">
               <input type="checkbox" checked={withLoaded} onChange={() => setWithLoaded((v) => !v)} className="rounded accent-accent-600" />
               With the {files.length} loaded {files.length === 1 ? "file" : "files"}
             </label>
@@ -90,7 +90,7 @@ export default function Projects() {
         <section className="card p-10 flex flex-col items-center gap-2 text-center">
           <FolderOpen size={32} className="text-ink-300 dark:text-ink-600" />
           <p className="font-medium text-ink-700 dark:text-ink-200">No projects yet</p>
-          <p className="max-w-md text-[13px] text-ink-500 dark:text-ink-400">
+          <p className="max-w-md text-small text-ink-500 dark:text-ink-400">
             Load the scan files that belong together, for example every scan of one customer, then create a project above to reopen them all later.
           </p>
         </section>
@@ -118,7 +118,7 @@ export default function Projects() {
                             setEditingId(null);
                           }
                         }}
-                        className="input h-8 py-0 text-[15px] font-semibold w-full"
+                        className="input h-8 py-0 text-heading font-semibold w-full"
                       />
                     ) : (
                       <button
@@ -126,17 +126,17 @@ export default function Projects() {
                           setEditingId(project.id);
                           setEditName(project.name);
                         }}
-                        className="group flex items-center gap-1.5 max-w-full text-left text-[15px] font-semibold text-ink-800 dark:text-ink-100"
+                        className="group flex items-center gap-1.5 max-w-full text-left text-heading font-semibold text-ink-800 dark:text-ink-100"
                         title="Rename"
                       >
                         <span className="truncate">{project.name}</span>
                         <Pencil size={13} className="shrink-0 text-ink-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
                       </button>
                     )}
-                    <p className="text-xs text-ink-500 dark:text-ink-400 mt-0.5">Created {formatDate(project.created_at)}</p>
+                    <p className="text-caption text-ink-500 dark:text-ink-400 mt-0.5">Created {formatDate(project.created_at)}</p>
                   </div>
                   {confirmDelete === project.id ? (
-                    <button onClick={() => deleteProject(project.id)} className="btn-ghost h-7 px-2 text-xs font-semibold text-critical-fg shrink-0">
+                    <button onClick={() => deleteProject(project.id)} className="btn-ghost h-7 px-2 text-caption font-semibold text-critical-fg shrink-0">
                       Delete project?
                     </button>
                   ) : (
@@ -147,16 +147,16 @@ export default function Projects() {
                 </div>
 
                 <ul className="flex flex-col gap-1 flex-1">
-                  {count === 0 && <li className="text-[13px] text-ink-500 dark:text-ink-400">No files yet. Add loaded files below.</li>}
+                  {count === 0 && <li className="text-small text-ink-500 dark:text-ink-400">No files yet. Add loaded files below.</li>}
                   {project.file_paths.map((fp) => (
                     <li key={fp.path} className="flex items-center gap-2.5 rounded-md bg-ink-50 dark:bg-ink-700/50 px-3 py-2">
                       <FileText size={14} className="text-ink-400 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="flex items-center gap-2 text-sm text-ink-800 dark:text-ink-100">
+                        <p className="flex items-center gap-2 text-body text-ink-800 dark:text-ink-100">
                           <span className="truncate">{fp.filename.replace(/\.nessus$/i, "")}</span>
                           {loadedPaths.has(fp.path) && <Tag>loaded</Tag>}
                         </p>
-                        <p className="truncate text-xs text-ink-500 dark:text-ink-400" title={fp.path}>{fp.path}</p>
+                        <p className="truncate text-caption text-ink-500 dark:text-ink-400" title={fp.path}>{fp.path}</p>
                       </div>
                       <button
                         onClick={() => removeFileFromProject(project.id, fp.path)}
@@ -179,7 +179,7 @@ export default function Projects() {
                       }
                       e.target.value = "";
                     }}
-                    className="input h-8 py-0 text-[13px]"
+                    className="input h-8 py-0 text-small"
                     defaultValue=""
                     aria-label="Add a loaded file"
                   >

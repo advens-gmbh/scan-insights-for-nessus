@@ -20,7 +20,7 @@ export default function Notifications() {
         return (
           <div
             key={n.id}
-            className={`pointer-events-auto w-full flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm ${styles}`}
+            className={`pointer-events-auto w-full flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl border text-body ${styles}`}
           >
             <Icon size={16} className="shrink-0 mt-0.5 opacity-80" />
             <span className="flex-1 min-w-0 leading-snug [overflow-wrap:anywhere]">{n.message}</span>

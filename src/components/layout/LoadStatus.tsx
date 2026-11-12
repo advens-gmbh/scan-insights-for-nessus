@@ -72,11 +72,11 @@ function Step({ state, title, text, right, children }: { state: StepState; title
         <span className="w-6 h-6 rounded-full border-2 border-ink-300 dark:border-ink-600" />
       )}
       <div className="min-w-0">
-        <div className={`text-sm font-semibold ${state === "later" ? "text-ink-500 dark:text-ink-400" : "text-ink-800 dark:text-ink-100"}`}>{title}</div>
-        {text && <div className="mt-0.5 text-[12.5px] text-ink-600 dark:text-ink-300">{text}</div>}
+        <div className={`text-body font-semibold ${state === "later" ? "text-ink-500 dark:text-ink-400" : "text-ink-800 dark:text-ink-100"}`}>{title}</div>
+        {text && <div className="mt-0.5 text-caption text-ink-600 dark:text-ink-300">{text}</div>}
         {children}
       </div>
-      <span className="text-[12.5px] tabular-nums text-ink-500 dark:text-ink-400 whitespace-nowrap">{right}</span>
+      <span className="text-caption tabular-nums text-ink-500 dark:text-ink-400 whitespace-nowrap">{right}</span>
     </li>
   );
 }// Step
@@ -104,9 +104,9 @@ function OpeningCardBody({ opening: o, queue, batch }: { opening: Opening; queue
         <div className="flex items-center gap-3">
           <span className="w-10 h-10 rounded-[10px] bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 flex items-center justify-center shrink-0"><FileText size={20} /></span>
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-ink-500 dark:text-ink-400">{batch.total > 1 ? `Opening file ${batch.done + 1} of ${batch.total}` : "Opening"}</div>
-            <div className="text-base font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>
-            <div className="text-[12.5px] text-ink-500 dark:text-ink-400 truncate">{[o.size !== null ? formatBytes(o.size) : null, folderOf(o.path)].filter(Boolean).join(" · ")}</div>
+            <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">{batch.total > 1 ? `Opening file ${batch.done + 1} of ${batch.total}` : "Opening"}</div>
+            <div className="text-heading font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>
+            <div className="text-caption text-ink-500 dark:text-ink-400 truncate">{[o.size !== null ? formatBytes(o.size) : null, folderOf(o.path)].filter(Boolean).join(" · ")}</div>
           </div>
         </div>
         <ol className="flex flex-col gap-4">
@@ -123,12 +123,12 @@ function OpeningCardBody({ opening: o, queue, batch }: { opening: Opening; queue
         </ol>
         {queue.length > 0 && (
           <div>
-            <div className="text-xs font-semibold text-ink-500 dark:text-ink-400 mb-0.5">Next</div>
-            <ul className="text-[13px] text-ink-700 dark:text-ink-200">
+            <div className="text-caption font-semibold text-ink-500 dark:text-ink-400 mb-0.5">Next</div>
+            <ul className="text-small text-ink-700 dark:text-ink-200">
               {queue.map((p) => (
                 <li key={p} className="flex gap-3 py-1.5 border-t border-ink-100 dark:border-ink-700/50" title={p}>
                   <span className="min-w-0 truncate">{fileNameOf(p)}</span>
-                  <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-500 dark:text-ink-400">{typeof sizes[p] === "number" ? formatBytes(sizes[p]!) : ""}</span>
+                  <span className="ml-auto shrink-0 text-caption tabular-nums text-ink-500 dark:text-ink-400">{typeof sizes[p] === "number" ? formatBytes(sizes[p]!) : ""}</span>
                 </li>
               ))}
             </ul>
@@ -159,8 +159,8 @@ function OpeningToastBody({ opening: o, queue, batch, hidden, onHide }: { openin
       <div className="flex items-center gap-2.5">
         <Spinner />
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold text-ink-500 dark:text-ink-400">{label}</div>
-          <div className="text-sm font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>
+          <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">{label}</div>
+          <div className="text-body font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>
         </div>
         <button onClick={onHide} className="btn-ghost h-7 w-7 p-0 justify-center" aria-label={hidden ? "Show details" : "Hide details"} title={hidden ? "Show details" : "Hide details"}>
           {hidden ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -168,11 +168,11 @@ function OpeningToastBody({ opening: o, queue, batch, hidden, onHide }: { openin
       </div>
       {!hidden && (
         <>
-          <div className="text-[12.5px] text-ink-600 dark:text-ink-300 tabular-nums">
+          <div className="text-caption text-ink-600 dark:text-ink-300 tabular-nums">
             {o.stage === "reading" ? `Reading the file… ${seconds(elapsed)}` : o.stage === "receiving" ? `Bringing the hosts in: ${o.hosts.toLocaleString()} of ${o.total.toLocaleString()}` : "Preparing the pages…"}
           </div>
           {o.stage !== "reading" && <Bar value={o.stage === "preparing" ? 100 : percent(o)} />}
-          <div className="flex gap-3 text-xs text-ink-500 dark:text-ink-400">
+          <div className="flex gap-3 text-caption text-ink-500 dark:text-ink-400">
             {queue.length > 0 && <span className="min-w-0 truncate">Next: {fileNameOf(queue[0])}{queue.length > 1 ? ` and ${queue.length - 1} more` : ""}</span>}
             <span className="ml-auto shrink-0">Keep working meanwhile</span>
           </div>
@@ -217,14 +217,14 @@ export function FailureCard({ failure: f }: { failure: LoadFailure }) {
     <section role="alert" className="card pointer-events-auto w-[420px] p-4 flex flex-col gap-2 shadow-xl border-critical/40">
       <div className="flex items-start gap-2.5">
         <span className="w-7 h-7 rounded-lg bg-critical/10 text-critical-fg flex items-center justify-center shrink-0"><AlertCircle size={16} /></span>
-        <div className="min-w-0 flex-1 text-sm font-bold leading-[19px] text-ink-900 dark:text-ink-50">
+        <div className="min-w-0 flex-1 text-body font-bold leading-[19px] text-ink-900 dark:text-ink-50">
           Couldn't open <span className="text-critical-fg [overflow-wrap:anywhere]" title={f.path}>{f.filename}</span>
         </div>
         <button onClick={() => dismiss(f.id)} className="btn-ghost h-7 w-7 p-0 justify-center shrink-0" aria-label="Dismiss" title="Dismiss"><X size={15} /></button>
       </div>
-      <p className="text-[13px] leading-[19px] text-ink-700 dark:text-ink-200">{explained}</p>
+      <p className="text-small leading-[19px] text-ink-700 dark:text-ink-200">{explained}</p>
       {details && (
-        <div className="font-mono text-[11.5px] leading-[17px] text-ink-700 dark:text-ink-200 bg-ink-50 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-lg px-2.5 py-2 [overflow-wrap:anywhere] select-text">
+        <div className="font-mono text-tiny leading-[17px] text-ink-700 dark:text-ink-200 bg-ink-50 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-lg px-2.5 py-2 [overflow-wrap:anywhere] select-text">
           {f.path}
           <br />
           {f.message}
@@ -232,13 +232,13 @@ export function FailureCard({ failure: f }: { failure: LoadFailure }) {
       )}
       <div className="flex flex-wrap items-center gap-2">
         {f.kind === "missing" && inRecent ? (
-          <button onClick={() => { forgetRecent(f.path); dismiss(f.id); }} className="btn-secondary h-8 text-[13px]">Remove from recent files</button>
+          <button onClick={() => { forgetRecent(f.path); dismiss(f.id); }} className="btn-secondary h-8 text-small">Remove from recent files</button>
         ) : (
-          <button onClick={() => retry(f.id)} className="btn-secondary h-8 text-[13px]">Try again</button>
+          <button onClick={() => retry(f.id)} className="btn-secondary h-8 text-small">Try again</button>
         )}
         {details && <CopyButton text={`${f.path}\n${f.message}`} label="Copy details" />}
         {explained !== f.message && (
-          <button onClick={() => setDetails((d) => !d)} className="btn-ghost h-8 text-[13px] ml-auto">{details ? "Hide details" : "Show details"}</button>
+          <button onClick={() => setDetails((d) => !d)} className="btn-ghost h-8 text-small ml-auto">{details ? "Hide details" : "Show details"}</button>
         )}
       </div>
     </section>

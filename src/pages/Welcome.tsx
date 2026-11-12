@@ -52,8 +52,8 @@ export default function Welcome() {
       <header className="flex flex-wrap items-center gap-4">
         <img src={logo} alt="" className="w-10 h-10" />
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-ink-900 dark:text-ink-50">{first ? "Scan Insights for Nessus" : "Pick up where you left off"}</h1>
-          <p className="mt-0.5 text-[13px] text-ink-600 dark:text-ink-300">
+          <h1 className="text-title font-bold text-ink-900 dark:text-ink-50">{first ? "Scan Insights for Nessus" : "Pick up where you left off"}</h1>
+          <p className="mt-0.5 text-small text-ink-600 dark:text-ink-300">
             {first ? "Your scans stay on this computer." : <>Tick files to open them together, or drop new <FileExt /> files anywhere.</>}
           </p>
         </div>
@@ -72,13 +72,13 @@ export default function Welcome() {
 
       <section className="flex flex-col gap-2.5">
         <div className="flex items-baseline gap-2">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Recent files</h2>
-          {!first && <span className="text-xs text-ink-500 dark:text-ink-400">double-click one to open it</span>}
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Recent files</h2>
+          {!first && <span className="text-caption text-ink-500 dark:text-ink-400">double-click one to open it</span>}
           <span className="flex-1" />
-          {!first && <button onClick={clearRecent} className="btn-ghost h-7 text-xs">Clear list</button>}
+          {!first && <button onClick={clearRecent} className="btn-ghost h-7 text-caption">Clear list</button>}
         </div>
         <div className="card overflow-auto" style={{ maxHeight: 41 + RECENT_ROWS * ROW_H + 2 }}>
-          <table className="w-full table-fixed text-[13.5px]">
+          <table className="w-full table-fixed text-small">
             <colgroup>
               <col className="w-11" />
               <col className="w-[34%]" />
@@ -89,7 +89,7 @@ export default function Welcome() {
               <col className="w-12" />
             </colgroup>
             <thead className="sticky top-0 z-10">
-              <tr className="text-left text-xs font-semibold text-ink-500 dark:text-ink-400 bg-ink-50 dark:bg-[color-mix(in_srgb,theme(colors.ink.900)_50%,theme(colors.ink.800))] shadow-[inset_0_-1px_0_theme(colors.ink.200)] dark:shadow-[inset_0_-1px_0_theme(colors.ink.700)]">
+              <tr className="text-left text-caption font-semibold text-ink-500 dark:text-ink-400 bg-ink-50 dark:bg-[color-mix(in_srgb,theme(colors.ink.900)_50%,theme(colors.ink.800))] shadow-[inset_0_-1px_0_theme(colors.ink.200)] dark:shadow-[inset_0_-1px_0_theme(colors.ink.700)]">
                 <th className="pl-4 py-2.5">
                   <input type="checkbox" checked={allPicked} disabled={first} onChange={() => setPicked(allPicked ? [] : openable)} aria-label="Select every file" className="w-4 h-4 accent-accent-600 align-middle" />
                 </th>
@@ -105,8 +105,8 @@ export default function Welcome() {
               {first ? (
                 <tr>
                   <td colSpan={7} className="px-7 pt-7 pb-8">
-                    <div className="text-[15px] font-bold text-ink-900 dark:text-ink-50">Nothing opened yet</div>
-                    <p className="mt-1.5 text-sm text-ink-700 dark:text-ink-200">
+                    <div className="text-heading font-bold text-ink-900 dark:text-ink-50">Nothing opened yet</div>
+                    <p className="mt-1.5 text-body text-ink-700 dark:text-ink-200">
                       Drop <FileExt /> files anywhere in this window, or{" "}
                       <button onClick={openFiles} className="font-semibold text-accent-700 dark:text-accent-400 hover:underline">choose files</button>.
                     </p>
@@ -195,12 +195,12 @@ function Projects({ projects, loadFiles }: { projects: Project[]; loadFiles: (pa
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-baseline gap-2">
-        <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Projects</h2>
+        <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Projects</h2>
         <span className="flex-1" />
-        <Link to="/projects" className="text-[13px] font-semibold text-accent-700 dark:text-accent-400 hover:underline">{projects.length > PROJECTS_SHOWN ? `All ${projects.length} projects` : "Manage projects"}</Link>
+        <Link to="/projects" className="text-small font-semibold text-accent-700 dark:text-accent-400 hover:underline">{projects.length > PROJECTS_SHOWN ? `All ${projects.length} projects` : "Manage projects"}</Link>
       </div>
       <div className="card overflow-hidden">
-        <table className="w-full table-fixed text-[13.5px]">
+        <table className="w-full table-fixed text-small">
           <colgroup>
             <col className="w-[30%]" />
             <col />
@@ -208,7 +208,7 @@ function Projects({ projects, loadFiles }: { projects: Project[]; loadFiles: (pa
             <col className="w-24" />
           </colgroup>
           <thead>
-            <tr className="text-left text-xs font-semibold text-ink-500 dark:text-ink-400 bg-ink-50 dark:bg-[color-mix(in_srgb,theme(colors.ink.900)_50%,theme(colors.ink.800))] shadow-[inset_0_-1px_0_theme(colors.ink.200)] dark:shadow-[inset_0_-1px_0_theme(colors.ink.700)]">
+            <tr className="text-left text-caption font-semibold text-ink-500 dark:text-ink-400 bg-ink-50 dark:bg-[color-mix(in_srgb,theme(colors.ink.900)_50%,theme(colors.ink.800))] shadow-[inset_0_-1px_0_theme(colors.ink.200)] dark:shadow-[inset_0_-1px_0_theme(colors.ink.700)]">
               <th className="px-4 py-2.5">Project</th>
               <th className="px-3 py-2.5">Files</th>
               <th className="px-3 py-2.5 text-right">Opened</th>
@@ -231,7 +231,7 @@ function Projects({ projects, loadFiles }: { projects: Project[]; loadFiles: (pa
                         loadFiles(p.file_paths.map((f) => f.path));
                       }}
                       disabled={p.file_paths.length === 0}
-                      className="btn-ghost h-8 px-3 border border-ink-200 dark:border-ink-600 text-[13px] font-semibold text-accent-700 dark:text-accent-400 disabled:opacity-50"
+                      className="btn-ghost h-8 px-3 border border-ink-200 dark:border-ink-600 text-small font-semibold text-accent-700 dark:text-accent-400 disabled:opacity-50"
                     >
                       Open
                     </button>

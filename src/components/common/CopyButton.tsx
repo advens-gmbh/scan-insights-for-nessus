@@ -26,7 +26,7 @@ export default function CopyButton({ text, label, className = "", variant = "bot
     <button
       onClick={copy}
       title={label ?? `Copy: ${text}`}
-      className={`btn-ghost h-7 px-2 text-xs gap-1 ${className}`}
+      className={`btn-ghost h-7 px-2 text-caption gap-1 ${className}`}
     >
       {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
       {variant !== "icon" && (

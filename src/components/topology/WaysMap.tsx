@@ -402,7 +402,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
           }
         }}
         title="Open the scan file"
-        className="min-w-0 truncate text-xs text-accent-700 dark:text-accent-400 hover:underline"
+        className="min-w-0 truncate text-caption text-accent-700 dark:text-accent-400 hover:underline"
       >
         {ids.length === 1 ? fileName(ids[0]) : `${ids.length} scan files`}
       </button>
@@ -429,12 +429,12 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
       >
         {n.scanners.length > 0 && (
           <span className="flex items-center gap-1.5 mb-1 min-w-0">
-            <span className="shrink-0 px-2 rounded-full bg-accent-600 text-white text-[11px] font-bold leading-[18px]">Nessus</span>
+            <span className="shrink-0 px-2 rounded-full bg-accent-600 text-white text-tiny font-bold leading-[18px]">Nessus</span>
             {fileLink(n.scanners)}
           </span>
         )}
-        <span className={`text-sm font-semibold tabular-nums ${isNever(n) ? "text-ink-500 dark:text-ink-400" : "text-ink-800 dark:text-ink-100"}`}>{n.key}</span>
-        <span className="text-xs text-ink-500 dark:text-ink-400 truncate">
+        <span className={`text-body font-semibold tabular-nums ${isNever(n) ? "text-ink-500 dark:text-ink-400" : "text-ink-800 dark:text-ink-100"}`}>{n.key}</span>
+        <span className="text-caption text-ink-500 dark:text-ink-400 truncate">
           {n.group
             ? `${shown === hosts.length ? hosts.length : `${shown} of ${hosts.length}`} ${hosts.length === 1 ? "host" : "hosts"}${nessus ? ` · Nessus ${nessus}` : ""}`
             : nessus ? `Nessus ${nessus} · not scanned` : "never scanned"}
@@ -460,10 +460,10 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
             style={{ left: b.x, top: b.y, width: b.w, height: b.h }}
           >
             <span className="flex items-center gap-1.5 min-w-0">
-              <span className="shrink-0 px-2 rounded-full bg-accent-600 text-white text-[11px] font-bold leading-[18px]">Nessus</span>
+              <span className="shrink-0 px-2 rounded-full bg-accent-600 text-white text-tiny font-bold leading-[18px]">Nessus</span>
               {fileLink([n.root])}
             </span>
-            <span className="mt-1 text-xs text-ink-500 dark:text-ink-400">address unknown</span>
+            <span className="mt-1 text-caption text-ink-500 dark:text-ink-400">address unknown</span>
           </div>
         );
       }
@@ -477,10 +477,10 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
         const head = (
           <>
             <span className="flex items-center gap-2 whitespace-nowrap">
-              <span className="text-sm font-semibold tabular-nums text-ink-800 dark:text-ink-100">{n.block.key}</span>
-              {n.block.from === "routing table" && <span className="px-1.5 rounded bg-ink-100 dark:bg-ink-700 text-[10px] font-semibold text-ink-600 dark:text-ink-300">routing table</span>}
+              <span className="text-body font-semibold tabular-nums text-ink-800 dark:text-ink-100">{n.block.key}</span>
+              {n.block.from === "routing table" && <span className="px-1.5 rounded bg-ink-100 dark:bg-ink-700 text-tiny font-semibold text-ink-600 dark:text-ink-300">routing table</span>}
             </span>
-            <span className="text-xs text-ink-500 dark:text-ink-400">{nets.length} networks · {hosts.length} hosts</span>
+            <span className="text-caption text-ink-500 dark:text-ink-400">{nets.length} networks · {hosts.length} hosts</span>
           </>
         );
         const toggle = (
@@ -489,7 +489,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
               e.stopPropagation();
               toggleBlock(n.id);
             }}
-            className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 text-xs font-semibold hover:bg-accent-100 dark:hover:bg-accent-900/50"
+            className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 text-caption font-semibold hover:bg-accent-100 dark:hover:bg-accent-900/50"
           >
             {n.open ? <><ChevronUp size={13} /> Fold</> : <><ChevronDown size={13} /> Show {nets.length} networks</>}
           </button>
@@ -554,7 +554,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
     >
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
         {titles.map((t, i) => t.title && (
-          <span key={i} className="absolute top-0 text-xs font-semibold text-ink-400 dark:text-ink-500 whitespace-nowrap" style={{ left: t.x }}>{t.title}</span>
+          <span key={i} className="absolute top-0 text-caption font-semibold text-ink-400 dark:text-ink-500 whitespace-nowrap" style={{ left: t.x }}>{t.title}</span>
         ))}
         <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible" aria-hidden="true">{below}</svg>
         {[...placed.values()].map(render)}
@@ -613,8 +613,8 @@ function Machine({ m, box, worst, ring, drag, onOpen }: {
       >
         <Icon size={18} strokeWidth={2.2} />
       </button>
-      <span className="mt-1 text-[12.5px] font-semibold leading-4 text-ink-800 dark:text-ink-100 max-w-full truncate">{m.name}</span>
-      <span className="text-[11px] leading-[14px] text-ink-500 dark:text-ink-400 max-w-full truncate">{machineNote(m)}</span>
+      <span className="mt-1 text-caption font-semibold leading-4 text-ink-800 dark:text-ink-100 max-w-full truncate">{m.name}</span>
+      <span className="text-tiny leading-[14px] text-ink-500 dark:text-ink-400 max-w-full truncate">{machineNote(m)}</span>
     </div>
   );
 }// Machine
@@ -638,13 +638,13 @@ function Crowd({ c, box, worst, ring, drag, onOpen }: {
           onClick={onOpen}
           title={`${c.machines.length} machines, each in its own network, that all reach ${crowdReach(c)}`}
           aria-label={`${c.machines.length} machines`}
-          className={`absolute inset-0 flex items-center justify-center rounded-full text-white text-[12px] font-bold tabular-nums ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ${fill} ${ring}`}
+          className={`absolute inset-0 flex items-center justify-center rounded-full text-white text-caption font-bold tabular-nums ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ${fill} ${ring}`}
         >
           {c.machines.length > 999 ? "999+" : c.machines.length}
         </button>
       </span>
-      <span className="mt-1 text-[12.5px] font-semibold leading-4 text-ink-800 dark:text-ink-100 max-w-full truncate">{c.machines.length} machines</span>
-      <span className="text-[11px] leading-[14px] text-ink-500 dark:text-ink-400 max-w-full truncate">all reach {crowdReach(c)}</span>
+      <span className="mt-1 text-caption font-semibold leading-4 text-ink-800 dark:text-ink-100 max-w-full truncate">{c.machines.length} machines</span>
+      <span className="text-tiny leading-[14px] text-ink-500 dark:text-ink-400 max-w-full truncate">all reach {crowdReach(c)}</span>
     </div>
   );
 }// Crowd

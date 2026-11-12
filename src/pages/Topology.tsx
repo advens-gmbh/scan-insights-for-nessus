@@ -121,12 +121,12 @@ export default function Topology() {
       <div className="flex flex-wrap items-center gap-2">
         <SeverityPills counts={severityCounts} selected={severities} onToggle={toggle} />
         <span className="flex-1" />
-        <label className="inline-flex items-center gap-2 h-8 pl-2.5 pr-1 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-[13px] text-ink-500 dark:text-ink-400">
+        <label className="inline-flex items-center gap-2 h-8 pl-2.5 pr-1 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-small text-ink-500 dark:text-ink-400">
           Attack path to
           <select
             value={goal ?? ""}
             onChange={(e) => pick(e.target.value || null)}
-            className="h-6 max-w-[190px] rounded border border-ink-200 dark:border-ink-600 bg-ink-50 dark:bg-ink-900 px-1.5 text-[13px] font-semibold tabular-nums text-ink-800 dark:text-ink-100"
+            className="h-6 max-w-[190px] rounded border border-ink-200 dark:border-ink-600 bg-ink-50 dark:bg-ink-900 px-1.5 text-small font-semibold tabular-nums text-ink-800 dark:text-ink-100"
           >
             <option value="">a network…</option>
             {choices.never.length > 0 && (
@@ -143,7 +143,7 @@ export default function Topology() {
         <span className="inline-flex items-center gap-2">
           <span className="inline-flex items-center h-8 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 overflow-hidden">
             <button onClick={() => map.current?.zoomBy(1 / 1.25)} className={ICON_BUTTON} aria-label="Zoom out"><Minus size={14} /></button>
-            <span className="w-12 text-center text-xs tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
+            <span className="w-12 text-center text-caption tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
             <button onClick={() => map.current?.zoomBy(1.25)} className={ICON_BUTTON} aria-label="Zoom in"><Plus size={14} /></button>
           </span>
           <button onClick={() => map.current?.fit()} className="btn-ghost h-8 w-8 p-0 justify-center" title="Show everything" aria-label="Fit"><Maximize2 size={15} /></button>
@@ -162,7 +162,7 @@ export default function Topology() {
         <button
           onClick={togglePanel}
           aria-pressed={panel}
-          className={`h-8 px-2.5 rounded-md text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors ${
+          className={`h-8 px-2.5 rounded-md text-small font-medium inline-flex items-center gap-1.5 transition-colors ${
             panel ? "bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300" : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-700"
           }`}
         >
@@ -173,7 +173,7 @@ export default function Topology() {
       <div className="flex-1 min-h-0 flex gap-3">
         <section className="card flex-1 min-w-0 flex flex-col overflow-hidden">
           <WaysMap ref={map} graph={graph} way={way} target={goal} lit={lit} picked={picked} worstShown={worstShown} onPick={pick} onMachine={showMachine} onZoom={setZoom} />
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 border-t border-ink-100 dark:border-ink-700/50 text-xs text-ink-500 dark:text-ink-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 border-t border-ink-100 dark:border-ink-700/50 text-caption text-ink-500 dark:text-ink-400">
             <span className="flex items-center gap-1.5"><span className="w-4 h-3 rounded-[3px] border border-ink-300 dark:border-ink-600 bg-white dark:bg-ink-800" />Network</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-high" />Machine that connects networks, coloured by its worst finding</span>
             <span className="flex items-center gap-1.5"><span className="relative w-4 h-3"><span className="absolute left-1 -top-0.5 w-3 h-3 rounded-full bg-high/50" /><span className="absolute left-0 top-0 w-3 h-3 rounded-full bg-high" /></span>Group of machines that all reach the same networks</span>
@@ -212,7 +212,7 @@ export default function Topology() {
         )}
       </div>
 
-      <p className="text-xs text-ink-500 dark:text-ink-400">
+      <p className="text-caption text-ink-500 dark:text-ink-400">
         Hosts are placed by IP address, with a /24 network unless a real mask is known. Scans of unrelated networks that reuse the same addresses would share a network here.
       </p>
     </div>

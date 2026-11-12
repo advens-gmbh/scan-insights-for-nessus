@@ -36,7 +36,7 @@ export default function TopBar() {
               onClick={() => setMenu((m) => !m)}
               aria-expanded={menu}
               aria-haspopup="dialog"
-              className={`inline-flex items-center gap-2 h-[34px] pl-3 pr-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+              className={`inline-flex items-center gap-2 h-[34px] pl-3 pr-2.5 rounded-lg border text-body font-semibold transition-colors ${
                 menu
                   ? "border-accent-300 bg-accent-50 text-accent-900 dark:border-accent-700 dark:bg-accent-900/30 dark:text-accent-100"
                   : "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200 hover:bg-ink-50 dark:hover:bg-ink-800"
@@ -48,14 +48,14 @@ export default function TopBar() {
             </button>
             {menu && <FilesMenu onClose={closeMenu} />}
           </div>
-          <div className="flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400">
+          <div className="flex items-center gap-2 text-body text-ink-500 dark:text-ink-400">
             <Stat label={totalHosts === 1 ? "host" : "hosts"} value={totalHosts} />
             <span className="text-ink-300 dark:text-ink-600">·</span>
             <Stat label={totalVulns === 1 ? "finding" : "findings"} value={totalVulns} />
           </div>
         </>
       ) : (
-        <span className="text-sm text-ink-500 dark:text-ink-400">{loading ? "Opening files…" : "No scan files open"}</span>
+        <span className="text-body text-ink-500 dark:text-ink-400">{loading ? "Opening files…" : "No scan files open"}</span>
       )}
 
       <div className="flex-1" />

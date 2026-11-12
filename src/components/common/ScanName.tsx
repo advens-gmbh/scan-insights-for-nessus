@@ -9,7 +9,7 @@ export default function ScanName({ file }: { file: NessusFile }) {
   }
 
   return (
-    <p className="text-xs text-ink-500 dark:text-ink-400 mt-0.5 truncate" title={name}>
+    <p className="text-caption text-ink-500 dark:text-ink-400 mt-0.5 truncate" title={name}>
       {name}
     </p>
   );

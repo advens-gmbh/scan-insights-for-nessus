@@ -54,16 +54,16 @@ export default function FilesMenu({ onClose }: { onClose: () => void }) {
   return (
     <div ref={box} role="dialog" aria-label="Open files" className="card absolute left-0 top-[calc(100%+6px)] z-[150] w-[560px] max-w-[calc(100vw-280px)] overflow-hidden shadow-2xl animate-fade-in">
       <div className="flex items-baseline gap-2 px-3.5 pt-3 pb-2.5">
-        <span className="text-sm font-bold text-ink-900 dark:text-ink-50">Open files</span>
-        <span className="text-xs text-ink-500 dark:text-ink-400">newest scan first</span>
+        <span className="text-body font-bold text-ink-900 dark:text-ink-50">Open files</span>
+        <span className="text-caption text-ink-500 dark:text-ink-400">newest scan first</span>
       </div>
       <ul className="max-h-[60vh] overflow-y-auto">
         {rows.map(({ file, start, counts }) => <Row key={file.id} file={file} start={start} counts={counts} showInfo={showInfo} onDetails={act(() => openFilePanel(file.id))} onClose={() => unloadFile(file.id)} />)}
       </ul>
       <div className="flex items-center gap-1 px-2 py-2 border-t border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-900/40">
-        <button onClick={act(openFiles)} className="btn-ghost h-8 text-[13px] font-semibold text-accent-700 dark:text-accent-400"><Plus size={14} /> Open more files</button>
-        <button onClick={act(() => navigate("/projects"))} className="btn-ghost h-8 text-[13px] font-semibold text-accent-700 dark:text-accent-400">Save as project</button>
-        <button onClick={act(unloadAll)} className="btn-ghost h-8 text-[13px] font-semibold text-critical-fg dark:text-critical-fg ml-auto">Close all files</button>
+        <button onClick={act(openFiles)} className="btn-ghost h-8 text-small font-semibold text-accent-700 dark:text-accent-400"><Plus size={14} /> Open more files</button>
+        <button onClick={act(() => navigate("/projects"))} className="btn-ghost h-8 text-small font-semibold text-accent-700 dark:text-accent-400">Save as project</button>
+        <button onClick={act(unloadAll)} className="btn-ghost h-8 text-small font-semibold text-critical-fg dark:text-critical-fg ml-auto">Close all files</button>
       </div>
     </div>
   );
@@ -82,9 +82,9 @@ function Row({ file, start, counts, showInfo, onDetails, onClose }: {
   return (
     <li className="flex items-center gap-2.5 px-3.5 py-2.5 border-t border-ink-100 dark:border-ink-700/50">
       <div className="min-w-0 flex-1">
-        <button onClick={onDetails} className="block max-w-full truncate text-left text-sm font-semibold text-accent-700 dark:text-accent-400 hover:underline" title={`${file.path}
+        <button onClick={onDetails} className="block max-w-full truncate text-left text-body font-semibold text-accent-700 dark:text-accent-400 hover:underline" title={`${file.path}
 Show the scan file's details`}>{file.filename}</button>
-        <div className="text-xs text-ink-500 dark:text-ink-400 truncate">
+        <div className="text-caption text-ink-500 dark:text-ink-400 truncate">
           {[name, `${file.hosts.length.toLocaleString()} ${file.hosts.length === 1 ? "host" : "hosts"}`, start ? `scanned ${formatScanStart(start)}` : null].filter(Boolean).join(" · ")}
         </div>
       </div>

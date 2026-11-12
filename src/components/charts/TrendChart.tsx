@@ -41,7 +41,7 @@ function TrendTooltip({ active, payload, coordinate }: any) {
 
   return (
     <div
-      className="bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg shadow-lg px-3 py-2 text-xs tabular-nums"
+      className="bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg shadow-lg px-3 py-2 text-caption tabular-nums"
       style={{ transform: flipLeft ? "translateX(-110%)" : undefined }}
     >
       <p className="font-semibold text-ink-800 dark:text-ink-100 truncate">{d.filename}</p>

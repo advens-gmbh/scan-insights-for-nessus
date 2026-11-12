@@ -103,15 +103,15 @@ export default function Export() {
       {/* Files */}
       <section className="card p-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Scan files</h2>
-          <span className="text-[13px] text-ink-500 dark:text-ink-400">{selected.length} of {files.length} selected</span>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Scan files</h2>
+          <span className="text-small text-ink-500 dark:text-ink-400">{selected.length} of {files.length} selected</span>
           <span className="ml-auto flex gap-1">
-            <button onClick={() => setExportExcludedIds([])} className="btn-ghost h-7 px-2 text-xs">Select all</button>
-            <button onClick={() => setExportExcludedIds(files.map((f) => f.id))} className="btn-ghost h-7 px-2 text-xs">Clear</button>
+            <button onClick={() => setExportExcludedIds([])} className="btn-ghost h-7 px-2 text-caption">Select all</button>
+            <button onClick={() => setExportExcludedIds(files.map((f) => f.id))} className="btn-ghost h-7 px-2 text-caption">Clear</button>
           </span>
         </div>
         <div className="-mx-1 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <tbody>
               {sorted.map((f) => {
                 const start = scanWindow(f.hosts).start;
@@ -136,7 +136,7 @@ export default function Export() {
                       <td
                         key={sev}
                         title={`${counts[sev].toLocaleString()} ${SEVERITY_LABELS[sev]}`}
-                        className={`pl-3 py-1.5 last:pr-1 whitespace-nowrap tabular-nums text-right text-[13px] font-semibold ${counts[sev] > 0 && severities.includes(sev) ? SEVERITY_COUNT_CLASS[sev] : "text-ink-300 dark:text-ink-600"}`}
+                        className={`pl-3 py-1.5 last:pr-1 whitespace-nowrap tabular-nums text-right text-small font-semibold ${counts[sev] > 0 && severities.includes(sev) ? SEVERITY_COUNT_CLASS[sev] : "text-ink-300 dark:text-ink-600"}`}
                       >
                         {counts[sev].toLocaleString()}
                       </td>
@@ -152,14 +152,14 @@ export default function Export() {
       {/* What goes in, and the export */}
       <section className="card p-4 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Include</h2>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Include</h2>
           <SeverityPills counts={totals} selected={severities} onToggle={toggleSeverity} />
-          <span className="ml-auto text-[13px] text-ink-500 dark:text-ink-400 tabular-nums">
+          <span className="ml-auto text-small text-ink-500 dark:text-ink-400 tabular-nums">
             {findings.toLocaleString()} {findings === 1 ? "finding" : "findings"} from {selected.length} {selected.length === 1 ? "file" : "files"}
           </span>
         </div>
         {selected.length > 1 && (
-          <p className="-mt-2 text-xs text-ink-500 dark:text-ink-400">
+          <p className="-mt-2 text-caption text-ink-500 dark:text-ink-400">
             Counted per file, as the export writes them, so a host scanned in two files counts twice. The Dashboard counts each host once.
           </p>
         )}
@@ -200,7 +200,7 @@ export default function Export() {
           />
         )}
         {!canExport && exporting === null && (
-          <p className="text-[13px] text-ink-500 dark:text-ink-400">
+          <p className="text-small text-ink-500 dark:text-ink-400">
             {selected.length === 0 ? "Select at least one scan file." : "Select at least one severity with findings."}
           </p>
         )}
@@ -223,7 +223,7 @@ function ExportOption({ icon, label, text, busy, disabled, onClick }: {
         {icon}
         {busy ? "Exporting…" : label}
       </button>
-      <p className="text-[13px] text-ink-500 dark:text-ink-400">{text}</p>
+      <p className="text-small text-ink-500 dark:text-ink-400">{text}</p>
     </div>
   );
 }// ExportOption
@@ -250,14 +250,14 @@ function ResultLine({ result, onOpen, onShow, onRetry, onClose, busy }: {
       <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20">
         <span className={`${icon} text-emerald-700 dark:text-emerald-400`}><Check size={13} strokeWidth={3} /></span>
         <div className="flex-1 min-w-[12rem]">
-          <div className="text-sm">
+          <div className="text-body">
             <span className="font-bold text-ink-900 dark:text-ink-50">Saved {name}</span>
             <span className="text-ink-600 dark:text-ink-300"> · {result.findings.toLocaleString()} {result.findings === 1 ? "finding" : "findings"} from {result.files} {result.files === 1 ? "file" : "files"} · {timeAgo(result.at)}</span>
           </div>
-          <div className="text-xs text-ink-500 dark:text-ink-400 truncate" title={result.path}>{folderOf(result.path)}</div>
+          <div className="text-caption text-ink-500 dark:text-ink-400 truncate" title={result.path}>{folderOf(result.path)}</div>
         </div>
-        <button onClick={onOpen} className="btn-secondary h-8 text-[13px]">Open</button>
-        <button onClick={onShow} className="btn-secondary h-8 text-[13px]">Show in folder</button>
+        <button onClick={onOpen} className="btn-secondary h-8 text-small">Open</button>
+        <button onClick={onShow} className="btn-secondary h-8 text-small">Show in folder</button>
         {close}
       </div>
     );
@@ -267,15 +267,15 @@ function ResultLine({ result, onOpen, onShow, onRetry, onClose, busy }: {
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 bg-critical/5 dark:bg-critical/10 border border-critical/30">
       <span className={`${icon} text-critical-fg`}><AlertCircle size={14} /></span>
-      <div className="flex-1 min-w-[12rem] text-sm">
+      <div className="flex-1 min-w-[12rem] text-body">
         <div className="font-bold text-ink-900 dark:text-ink-50">Couldn't save {name}</div>
         <div className="text-ink-700 dark:text-ink-200">{explainExportError(result.reason)}</div>
       </div>
-      <button onClick={onRetry} disabled={busy} className="btn-secondary h-8 text-[13px] disabled:opacity-50">{another ? "Choose another folder…" : "Try again"}</button>
-      <button onClick={() => setDetails(!details)} className="btn-ghost h-8 text-[13px]">{details ? "Hide details" : "Details"}</button>
+      <button onClick={onRetry} disabled={busy} className="btn-secondary h-8 text-small disabled:opacity-50">{another ? "Choose another folder…" : "Try again"}</button>
+      <button onClick={() => setDetails(!details)} className="btn-ghost h-8 text-small">{details ? "Hide details" : "Details"}</button>
       {close}
       {details && (
-        <div className="basis-full font-mono text-[11.5px] leading-[17px] text-ink-700 dark:text-ink-200 bg-white/70 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-md px-2.5 py-2 [overflow-wrap:anywhere] select-text">
+        <div className="basis-full font-mono text-tiny leading-[17px] text-ink-700 dark:text-ink-200 bg-white/70 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-md px-2.5 py-2 [overflow-wrap:anywhere] select-text">
           {result.path}
           <br />
           {result.detail}

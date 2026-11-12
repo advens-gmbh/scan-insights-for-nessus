@@ -182,7 +182,7 @@ export default function Vulnerabilities() {
             onClick={() => setExploitOnly(!exploitOnly)}
             aria-pressed={exploitOnly}
             title={exploitOnly ? "Show all vulnerabilities" : "Show only vulnerabilities with a public exploit"}
-            className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${
+            className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${
               exploitOnly ? "bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900" : "bg-ink-100 text-ink-700 hover:bg-ink-200 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600"
             }`}
           >
@@ -193,7 +193,7 @@ export default function Vulnerabilities() {
           <button
             onClick={() => setFamilyFilter("")}
             title="Show every family"
-            className="pill px-3 py-1 text-sm font-semibold gap-1.5 bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900"
+            className="pill px-3 py-1 text-body font-semibold gap-1.5 bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900"
           >
             {familyFilter} <X size={14} aria-hidden="true" />
           </button>
@@ -204,7 +204,7 @@ export default function Vulnerabilities() {
           <select
             value={fileFilter}
             onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-xs w-auto max-w-[16rem]"
+            className="input h-8 py-0 text-caption w-auto max-w-[16rem]"
           >
             <option value="all">All files</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
@@ -221,7 +221,7 @@ export default function Vulnerabilities() {
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
-          <span className="text-xs text-ink-400">
+          <span className="text-caption text-ink-400">
             {sorted.length.toLocaleString()} {sorted.length === 1 ? "vulnerability" : "vulnerabilities"}
           </span>
         </div>
@@ -317,7 +317,7 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
                   <Dash />
                 )}
                 {cvss !== null && (
-                  <span className="ml-1 text-[10px] text-ink-400" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
+                  <span className="ml-1 text-tiny text-ink-400" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
                 )}
               </td>
             );

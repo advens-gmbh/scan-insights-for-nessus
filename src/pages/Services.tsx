@@ -208,7 +208,7 @@ export default function Services() {
               key={p}
               onClick={() => setProtocol(p)}
               aria-pressed={protocol === p}
-              className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${
+              className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${
                 protocol === p
                   ? "bg-accent-600 text-white"
                   : "bg-ink-100 dark:bg-ink-700 text-ink-600 dark:text-ink-300"
@@ -223,7 +223,7 @@ export default function Services() {
           <select
             value={activeFile}
             onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-xs w-auto max-w-[16rem]"
+            className="input h-8 py-0 text-caption w-auto max-w-[16rem]"
           >
             <option value="all">All files</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
@@ -232,14 +232,14 @@ export default function Services() {
 
         <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-1 min-w-48" />
 
-        <label className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
+        <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
           Group by service
         </label>
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
-          <span className="text-xs text-ink-400">
+          <span className="text-caption text-ink-400">
             {grouped
               ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
               : `${filtered.length.toLocaleString()} services`}
@@ -342,7 +342,7 @@ function ServiceRow({ service, visibleCols, index, nested = false, selected = fa
             return group ? (
               <td key={col.key} className="table-cell truncate" title={group.ports.map((p) => p.key).join(", ")}>
                 <span className="font-semibold text-ink-900 dark:text-ink-50">{group.name}</span>
-                <span className="ml-2 text-xs text-ink-500 dark:text-ink-400">{group.ports.map((p) => p.port).join(", ")}</span>
+                <span className="ml-2 text-caption text-ink-500 dark:text-ink-400">{group.ports.map((p) => p.port).join(", ")}</span>
               </td>
             ) : (
               <td key={col.key} className="table-cell text-ink-700 dark:text-ink-300 truncate" title={names}>{names || "-"}</td>
@@ -379,7 +379,7 @@ function Count({ value, color }: { value: number; color: string }) {
   return (
     <td className="table-cell text-center">
       {value > 0
-        ? <span className={`font-semibold text-sm ${color}`}>{value.toLocaleString()}</span>
+        ? <span className={`font-semibold text-body ${color}`}>{value.toLocaleString()}</span>
         : <span className="text-ink-300 dark:text-ink-600">-</span>}
     </td>
   );

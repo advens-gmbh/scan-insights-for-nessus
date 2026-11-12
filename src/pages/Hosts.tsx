@@ -232,7 +232,7 @@ export default function Hosts() {
 
         {files.length > 1 && (
           <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-xs w-auto max-w-[16rem]">
+            className="input h-8 py-0 text-caption w-auto max-w-[16rem]">
             <option value="all">All files</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
           </select>
@@ -242,7 +242,7 @@ export default function Hosts() {
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
-          <span className="text-xs text-ink-400">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
+          <span className="text-caption text-ink-400">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
           {sorted.length > 0 && (
             <div className="relative" ref={copyMenuRef}>
               <button
@@ -252,7 +252,7 @@ export default function Hosts() {
                   setMenuLeftward(r.left + COPY_MENU_W > window.innerWidth - 8);
                   setShowCopyMenu((v) => !v);
                 }}
-                className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
                   copied ? "text-emerald-600 dark:text-emerald-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
                 }`}
               >
@@ -361,12 +361,12 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
                   )}
                 </span>
                 {host.domain && (
-                  <span className="truncate block text-[10px] text-ink-400 dark:text-ink-500 mt-0.5">
+                  <span className="truncate block text-tiny text-ink-400 dark:text-ink-500 mt-0.5">
                     {host.domain}
                   </span>
                 )}
                 {host.alt_hostnames.length > 0 && (
-                  <span className="truncate block text-[10px] text-ink-400 dark:text-ink-500 mt-0.5">
+                  <span className="truncate block text-tiny text-ink-400 dark:text-ink-500 mt-0.5">
                     {host.alt_hostnames.slice(0, 2).join(", ")}
                     {host.alt_hostnames.length > 2 ? ` +${host.alt_hostnames.length - 2}` : ""}
                   </span>
@@ -417,7 +417,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
           case "credentialed":
             return (
               <td key="credentialed" className="table-cell text-center">
-                <span className={`text-xs font-semibold ${host.credentialed_scan ? "text-emerald-600 dark:text-emerald-400" : "text-ink-400 dark:text-ink-600"}`}>
+                <span className={`text-caption font-semibold ${host.credentialed_scan ? "text-emerald-600 dark:text-emerald-400" : "text-ink-400 dark:text-ink-600"}`}>
                   {host.credentialed_scan ? "Yes" : "No"}
                 </span>
               </td>
@@ -449,7 +449,7 @@ function macAddresses(mac: string | null): string[] {
 
 function SevCount({ value, sev }: { value: number; sev: number }) {
   const color = { 4: "text-critical-fg", 3: "text-high-fg", 2: "text-medium-fg", 1: "text-low-fg", 0: "text-info-fg" }[sev] ?? "text-info-fg";
-  return <span className={`font-semibold text-sm ${color}`}>{value.toLocaleString()}</span>;
+  return <span className={`font-semibold text-body ${color}`}>{value.toLocaleString()}</span>;
 }// SevCount
 
 function Dash() {
@@ -462,8 +462,8 @@ function CopyMenuItem({ label, sub, onClick }: { label: string; sub: string; onC
       onClick={onClick}
       className="w-full flex flex-col items-start px-3 py-2 rounded text-left hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors"
     >
-      <span className="text-sm text-ink-700 dark:text-ink-200 font-medium">{label}</span>
-      <span className="text-[11px] text-ink-400 dark:text-ink-500">{sub}</span>
+      <span className="text-body text-ink-700 dark:text-ink-200 font-medium">{label}</span>
+      <span className="text-tiny text-ink-400 dark:text-ink-500">{sub}</span>
     </button>
   );
 }// CopyMenuItem

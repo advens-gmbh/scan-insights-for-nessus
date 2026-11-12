@@ -20,6 +20,17 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
   theme: {
+    // one size per role, nothing in between. Tailwind's own sizes (text-sm, text-lg…) are switched off
+    fontSize: {
+      tiny: "11px",                                  // badges, tags, small labels
+      caption: ["12px", { lineHeight: "16px" }],     // captions, column headers, meta
+      small: "13px",                                 // secondary text, descriptions
+      body: ["14px", { lineHeight: "20px" }],        // body text, table cells, buttons
+      heading: "16px",                               // section and card headings
+      title: ["20px", { lineHeight: "28px" }],       // page and panel titles
+      "figure-sm": ["24px", { lineHeight: "32px" }], // Compare's before → after
+      figure: ["30px", { lineHeight: "36px" }],      // the Dashboard numbers
+    },
     extend: {
       colors: {
         ink,

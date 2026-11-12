@@ -17,7 +17,7 @@ export default function SeverityBadge({ severity, size = "md" }: Props) {
   const label = SEVERITY_LABELS[severity] ?? "Info";
   const colors = SOLID[severity] ?? SOLID[0];
   // same width for severity pills
-  const box = size === "sm" ? "w-[3.75rem] py-0.5 text-[10px]" : "w-[4.5rem] py-0.5 text-xs";
+  const box = size === "sm" ? "w-[3.75rem] py-0.5 text-tiny" : "w-[4.5rem] py-0.5 text-caption";
   
   return (
     <span className={`pill justify-center font-semibold ${box} ${colors}`}>

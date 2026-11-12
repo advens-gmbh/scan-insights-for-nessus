@@ -22,7 +22,7 @@ const STRENGTH: Record<Strength, { label: string; rank: number; className: strin
 export const strengthRank = (s: Strength) => STRENGTH[s].rank;
 
 const HEAD = "flex items-center gap-2 px-4 py-3 border-b border-ink-100 dark:border-ink-700/50";
-const SECTION = "text-xs font-semibold text-ink-500 dark:text-ink-400 mb-1.5";
+const SECTION = "text-caption font-semibold text-ink-500 dark:text-ink-400 mb-1.5";
 
 function countsOf(hosts: HostEntry[], levels: Level[]) {
   return levels.map((l) => ({ ...l, n: hosts.reduce((sum, h) => sum + h.severity_counts[l.key], 0) }));
@@ -39,7 +39,7 @@ function Counts({ hosts, levels, bar = false }: { hosts: HostEntry[]; levels: Le
   }
   return (
     <>
-      <span className="flex flex-wrap gap-x-2.5 text-xs font-semibold">
+      <span className="flex flex-wrap gap-x-2.5 text-caption font-semibold">
         {counts.map((c) => <span key={c.key} className={c.fg}>{c.n} {c.label}</span>)}
       </span>
       {bar && (
@@ -62,19 +62,19 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
       }`}
     >
       <div className="flex items-center gap-2">
-        <button onClick={() => openHostPanel(b.hosts[0].ip)} className="flex-1 min-w-0 truncate text-left text-sm font-semibold text-ink-800 dark:text-ink-100 hover:underline" title={b.name}>
+        <button onClick={() => openHostPanel(b.hosts[0].ip)} className="flex-1 min-w-0 truncate text-left text-body font-semibold text-ink-800 dark:text-ink-100 hover:underline" title={b.name}>
           {b.name}
         </button>
-        <span className={`inline-flex items-center h-5 px-2 rounded-full text-[11px] font-semibold shrink-0 ${STRENGTH[b.strength].className}`}>{STRENGTH[b.strength].label}</span>
+        <span className={`inline-flex items-center h-5 px-2 rounded-full text-tiny font-semibold shrink-0 ${STRENGTH[b.strength].className}`}>{STRENGTH[b.strength].label}</span>
       </div>
-      <div className="flex flex-col text-xs text-ink-500 dark:text-ink-400">
+      <div className="flex flex-col text-caption text-ink-500 dark:text-ink-400">
         {b.addresses.map((a) => (
           <span key={a.ip} className="truncate" title={a.iface ? `${a.ip} on ${a.iface}` : a.ip}>
             {a.host ? (
               <button onClick={() => openHostPanel(a.ip)} className="tabular-nums text-accent-700 dark:text-accent-400 hover:underline">{a.ip}</button>
             ) : <span className="tabular-nums text-ink-700 dark:text-ink-200" title="Nessus didn't scan this address, so there are no findings for it">{a.ip}</span>}
             {a.iface && <span> on {a.iface}</span>}
-            {!a.host && <span className="ml-1.5 px-1 rounded bg-ink-100 dark:bg-ink-700 text-[10.5px] font-semibold text-ink-500 dark:text-ink-400">not scanned</span>}
+            {!a.host && <span className="ml-1.5 px-1 rounded bg-ink-100 dark:bg-ink-700 text-tiny font-semibold text-ink-500 dark:text-ink-400">not scanned</span>}
           </span>
         ))}
       </div>
@@ -82,7 +82,7 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
         {b.nets.map((n) => (
           <span
             key={n.key}
-            className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-[11px] tabular-nums whitespace-nowrap ${
+            className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-tiny tabular-nums whitespace-nowrap ${
               n.scanned ? "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200" : "border-dashed border-ink-300 dark:border-ink-500 text-ink-500 dark:text-ink-400"
             }`}
           >
@@ -90,7 +90,7 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
           </span>
         ))}
       </div>
-      <ul className="text-xs text-ink-600 dark:text-ink-300 leading-[17px]">
+      <ul className="text-caption text-ink-600 dark:text-ink-300 leading-[17px]">
         {b.evidence.map((e) => <li key={e}>{e}</li>)}
       </ul>
       <Counts hosts={b.hosts} levels={levels} />
@@ -115,8 +115,8 @@ export function MachineList({ bridges, crowds, graph, levels, highlighted, hidde
   return (
     <>
       <div className={HEAD}>
-        <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Machines on multiple networks</h2>
-        <span className="px-2 rounded-full bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 text-xs font-bold leading-5">{bridges.length}</span>
+        <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Machines on multiple networks</h2>
+        <span className="px-2 rounded-full bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 text-caption font-bold leading-5">{bridges.length}</span>
         <button onClick={onHide} className="ml-auto btn-ghost h-7 w-7 p-0 justify-center" title="Hide" aria-label="Hide the list"><ChevronRight size={16} /></button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -127,7 +127,7 @@ export function MachineList({ bridges, crowds, graph, levels, highlighted, hidde
           </div>
         )}
         {bridges.length === 0 && (
-          <p className="px-4 py-4 text-[13px] text-ink-500 dark:text-ink-400">None found. Credentialed scans find these best, because they list each machine's network cards.</p>
+          <p className="px-4 py-4 text-small text-ink-500 dark:text-ink-400">None found. Credentialed scans find these best, because they list each machine's network cards.</p>
         )}
         {single.map((b) => <Machine key={b.key} b={b} levels={levels} lit={highlighted === b.key} onHover={onHover} />)}
         {crowds.length > 0 && (
@@ -137,7 +137,7 @@ export function MachineList({ bridges, crowds, graph, levels, highlighted, hidde
           </>
         )}
       </div>
-      <p className="px-4 py-2.5 text-[11px] leading-4 text-ink-500 dark:text-ink-400 border-t border-ink-100 dark:border-ink-700/50">
+      <p className="px-4 py-2.5 text-tiny leading-4 text-ink-500 dark:text-ink-400 border-t border-ink-100 dark:border-ink-700/50">
         Confirmed: the machine lists these addresses itself. Likely: its routing table knows them, or the same MAC address is on both. Possible: only the same NetBIOS name, or IP forwarding with its other networks unknown.
       </p>
     </>
@@ -155,7 +155,7 @@ function ReachChips({ c, graph, onPick }: { c: WayCrowd; graph: WayGraph; onPick
             key={end}
             onClick={() => onPick(end)}
             title="Show the attack path"
-            className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-[11px] tabular-nums whitespace-nowrap hover:border-accent-500 ${
+            className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-tiny tabular-nums whitespace-nowrap hover:border-accent-500 ${
               scanned ? "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200" : "border-dashed border-ink-300 dark:border-ink-500 text-ink-500 dark:text-ink-400"
             }`}
           >
@@ -174,12 +174,12 @@ function CrowdCard({ c, graph, levels, onOpen, onPick }: { c: WayCrowd; graph: W
   const talkers = talkersOf(c);
   return (
     <div className="flex flex-col gap-1.5 px-4 py-3 border-b border-ink-100 dark:border-ink-700/50">
-      <button onClick={onOpen} className="text-left text-sm font-semibold text-ink-800 dark:text-ink-100 hover:underline">
+      <button onClick={onOpen} className="text-left text-body font-semibold text-ink-800 dark:text-ink-100 hover:underline">
         {c.machines.length} machines <span className="font-normal text-ink-500 dark:text-ink-400">in {c.homes.length} {c.homes.length === 1 ? "network" : "networks"}</span>
       </button>
-      <span className="text-xs text-ink-500 dark:text-ink-400">Each one also reaches:</span>
+      <span className="text-caption text-ink-500 dark:text-ink-400">Each one also reaches:</span>
       <ReachChips c={c} graph={graph} onPick={onPick} />
-      <ul className="text-xs text-ink-600 dark:text-ink-300 leading-[17px]">
+      <ul className="text-caption text-ink-600 dark:text-ink-300 leading-[17px]">
         {evidenceOf(c).map((e) => <li key={e}>{e}</li>)}
         {talkers > 0 && <li>{talkers} of them have connections there</li>}
       </ul>
@@ -209,14 +209,14 @@ export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick
     <>
       <div className={HEAD}>
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-ink-500 dark:text-ink-400">Group of machines</div>
-          <h2 className="text-[17px] font-semibold text-ink-800 dark:text-ink-100 truncate">{crowd.machines.length} machines</h2>
+          <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">Group of machines</div>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100 truncate">{crowd.machines.length} machines</h2>
         </div>
         <button onClick={onClose} className="ml-auto btn-ghost h-7 w-7 p-0 justify-center" title="Back" aria-label="Back"><X size={16} /></button>
         <button onClick={onHide} className="btn-ghost h-7 w-7 p-0 justify-center" title="Hide" aria-label="Hide the list"><ChevronRight size={16} /></button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 flex flex-col gap-4">
-        <p className="text-[13px] leading-[19px] text-ink-600 dark:text-ink-300">
+        <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">
           Each of these machines sits in its own network and also reaches the networks below. Taking over any one of them is enough, so the map draws them as one.
         </p>
         <div>
@@ -225,12 +225,12 @@ export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick
         </div>
         <div>
           <h3 className={SECTION}>They sit in {homes.length} {homes.length === 1 ? "network" : "networks"}</h3>
-          <p className="text-xs leading-[18px] tabular-nums text-ink-600 dark:text-ink-300">{homes.join(", ")}</p>
+          <p className="text-caption leading-[18px] tabular-nums text-ink-600 dark:text-ink-300">{homes.join(", ")}</p>
         </div>
         {(evidence.length > 0 || talkers > 0) && (
           <div>
             <h3 className={SECTION}>How we know</h3>
-            <ul className="text-xs leading-[18px] text-ink-600 dark:text-ink-300">
+            <ul className="text-caption leading-[18px] text-ink-600 dark:text-ink-300">
               {evidence.map((e) => <li key={e}>{e}</li>)}
               {talkers > 0 && <li>{talkers} of them have connections there</li>}
             </ul>
@@ -250,16 +250,16 @@ export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick
             {shown.map((m) => {
               const w = worst(m);
               return (
-                <li key={m.id} className="flex items-center gap-2 min-w-0 text-[13px]">
+                <li key={m.id} className="flex items-center gap-2 min-w-0 text-small">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${w < 0 ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[w]}`} title={w < 0 ? "Nothing at the selected severities" : LEVEL_NAME[w]} />
                   <button onClick={() => onMachine(m.id)} className="min-w-0 truncate text-left text-accent-700 dark:text-accent-400 hover:underline" title={m.name}>{m.name}</button>
-                  <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-500 dark:text-ink-400 select-text">{m.ips[0]}</span>
+                  <span className="ml-auto shrink-0 text-caption tabular-nums text-ink-500 dark:text-ink-400 select-text">{m.ips[0]}</span>
                 </li>
               );
             })}
           </ul>
           {rows.length > HOSTS_COLLAPSED && (
-            <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+            <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-caption mt-2">
               {showAll ? "Show less" : `Show all ${rows.length}`}
             </button>
           )}
@@ -280,7 +280,7 @@ function HiddenList({ hidden, onPick }: { hidden: HiddenNet[]; onPick: (target: 
   return (
     <div className="flex flex-col gap-1">
       {hidden.map((h) => (
-        <button key={h.key} onClick={() => onPick(h.target)} className="text-left text-[13px] text-accent-700 dark:text-accent-400 hover:underline">
+        <button key={h.key} onClick={() => onPick(h.target)} className="text-left text-small text-accent-700 dark:text-accent-400 hover:underline">
           <span className="tabular-nums font-semibold">{h.key}</span> <span className="text-ink-500 dark:text-ink-400">through {h.via}</span>
         </button>
       ))}
@@ -405,9 +405,9 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
     <>
       <div className={HEAD}>
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-ink-500 dark:text-ink-400">Possible attack path to</div>
-          <h2 className="text-[17px] font-semibold tabular-nums text-ink-800 dark:text-ink-100 truncate">
-            {title}{sub && <span className="ml-2 text-xs font-normal text-ink-500 dark:text-ink-400">{sub}</span>}
+          <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">Possible attack path to</div>
+          <h2 className="text-heading font-semibold tabular-nums text-ink-800 dark:text-ink-100 truncate">
+            {title}{sub && <span className="ml-2 text-caption font-normal text-ink-500 dark:text-ink-400">{sub}</span>}
           </h2>
         </div>
         <button onClick={onClose} className="ml-auto btn-ghost h-7 w-7 p-0 justify-center" title="Back to the machines" aria-label="Back to the machines"><X size={16} /></button>
@@ -419,34 +419,34 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
             {steps.map((s, i) => (
               <li key={i} className="relative grid grid-cols-[26px_1fr] gap-2.5 pb-3.5">
                 {i < steps.length - 1 && <span className="absolute left-3 top-7 bottom-0.5 border-l-2 border-accent-500" aria-hidden="true" />}
-                <span className="w-[26px] h-[26px] rounded-full bg-accent-50 dark:bg-accent-900/40 text-accent-700 dark:text-accent-300 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                <span className="w-[26px] h-[26px] rounded-full bg-accent-50 dark:bg-accent-900/40 text-accent-700 dark:text-accent-300 text-caption font-bold flex items-center justify-center">{i + 1}</span>
                 <div className="min-w-0">
-                  <div className="text-[13.5px] text-ink-800 dark:text-ink-100 [&_b]:font-semibold">{s.title}</div>
-                  {s.text && <p className="mt-0.5 text-[12.5px] leading-[18px] text-ink-500 dark:text-ink-400">{s.text}</p>}
+                  <div className="text-small text-ink-800 dark:text-ink-100 [&_b]:font-semibold">{s.title}</div>
+                  {s.text && <p className="mt-0.5 text-caption leading-[18px] text-ink-500 dark:text-ink-400">{s.text}</p>}
                   {s.files && s.files.length > 0 && <FileLinks ids={s.files} />}
                   {s.machines && <StepMachines machines={s.machines} worstShown={worstShown} onMachine={onMachine} />}
                   {s.hosts && s.hosts.length > 0 && (
                     countsOf(s.hosts, levels).some((c) => c.n > 0)
-                      ? <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[12.5px] text-ink-500 dark:text-ink-400">Its findings: <Counts hosts={s.hosts} levels={levels} /></div>
-                      : <p className="mt-0.5 text-[12.5px] text-ink-500 dark:text-ink-400">No findings at the selected severities.</p>
+                      ? <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-caption text-ink-500 dark:text-ink-400">Its findings: <Counts hosts={s.hosts} levels={levels} /></div>
+                      : <p className="mt-0.5 text-caption text-ink-500 dark:text-ink-400">No findings at the selected severities.</p>
                   )}
                 </div>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="text-[13px] text-ink-500 dark:text-ink-400">No attack path found from Nessus to this network.</p>
+          <p className="text-small text-ink-500 dark:text-ink-400">No attack path found from Nessus to this network.</p>
         )}
         {why.length > 0 && (
           <div className="border-t border-ink-100 dark:border-ink-700/50 pt-3">
             <h3 className={SECTION}>How we know</h3>
-            <ul className="text-xs leading-[18px] text-ink-600 dark:text-ink-300">{why.map((w) => <li key={w}>{w}</li>)}</ul>
+            <ul className="text-caption leading-[18px] text-ink-600 dark:text-ink-300">{why.map((w) => <li key={w}>{w}</li>)}</ul>
           </div>
         )}
         {hosts.length > 0 && (
           <div className="border-t border-ink-100 dark:border-ink-700/50 pt-3">
             <h3 className={SECTION}>In this network: {hosts.length} {hosts.length === 1 ? "host" : "hosts"}</h3>
-            <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-500 dark:text-ink-400">Findings: <Counts hosts={hosts} levels={levels} /></div>
+            <div className="flex flex-wrap items-baseline gap-x-2 text-caption text-ink-500 dark:text-ink-400">Findings: <Counts hosts={hosts} levels={levels} /></div>
             <HostList hosts={hosts} worstShown={worstShown} />
           </div>
         )}
@@ -472,7 +472,7 @@ function StepMachines({ machines, worstShown, onMachine }: { machines: WayMachin
         {shown.map((m) => {
           const worst = m.hosts.reduce<number>((w, h) => Math.max(w, worstShown(h) ?? -1), -1);
           return (
-            <li key={m.id} className="flex items-center gap-2 min-w-0 text-[12.5px]">
+            <li key={m.id} className="flex items-center gap-2 min-w-0 text-caption">
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${worst < 0 ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[worst]}`} title={worst < 0 ? "Nothing at the selected severities" : LEVEL_NAME[worst]} />
               <button onClick={() => onMachine(m.id)} className="min-w-0 truncate text-left font-semibold text-accent-700 dark:text-accent-400 hover:underline" title={m.name}>{m.name}</button>
               <span className="ml-auto shrink-0 tabular-nums text-ink-500 dark:text-ink-400 select-text">{m.ips[0]}</span>
@@ -481,7 +481,7 @@ function StepMachines({ machines, worstShown, onMachine }: { machines: WayMachin
         })}
       </ul>
       {machines.length > MACHINES_COLLAPSED && (
-        <button onClick={() => setAll((a) => !a)} className="mt-1 text-[12.5px] font-semibold text-accent-700 dark:text-accent-400 hover:underline">
+        <button onClick={() => setAll((a) => !a)} className="mt-1 text-caption font-semibold text-accent-700 dark:text-accent-400 hover:underline">
           {all ? "Show fewer" : `Show all ${machines.length}`}
         </button>
       )}
@@ -493,7 +493,7 @@ function FileLinks({ ids }: { ids: string[] }) {
   const openFilePanel = useUiStore((s) => s.openFilePanel);
   const files = useScanStore((s) => s.files);
   return (
-    <div className="mt-1 flex flex-wrap gap-x-3 text-[12.5px]">
+    <div className="mt-1 flex flex-wrap gap-x-3 text-caption">
       {[...new Set(ids)].map((id) => (
         <button key={id} onClick={() => openFilePanel(id)} className="text-accent-700 dark:text-accent-400 hover:underline" title="Open the scan file">
           {files.find((f) => f.id === id)?.filename ?? "scan file"}
@@ -519,7 +519,7 @@ function HostList({ hosts, worstShown }: { hosts: HostEntry[]; worstShown: (h: H
         {shown.map((h) => {
           const worst = worstShown(h);
           return (
-            <li key={h.ip} className="flex items-center gap-2 min-w-0 text-[13px]">
+            <li key={h.ip} className="flex items-center gap-2 min-w-0 text-small">
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${worst === null ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[worst]}`} title={worst === null ? "Nothing at the selected severities" : LEVEL_NAME[worst]} />
               <IpLink ip={h.ip} className="shrink-0 select-text" />
               {h.hostname && <span className="min-w-0 truncate select-text text-ink-500 dark:text-ink-400" title={h.hostname}>{h.hostname}</span>}
@@ -528,7 +528,7 @@ function HostList({ hosts, worstShown }: { hosts: HostEntry[]; worstShown: (h: H
         })}
       </ul>
       {hosts.length > HOSTS_COLLAPSED && (
-        <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+        <button onClick={() => setShowAll((v) => !v)} className="btn-ghost w-full justify-center text-caption mt-2">
           {showAll ? "Show less" : `Show all ${hosts.length}`}
         </button>
       )}
@@ -552,20 +552,20 @@ export function MachinePanel({ machine, levels, worstShown, onClose, onHide }: {
     <>
       <div className={HEAD}>
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-ink-500 dark:text-ink-400">{machine.router ? (machine.hops > 1 ? "Routers in a row" : "Router") : "Machine"}</div>
-          <h2 className="text-[17px] font-semibold text-ink-800 dark:text-ink-100 truncate" title={machine.name}>{machine.name}</h2>
+          <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">{machine.router ? (machine.hops > 1 ? "Routers in a row" : "Router") : "Machine"}</div>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100 truncate" title={machine.name}>{machine.name}</h2>
         </div>
         <button onClick={onClose} className="ml-auto btn-ghost h-7 w-7 p-0 justify-center" title="Back" aria-label="Back"><X size={16} /></button>
         <button onClick={onHide} className="btn-ghost h-7 w-7 p-0 justify-center" title="Hide" aria-label="Hide the list"><ChevronRight size={16} /></button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 flex flex-col gap-4">
         {machine.router && machine.hops > 1 && (
-          <p className="text-[13px] leading-[19px] text-ink-600 dark:text-ink-300">
+          <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">
             Nessus's traceroute passed these {machine.hops} routers one after the other, with nothing else branching off between them, so the map draws them as one.
           </p>
         )}
         {machine.router && machine.hops === 1 && machine.hosts.length === 0 && (
-          <p className="text-[13px] leading-[19px] text-ink-600 dark:text-ink-300">Nessus's traffic passed this router, but the router itself wasn't scanned, so nothing more is known about it.</p>
+          <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">Nessus's traffic passed this router, but the router itself wasn't scanned, so nothing more is known about it.</p>
         )}
         <div>
           <h3 className={SECTION}>{machine.router ? "In the order Nessus passed them" : "Its addresses"}</h3>
@@ -578,16 +578,16 @@ export function MachinePanel({ machine, levels, worstShown, onClose, onHide }: {
                   <span className={`mt-1 w-2.5 h-2.5 shrink-0 ${machine.router ? "rounded-[3px]" : "rounded-full"} ${worst === null ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[worst]}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2 min-w-0">
-                      {ip === "?" ? <span className="text-[13px] text-ink-500 dark:text-ink-400">a router that didn't answer</span>
+                      {ip === "?" ? <span className="text-small text-ink-500 dark:text-ink-400">a router that didn't answer</span>
                         : h ? <IpLink ip={ip} className="select-text" />
-                          : <span className="text-[13px] tabular-nums select-text text-ink-800 dark:text-ink-100">{ip}</span>}
-                      {h?.hostname && <span className="min-w-0 truncate text-xs text-ink-500 dark:text-ink-400 select-text">{h.hostname}</span>}
+                          : <span className="text-small tabular-nums select-text text-ink-800 dark:text-ink-100">{ip}</span>}
+                      {h?.hostname && <span className="min-w-0 truncate text-caption text-ink-500 dark:text-ink-400 select-text">{h.hostname}</span>}
                     </div>
                     {ip !== "?" && (h ? (
-                      <div className="flex flex-wrap items-center gap-x-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-x-2 text-caption">
                         <Counts hosts={[h]} levels={levels} />
                       </div>
-                    ) : <div className="text-xs text-ink-500 dark:text-ink-400">not scanned</div>)}
+                    ) : <div className="text-caption text-ink-500 dark:text-ink-400">not scanned</div>)}
                   </div>
                 </li>
               );
@@ -603,7 +603,7 @@ export function MachinePanel({ machine, levels, worstShown, onClose, onHide }: {
         {machine.talks.length > 0 && (
           <div>
             <h3 className={SECTION}>Talks to networks nobody scanned</h3>
-            <ul className="text-xs leading-[18px] text-ink-600 dark:text-ink-300">{machine.talks.map((t) => <li key={t.text}>{t.text}</li>)}</ul>
+            <ul className="text-caption leading-[18px] text-ink-600 dark:text-ink-300">{machine.talks.map((t) => <li key={t.text}>{t.text}</li>)}</ul>
           </div>
         )}
       </div>

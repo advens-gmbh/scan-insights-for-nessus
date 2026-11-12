@@ -28,7 +28,7 @@ export default function TableHead<K extends string>({ table, sortKey, sortDir, o
             return (
               <th
                 key={col.key}
-                className={`relative px-4 py-3 text-[13px] select-none transition-colors overflow-hidden ${sortable ? "cursor-pointer" : ""} ${
+                className={`relative px-4 py-3 text-small select-none transition-colors overflow-hidden ${sortable ? "cursor-pointer" : ""} ${
                   centered ? "text-center" : "text-left"
                 } ${
                   active

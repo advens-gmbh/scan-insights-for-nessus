@@ -35,7 +35,7 @@ export default function ColumnPicker<K extends string>({ table }: { table: Table
           setOpen((v) => !v);
         }}
         title="Choose columns"
-        className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${
+        className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
           open ? "bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-200" : ""
         }`}
       >
@@ -51,7 +51,7 @@ export default function ColumnPicker<K extends string>({ table }: { table: Table
                 key={col.key}
                 onClick={() => table.toggle(col.key)}
                 disabled={col.required}
-                className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-sm text-left transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-body text-left transition-colors ${
                   col.required
                     ? "opacity-40 cursor-not-allowed"
                     : "hover:bg-ink-50 dark:hover:bg-ink-700/50 cursor-pointer"
@@ -69,7 +69,7 @@ export default function ColumnPicker<K extends string>({ table }: { table: Table
           <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
           <button
             onClick={table.resetAll}
-            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-sm text-left text-ink-500 dark:text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors"
+            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-body text-left text-ink-500 dark:text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors"
           >
             <RotateCcw size={13} className="shrink-0 mx-px" />
             Reset columns

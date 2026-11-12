@@ -51,9 +51,9 @@ export default function About({ collapsed }: { collapsed: boolean }) {
           <CompanyLogo mark className="h-[15px]" />
         ) : (
           <>
-            <span className="text-[11px] font-semibold text-ink-500">Built by</span>
+            <span className="text-tiny font-semibold text-ink-500">Built by</span>
             <CompanyLogo className="h-[14px] shrink-0" />
-            {APP_VERSION && <span className="ml-auto text-[11px] text-ink-500 tabular-nums">v{APP_VERSION}</span>}
+            {APP_VERSION && <span className="ml-auto text-tiny text-ink-500 tabular-nums">v{APP_VERSION}</span>}
           </>
         )}
       </button>
@@ -68,11 +68,11 @@ export default function About({ collapsed }: { collapsed: boolean }) {
           <div className="flex items-center gap-3">
             <img src={appIcon} alt="" className="w-10 h-10" />
             <div>
-              <p className="text-[15px] font-semibold text-ink-900 dark:text-ink-50">Scan Insights for Nessus</p>
-              {APP_VERSION && <p className="text-xs text-ink-500 dark:text-ink-400">Version {APP_VERSION}</p>}
+              <p className="text-heading font-semibold text-ink-900 dark:text-ink-50">Scan Insights for Nessus</p>
+              {APP_VERSION && <p className="text-caption text-ink-500 dark:text-ink-400">Version {APP_VERSION}</p>}
             </div>
           </div>
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3.5 gap-y-1.5 my-3.5 text-[13px]">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3.5 gap-y-1.5 my-3.5 text-small">
             <dt className="text-ink-500 dark:text-ink-400">Built by</dt>
             <dd className="flex flex-col items-start gap-1">
               <CompanyLogo className="h-[15px] text-ink-900 dark:text-white" />
@@ -87,7 +87,7 @@ export default function About({ collapsed }: { collapsed: boolean }) {
             <dt className="text-ink-500 dark:text-ink-400">Your data</dt>
             <dd>Stays on this computer. The app works offline.</dd>
           </dl>
-          <p className="pt-3 border-t border-ink-200 dark:border-ink-700 text-xs text-ink-500 dark:text-ink-400">
+          <p className="pt-3 border-t border-ink-200 dark:border-ink-700 text-caption text-ink-500 dark:text-ink-400">
             Not affiliated with Tenable. Nessus is a trademark of Tenable, Inc.
           </p>
         </div>

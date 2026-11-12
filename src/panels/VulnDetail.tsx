@@ -97,8 +97,8 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           {vuln.unsupported_by_vendor && <Tag title="The vendor no longer supports this software, so no fix will come: upgrade or replace it">Unsupported</Tag>}
           <PanelButtons onClose={onClose} />
         </div>
-        <h2 className="text-lg font-semibold leading-snug text-ink-900 dark:text-ink-50">{vuln.plugin_name}</h2>
-        <p className="text-[13px] text-ink-500 dark:text-ink-400">
+        <h2 className="text-title font-semibold leading-snug text-ink-900 dark:text-ink-50">{vuln.plugin_name}</h2>
+        <p className="text-small text-ink-500 dark:text-ink-400">
           Plugin {vuln.plugin_id} · {vuln.plugin_family}
         </p>
         {hasScores && (
@@ -117,7 +117,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
         {differences.length > 0 && (
           <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
             <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <div className="text-[13px] text-amber-800 dark:text-amber-300 leading-relaxed min-w-0">
+            <div className="text-small text-amber-800 dark:text-amber-300 leading-relaxed min-w-0">
               <p className="font-semibold">Scan files rate this differently</p>
               {differences.map((d) => (
                 <p key={d.severity} className="break-words" title={d.filenames.join("\n")}>
@@ -198,7 +198,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           <Section title="References">
             <ul className="flex flex-col gap-1">
               {vuln.see_also.map((url, i) => (
-                <li key={i} className="text-[13px] break-all">
+                <li key={i} className="text-small break-all">
                   {isWebUrl(url)
                     ? <button onClick={() => openExternal(url)} className="text-left text-accent-700 dark:text-accent-400 hover:underline">{url}</button>
                     : <span className="text-ink-500 dark:text-ink-400">{url}</span>}
@@ -212,7 +212,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
         <Section title={`Affected hosts · ${ips.length} ${ips.length === 1 ? "host" : "hosts"}${hosts.length !== ips.length ? `, ${hosts.length} instances` : ""}`}>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {showFile && (
-              <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)} className="input h-8 py-0 text-sm w-auto max-w-56">
+              <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)} className="input h-8 py-0 text-body w-auto max-w-56">
                 <option value="all">All files</option>
                 {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
               </select>
@@ -227,7 +227,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
             {withOutput.length > 0 && (
               <button
                 onClick={() => setHiddenOutput(allHidden ? new Set() : new Set(withOutput.map((h) => h.id)))}
-                className="btn-ghost h-7 px-2 text-xs ml-auto"
+                className="btn-ghost h-7 px-2 text-caption ml-auto"
               >
                 {allHidden ? "Show all output" : "Hide all output"}
               </button>
@@ -235,11 +235,11 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           </div>
 
           {hosts.length === 0 ? (
-            <p className="text-sm text-ink-500 dark:text-ink-400 text-center py-4">No hosts match the filter.</p>
+            <p className="text-body text-ink-500 dark:text-ink-400 text-center py-4">No hosts match the filter.</p>
           ) : (
             <div className="card overflow-x-auto">
               {/* fixed layout: the host column takes what's left, so the table never needs a sideways scrollbar */}
-              <table className="w-full table-fixed text-sm tabular-nums">
+              <table className="w-full table-fixed text-body tabular-nums">
                 <colgroup>
                   <col />
                   <col className="w-[6.5rem]" />
@@ -247,7 +247,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
                   <col className="w-[13rem]" />
                 </colgroup>
                 <thead>
-                  <tr className="bg-ink-100 dark:bg-ink-700/60 text-[13px] text-left text-ink-500 dark:text-ink-300">
+                  <tr className="bg-ink-100 dark:bg-ink-700/60 text-small text-left text-ink-500 dark:text-ink-300">
                     <th className="px-3 py-2 font-semibold">Host</th>
                     <th className="px-3 py-2 font-semibold">Port</th>
                     <th className="px-3 py-2 font-semibold">Service</th>
@@ -263,7 +263,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
                         <td className="px-3 py-1.5">
                           <IpLink ip={h.ip} className="text-left" />
                           {showFile && (
-                            <div className="truncate text-xs text-ink-500 dark:text-ink-400" title={h.filename}>{h.filename.replace(/\.nessus$/i, "")}</div>
+                            <div className="truncate text-caption text-ink-500 dark:text-ink-400" title={h.filename}>{h.filename.replace(/\.nessus$/i, "")}</div>
                           )}
                         </td>
                         <td className="px-3 py-1.5 truncate text-ink-700 dark:text-ink-200">{h.port}/{h.protocol}</td>
@@ -293,7 +293,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           )}
 
           {hosts.length > visibleRows && (
-            <button onClick={() => setVisibleRows((n) => n + HOST_ROWS_PAGE)} className="btn-ghost w-full justify-center text-xs mt-2">
+            <button onClick={() => setVisibleRows((n) => n + HOST_ROWS_PAGE)} className="btn-ghost w-full justify-center text-caption mt-2">
               Show {Math.min(HOST_ROWS_PAGE, hosts.length - visibleRows)} more of {hosts.length - visibleRows} remaining
             </button>
           )}
@@ -311,7 +311,7 @@ function HostRows({ open, columns, output, children }: { open: boolean; columns:
       {open && output && (
         <tr>
           <td colSpan={columns} className="px-3 pb-2.5">
-            <pre className="m-0 px-3 py-2 max-h-48 overflow-y-auto rounded-md border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 text-xs leading-relaxed whitespace-pre-wrap font-mono text-ink-700 dark:text-ink-200">
+            <pre className="m-0 px-3 py-2 max-h-48 overflow-y-auto rounded-md border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 text-caption leading-relaxed whitespace-pre-wrap font-mono text-ink-700 dark:text-ink-200">
               {output}
             </pre>
           </td>
@@ -356,7 +356,7 @@ function ExploitSection({ vuln }: { vuln: VulnEntry }) {
           </div>
         ))}
       </dl>
-      <p className="mt-2 text-xs text-ink-500 dark:text-ink-400">From Tenable's plugin data in the scan file.</p>
+      <p className="mt-2 text-caption text-ink-500 dark:text-ink-400">From Tenable's plugin data in the scan file.</p>
     </Section>
   );
 }// ExploitSection
@@ -374,8 +374,8 @@ function Score({ label, value, sev }: { label: string; value: string; sev?: numb
 
   return (
     <div className="flex flex-col gap-0.5 min-w-[4.5rem] px-2.5 py-1.5 rounded-md border border-ink-200 dark:border-ink-700">
-      <span className={`text-lg font-bold leading-tight tabular-nums ${color}`}>{value}</span>
-      <span className="text-[11px] font-semibold text-ink-500 dark:text-ink-400">{label}</span>
+      <span className={`text-heading font-bold leading-tight tabular-nums ${color}`}>{value}</span>
+      <span className="text-tiny font-semibold text-ink-500 dark:text-ink-400">{label}</span>
     </div>
   );
 }// Score

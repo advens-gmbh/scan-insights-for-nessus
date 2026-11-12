@@ -136,11 +136,11 @@ export default function Trends() {
       {/* Files */}
       <section className="card p-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Scan files</h2>
-          <span className="text-[13px] text-ink-500 dark:text-ink-400">{runs.length} of {files.length} selected</span>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Scan files</h2>
+          <span className="text-small text-ink-500 dark:text-ink-400">{runs.length} of {files.length} selected</span>
           <span className="ml-auto flex gap-1">
-            <button onClick={() => setIds(files.map((f) => f.id))} className="btn-ghost h-7 px-2 text-xs">Select all</button>
-            <button onClick={() => setIds([])} className="btn-ghost h-7 px-2 text-xs">Clear</button>
+            <button onClick={() => setIds(files.map((f) => f.id))} className="btn-ghost h-7 px-2 text-caption">Select all</button>
+            <button onClick={() => setIds([])} className="btn-ghost h-7 px-2 text-caption">Clear</button>
           </span>
         </div>
         <ul className="max-h-56 overflow-y-auto -mx-1">
@@ -148,7 +148,7 @@ export default function Trends() {
             const start = fileWindow(f).start;
             return (
               <li key={f.id}>
-                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_6.5rem] items-center gap-3 px-1 py-1.5 rounded-md cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-sm">
+                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_6.5rem] items-center gap-3 px-1 py-1.5 rounded-md cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-body">
                   <input type="checkbox" checked={selectedIds.has(f.id)} onChange={() => toggle(f.id)} className="rounded accent-accent-600" />
                   <span className="truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</span>
                   <span className="truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</span>
@@ -160,7 +160,7 @@ export default function Trends() {
           })}
         </ul>
         {mixed && (
-          <p className="flex items-center gap-2 text-[13px] text-amber-800 dark:text-amber-300">
+          <p className="flex items-center gap-2 text-small text-amber-800 dark:text-amber-300">
             <AlertTriangle size={14} className="shrink-0" />
             Some of these files scanned different targets or hosts, so the chart mixes different scans.
           </p>
@@ -170,8 +170,8 @@ export default function Trends() {
       {/* Chart */}
       <section className="card p-4 flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Findings per run</h2>
-          <span className="text-xs text-ink-500 dark:text-ink-400">Each finding counted once per host{chart === "bars" ? ", total above each bar" : ""}</span>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Findings per run</h2>
+          <span className="text-caption text-ink-500 dark:text-ink-400">Each finding counted once per host{chart === "bars" ? ", total above each bar" : ""}</span>
           <span className="ml-auto flex items-center gap-3">
             <ShowInfoCheckbox />
             <Segmented label="Chart" value={chart} onChange={setChart} options={[{ value: "lines", label: "Lines" }, { value: "bars", label: "Bars" }]} />
@@ -188,8 +188,8 @@ export default function Trends() {
       {runs.length > 0 && (
         <section className="card overflow-hidden">
           <div className="px-4 pt-4 pb-3 flex flex-wrap items-baseline gap-3">
-            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Runs</h2>
-            <span className="text-xs text-ink-500 dark:text-ink-400">▲ ▼, New and Fixed compare each file with the earlier run of the same scan in the last column</span>
+            <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Runs</h2>
+            <span className="text-caption text-ink-500 dark:text-ink-400">▲ ▼, New and Fixed compare each file with the earlier run of the same scan in the last column</span>
           </div>
           <div className="overflow-x-auto">
             <table style={table.style}>
@@ -205,14 +205,14 @@ export default function Trends() {
                             return (
                               <td key={col.key} className="table-cell py-2.5 overflow-hidden">
                                 <span className="block truncate font-medium text-accent-700 dark:text-accent-400" title={file.filename}>{file.filename.replace(/\.nessus$/i, "")}</span>
-                                <span className="block truncate text-xs text-ink-500 dark:text-ink-400" title={file.report_name}>{file.report_name}</span>
+                                <span className="block truncate text-caption text-ink-500 dark:text-ink-400" title={file.report_name}>{file.report_name}</span>
                               </td>
                             );
                           case "scanned":
                             return (
                               <td key={col.key} className="table-cell py-2.5 whitespace-nowrap overflow-hidden">
                                 <span className="block text-ink-800 dark:text-ink-100">{window.start ? formatScanStart(window.start) : "-"}</span>
-                                {window.durationMs !== null && <span className="block text-xs text-ink-500 dark:text-ink-400">ran for {formatDuration(window.durationMs)}</span>}
+                                {window.durationMs !== null && <span className="block text-caption text-ink-500 dark:text-ink-400">ran for {formatDuration(window.durationMs)}</span>}
                               </td>
                             );
                           case "hosts":
@@ -234,7 +234,7 @@ export default function Trends() {
                                     title={`Open in Compare: ${previous.file.filename}`}
                                   >
                                     <span className="block truncate font-medium text-accent-700 dark:text-accent-400 hover:underline">{previous.file.filename.replace(/\.nessus$/i, "")}</span>
-                                    <span className="block truncate text-xs text-ink-500 dark:text-ink-400">{previous.reason}</span>
+                                    <span className="block truncate text-caption text-ink-500 dark:text-ink-400">{previous.reason}</span>
                                   </button>
                                 ) : <Dash />}
                               </td>
@@ -269,7 +269,7 @@ function Step({ value }: { value: number }) {
   }
 
   return (
-    <span className={`ml-1 text-[11px] font-semibold ${value > 0 ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>
+    <span className={`ml-1 text-tiny font-semibold ${value > 0 ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>
       {value > 0 ? `▲${value.toLocaleString()}` : `▼${(-value).toLocaleString()}`}
     </span>
   );

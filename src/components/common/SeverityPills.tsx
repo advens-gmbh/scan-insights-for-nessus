@@ -37,14 +37,14 @@ export default function SeverityPills({ counts, selected, onToggle, onClear }: P
             onClick={() => onToggle(sev)}
             aria-pressed={active}
             title={all ? `Show only ${SEVERITY_LABELS[sev]}` : undefined}
-            className={`pill px-3 py-1 text-sm font-semibold cursor-pointer transition-colors ${all || active ? FILLED[sev] : FADED}`}
+            className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${all || active ? FILLED[sev] : FADED}`}
           >
             {SEVERITY_LABELS[sev]} {count.toLocaleString()}
           </button>
         );
       })}
       {onClear && selected.length > 0 && (
-        <button onClick={onClear} className="px-1.5 py-1 text-sm font-semibold text-accent-700 dark:text-accent-400 hover:underline">
+        <button onClick={onClear} className="px-1.5 py-1 text-body font-semibold text-accent-700 dark:text-accent-400 hover:underline">
           Show all
         </button>
       )}

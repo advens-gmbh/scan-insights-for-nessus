@@ -210,7 +210,7 @@ export default function Compare() {
       </div>
 
       {/* Before and after */}
-      <p className="-mb-2 text-xs text-ink-500 dark:text-ink-400 shrink-0">
+      <p className="-mb-2 text-caption text-ink-500 dark:text-ink-400 shrink-0">
         Findings in A → in B, each one counted once per host, like on the Dashboard. The table below lists each vulnerability once.
       </p>
       <div className={`card overflow-hidden grid gap-px bg-ink-100 dark:bg-ink-700/70 shrink-0 ${showInfo ? "grid-cols-6" : "grid-cols-5"}`}>
@@ -305,7 +305,7 @@ export default function Compare() {
         </div>
       </div>
 
-      <p className="text-xs text-ink-500 dark:text-ink-400 shrink-0">
+      <p className="text-caption text-ink-500 dark:text-ink-400 shrink-0">
         Hosts are matched by MAC address, then hostname, then NetBIOS name, and by IP only when neither scan has one of these.
         Findings are then compared within each matched pair of hosts, by plugin, port and protocol, so they follow a host that changed IP. A different scan policy between the two scans can still hide a finding, so check that both used the same one.
       </p>
@@ -357,13 +357,13 @@ function ScanPicker({ label, file, files, onPick, onOpen }: {
 
   return (
     <div className="flex flex-col gap-1 min-w-0">
-      <label className="text-[13px] font-semibold text-ink-500 dark:text-ink-400" htmlFor={id}>{label}</label>
+      <label className="text-small font-semibold text-ink-500 dark:text-ink-400" htmlFor={id}>{label}</label>
       <select id={id} value={file.id} onChange={(e) => onPick(e.target.value)} className="input">
         {[file, ...files.filter((f) => f.id !== file.id)].map((f) => (
           <option key={f.id} value={f.id}>{f.filename.replace(/\.nessus$/i, "")}</option>
         ))}
       </select>
-      <button onClick={onOpen} className="h-5 text-left text-xs text-ink-500 dark:text-ink-400 hover:text-accent-700 dark:hover:text-accent-400 truncate" title="Scan file details">
+      <button onClick={onOpen} className="h-5 text-left text-caption text-ink-500 dark:text-ink-400 hover:text-accent-700 dark:hover:text-accent-400 truncate" title="Scan file details">
         {details}
       </button>
     </div>
@@ -378,7 +378,7 @@ function Change({ label, dot, a, b, color, neutral = false }: { label: string; d
 
   return (
     <div className={`px-[18px] py-3 flex flex-col gap-1 min-w-0 bg-white dark:bg-ink-800 ${neutral ? "shadow-[inset_1px_0_0_theme(colors.ink.200)] dark:shadow-[inset_1px_0_0_theme(colors.ink.600)]" : ""}`}>
-      <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">
+      <span className="flex items-center gap-1.5 text-caption font-semibold text-ink-500 dark:text-ink-400">
         {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
         {label}
       </span>
@@ -388,7 +388,7 @@ function Change({ label, dot, a, b, color, neutral = false }: { label: string; d
         <span className="text-[0.58em] text-ink-400 dark:text-ink-500">→</span>
         <span className={`font-bold ${b > 0 && color ? color : "text-ink-900 dark:text-ink-50"}`}>{b.toLocaleString()}</span>
       </span>
-      <span className={`text-xs font-semibold ${tone}`}>{text}</span>
+      <span className={`text-caption font-semibold ${tone}`}>{text}</span>
     </div>
   );
 }// Change
@@ -425,7 +425,7 @@ function Pill({ change, map }: { change: string; map: Record<string, { label: st
   const c = map[change];
   const Icon = CHANGE_ICON[change];
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${TONE[c.tone]}`} title={c.title}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-tiny font-semibold ${TONE[c.tone]}`} title={c.title}>
       {Icon && <Icon size={11} strokeWidth={2.6} aria-hidden="true" />}{c.label}
     </span>
   );
@@ -490,9 +490,9 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
                 <span className="block text-accent-700 dark:text-accent-400 tabular-nums" title={row.ipA && row.ipB && row.ipA !== row.ipB ? "The same machine at a new IP" : undefined}>
                   {row.ipA && row.ipB && row.ipA !== row.ipB ? `${row.ipA} → ${row.ipB}` : row.ip}
                 </span>
-                {row.hostname && <span className="block truncate text-xs text-ink-500 dark:text-ink-400">{row.hostname}</span>}
+                {row.hostname && <span className="block truncate text-caption text-ink-500 dark:text-ink-400">{row.hostname}</span>}
                 {row.conflict && (
-                  <span className="block truncate text-xs text-amber-700 dark:text-amber-400" title={row.countsA ? "Another machine has this IP in B" : "Another machine had this IP in A"}>
+                  <span className="block truncate text-caption text-amber-700 dark:text-amber-400" title={row.countsA ? "Another machine has this IP in B" : "Another machine had this IP in A"}>
                     {row.countsA ? "Another machine in B" : "Another machine in A"}: {row.conflict}
                   </span>
                 )}

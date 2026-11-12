@@ -68,11 +68,11 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold tabular-nums text-ink-900 dark:text-ink-50">{service.key}</h2>
+          <h2 className="text-title font-semibold tabular-nums text-ink-900 dark:text-ink-50">{service.key}</h2>
           {service.exploit_available && <ExploitTag>Exploit available</ExploitTag>}
           <PanelButtons onClose={onClose} />
         </div>
-        <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate" title={subtitle}>{subtitle}</p>
+        <p className="text-small text-ink-500 dark:text-ink-400 truncate" title={subtitle}>{subtitle}</p>
         <CountBoxes counts={service.severity_counts} />
       </div>
 
@@ -93,7 +93,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
             ))}
           </div>
           {service.host_ips.length > HOSTS_COLLAPSED && (
-            <button onClick={() => setShowAllHosts((v) => !v)} className="btn-ghost w-full justify-center text-xs mt-2">
+            <button onClick={() => setShowAllHosts((v) => !v)} className="btn-ghost w-full justify-center text-caption mt-2">
               {showAllHosts ? "Show less" : `Show all ${service.host_ips.length}`}
             </button>
           )}
@@ -104,7 +104,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
           actions={
             <div className="flex items-center gap-3">
               <ShowInfoCheckbox />
-              <label className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
+              <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
                 <input type="checkbox" checked={groupedNow} onChange={toggleGrouped} className="rounded accent-accent-600" />
                 Group by host
               </label>
@@ -128,7 +128,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
             />
           ) : (
             <div className="card overflow-hidden">
-              <table className="w-full table-fixed text-sm tabular-nums">
+              <table className="w-full table-fixed text-body tabular-nums">
                 <colgroup>
                   <col className="w-[5.5rem]" />
                   <col />
@@ -136,7 +136,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
                   <col className="w-[5.5rem]" />
                 </colgroup>
                 <thead>
-                  <tr className="bg-ink-100 dark:bg-ink-700/60 text-[13px] text-left text-ink-500 dark:text-ink-300">
+                  <tr className="bg-ink-100 dark:bg-ink-700/60 text-small text-left text-ink-500 dark:text-ink-300">
                     <th className="px-3 py-2 font-semibold">Severity</th>
                     <th className="px-3 py-2 font-semibold">Name</th>
                     <th className="px-3 py-2 font-semibold text-right">Hosts</th>
@@ -154,7 +154,7 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
             </div>
           )}
           {!grouped && findings.length > visibleFindings && (
-            <button onClick={() => setVisibleFindings((n) => n + ROWS_PAGE)} className="btn-ghost w-full justify-center text-xs mt-2">
+            <button onClick={() => setVisibleFindings((n) => n + ROWS_PAGE)} className="btn-ghost w-full justify-center text-caption mt-2">
               Show {Math.min(ROWS_PAGE, findings.length - visibleFindings)} more of {findings.length - visibleFindings} remaining
             </button>
           )}

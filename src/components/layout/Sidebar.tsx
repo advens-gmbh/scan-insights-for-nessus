@@ -48,8 +48,8 @@ export default function Sidebar() {
         <img src={logo} alt="" className="w-7 h-7 shrink-0" />
         {!sidebarCollapsed && (
           <div className="overflow-hidden">
-            <p className="text-white font-semibold text-sm leading-tight truncate">Scan Insights</p>
-            <p className="text-ink-500 text-[10px] leading-tight truncate">for Nessus</p>
+            <p className="text-white font-semibold text-body leading-tight truncate">Scan Insights</p>
+            <p className="text-ink-500 text-tiny leading-tight truncate">for Nessus</p>
           </div>
         )}
       </div>
@@ -60,7 +60,7 @@ export default function Sidebar() {
           <div key={group.label ?? "top"} className="flex flex-col gap-0.5">
             {group.label && (sidebarCollapsed
               ? <span className="mx-3 my-2 border-t border-ink-700/60" aria-hidden="true" />
-              : <span className="px-3 pt-3.5 pb-1 text-[11px] font-semibold text-ink-500">{group.label}</span>)}
+              : <span className="px-3 pt-3.5 pb-1 text-tiny font-semibold text-ink-500">{group.label}</span>)}
             {group.items.map(({ to, icon: Icon, label, count }) => {
               const n = count && counts ? counts[count] : null;
               return (
@@ -75,7 +75,7 @@ export default function Sidebar() {
                   {!sidebarCollapsed && (
                     <>
                       <span className="truncate">{label}</span>
-                      {n !== null && <span className="ml-auto text-xs font-medium tabular-nums text-ink-400">{n.toLocaleString()}</span>}
+                      {n !== null && <span className="ml-auto text-caption font-medium tabular-nums text-ink-400">{n.toLocaleString()}</span>}
                     </>
                   )}
                 </NavLink>

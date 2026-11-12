@@ -16,7 +16,7 @@ export default function SearchBar({ value, onChange, placeholder = "Search…", 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="input pl-8 pr-8 text-xs"
+        className="input pl-8 pr-8 text-caption"
       />
       {value && (
         <button

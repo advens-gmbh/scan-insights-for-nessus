@@ -176,11 +176,11 @@ export default function Dashboard() {
             className={TOTAL_CELL}
             title={`Show ${SEVERITY_LABELS[l.sev]} findings`}
           >
-            <span className="flex items-center gap-2 text-[13px] font-semibold text-ink-500 dark:text-ink-400">
+            <span className="flex items-center gap-2 text-small font-semibold text-ink-500 dark:text-ink-400">
               <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />{SEVERITY_LABELS[l.sev]}
             </span>
-            <span className={`text-3xl font-bold leading-none tabular-nums ${l.fg}`}>{combined[l.key].toLocaleString()}</span>
-            <span className="text-xs text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
+            <span className={`text-figure font-bold leading-none tabular-nums ${l.fg}`}>{combined[l.key].toLocaleString()}</span>
+            <span className="text-caption text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
             <HostShare part={affectedHosts[l.key]} whole={allHosts.length} fill={l.bg} />
           </button>
         ))}
@@ -189,9 +189,9 @@ export default function Dashboard() {
           className={`${TOTAL_CELL} xl:shadow-[inset_1px_0_0_theme(colors.ink.200)] dark:xl:shadow-[inset_1px_0_0_theme(colors.ink.600)]`}
           title={`Findings with a public exploit, counted on each host they are on. ${exploits.metasploit.toLocaleString()} of them have a Metasploit module.\nShow them in Vulnerabilities`}
         >
-          <span className="text-[13px] font-semibold text-ink-500 dark:text-ink-400">Exploitable</span>
-          <span className="text-3xl font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>
-          <span className="text-xs text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
+          <span className="text-small font-semibold text-ink-500 dark:text-ink-400">Exploitable</span>
+          <span className="text-figure font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>
+          <span className="text-caption text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
           <HostShare part={exploits.hosts} whole={allHosts.length} fill="bg-ink-400 dark:bg-ink-500" />
         </button>
       </section>
@@ -199,15 +199,15 @@ export default function Dashboard() {
       {/* Top vulnerabilities */}
       <section>
         <div className="flex items-baseline justify-between gap-3 mb-2.5">
-          <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Top vulnerabilities</h2>
+          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Top vulnerabilities</h2>
           {seriousCount > 0 && (
-            <button onClick={() => showSeverities([4, 3])} className="text-sm font-medium text-accent-700 dark:text-accent-400 hover:underline">
+            <button onClick={() => showSeverities([4, 3])} className="text-body font-medium text-accent-700 dark:text-accent-400 hover:underline">
               Show all {seriousCount.toLocaleString()} in Vulnerabilities
             </button>
           )}
         </div>
         <div className="card divide-y divide-ink-100 dark:divide-ink-700">
-          {topVulns.length === 0 && <p className="px-4 py-5 text-sm text-ink-500 dark:text-ink-400">No critical or high findings.</p>}
+          {topVulns.length === 0 && <p className="px-4 py-5 text-body text-ink-500 dark:text-ink-400">No critical or high findings.</p>}
           {topVulns.map((v) => {
             const cvss = ratedScore(v);
             return (
@@ -217,16 +217,16 @@ export default function Dashboard() {
                 className="w-full grid grid-cols-[5.5rem_minmax(0,1fr)_auto_5.75rem_5.5rem] gap-3.5 items-center px-4 py-2.5 text-left hover:bg-ink-50 dark:hover:bg-ink-700/40 transition-colors"
               >
                 <span><SeverityBadge severity={v.severity} size="sm" /></span>
-                <span className="truncate text-sm font-medium text-ink-800 dark:text-ink-100" title={v.plugin_name}>{v.plugin_name}</span>
+                <span className="truncate text-body font-medium text-ink-800 dark:text-ink-100" title={v.plugin_name}>{v.plugin_name}</span>
                 <span className="flex gap-1">
                   {v.exploit_available && <ExploitTag />}
                   {v.metasploit_available && <Tag>Metasploit</Tag>}
                 </span>
-                <span className="text-right text-[13px] text-ink-500 dark:text-ink-400 tabular-nums">
-                  {cvss ? <>CVSS <b className="text-ink-800 dark:text-ink-100">{cvss.score.toFixed(1)}</b> <span className="text-[10px]">v{cvss.version}</span></> : "-"}
+                <span className="text-right text-small text-ink-500 dark:text-ink-400 tabular-nums">
+                  {cvss ? <>CVSS <b className="text-ink-800 dark:text-ink-100">{cvss.score.toFixed(1)}</b> <span className="text-tiny">v{cvss.version}</span></> : "-"}
                 </span>
-                <span className="text-right text-[13px] text-ink-500 dark:text-ink-400 tabular-nums">
-                  <b className="text-sm text-ink-800 dark:text-ink-100">{v.host_count}</b> {v.host_count === 1 ? "host" : "hosts"}
+                <span className="text-right text-small text-ink-500 dark:text-ink-400 tabular-nums">
+                  <b className="text-body text-ink-800 dark:text-ink-100">{v.host_count}</b> {v.host_count === 1 ? "host" : "hosts"}
                 </span>
               </button>
             );
@@ -238,13 +238,13 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="flex flex-col min-w-0">
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
-            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Most vulnerable hosts</h2>
-            <button onClick={() => navigate("/hosts")} className="text-sm font-medium text-accent-700 dark:text-accent-400 hover:underline">
+            <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Most vulnerable hosts</h2>
+            <button onClick={() => navigate("/hosts")} className="text-body font-medium text-accent-700 dark:text-accent-400 hover:underline">
               All {allHosts.length.toLocaleString()} hosts
             </button>
           </div>
           <div className="card flex-1 divide-y divide-ink-100 dark:divide-ink-700">
-            {topHosts.length === 0 && <p className="px-4 py-5 text-sm text-ink-500 dark:text-ink-400">No findings above Info.</p>}
+            {topHosts.length === 0 && <p className="px-4 py-5 text-body text-ink-500 dark:text-ink-400">No findings above Info.</p>}
             {topHosts.map((h) => {
               const counts = visibleCounts(h.severity_counts, showInfo);
               const name = h.hostname ?? h.netbios;
@@ -252,10 +252,10 @@ export default function Dashboard() {
                 <div key={h.ip} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_2.5rem] gap-3.5 items-center px-4 py-1 min-h-[2.75rem]">
                   <span className="min-w-0 flex flex-col items-start">
                     <IpLink ip={h.ip} className="text-left" />
-                    {name && <span className="max-w-full truncate text-xs leading-4 text-ink-500 dark:text-ink-400" title={name}>{name}</span>}
+                    {name && <span className="max-w-full truncate text-caption leading-4 text-ink-500 dark:text-ink-400" title={name}>{name}</span>}
                   </span>
                   <SeverityBar counts={counts} max={hostMax} />
-                  <span className="text-right text-sm font-semibold tabular-nums text-ink-800 dark:text-ink-100">{total(counts)}</span>
+                  <span className="text-right text-body font-semibold tabular-nums text-ink-800 dark:text-ink-100">{total(counts)}</span>
                 </div>
               );
             })}
@@ -264,11 +264,11 @@ export default function Dashboard() {
 
         <section className="flex flex-col min-w-0">
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
-            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Findings by family</h2>
+            <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Findings by family</h2>
             <ShowInfoCheckbox />
           </div>
           <div className="card flex-1 flex flex-col px-[18px] py-3.5">
-            {topFamilies.length === 0 && <p className="py-2 text-sm text-ink-500 dark:text-ink-400">No findings above Info.</p>}
+            {topFamilies.length === 0 && <p className="py-2 text-body text-ink-500 dark:text-ink-400">No findings above Info.</p>}
             {topFamilies.map((f) => (
               <button
                 key={f.family}
@@ -276,16 +276,16 @@ export default function Dashboard() {
                 title={`Show the ${f.family} findings in Vulnerabilities`}
                 className="group grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_2.75rem] gap-3 items-center py-2 text-left"
               >
-                <span className="truncate text-sm text-ink-700 dark:text-ink-200 group-hover:text-accent-700 dark:group-hover:text-accent-400">{f.family}</span>
+                <span className="truncate text-body text-ink-700 dark:text-ink-200 group-hover:text-accent-700 dark:group-hover:text-accent-400">{f.family}</span>
                 <SeverityBar counts={f.counts} max={familyMax} />
-                <span className="text-right text-sm font-semibold tabular-nums text-ink-800 dark:text-ink-100">{f.total.toLocaleString()}</span>
+                <span className="text-right text-body font-semibold tabular-nums text-ink-800 dark:text-ink-100">{f.total.toLocaleString()}</span>
               </button>
             ))}
             {families.length > topFamilies.length && (
-              <p className="mt-1.5 text-xs text-ink-500 dark:text-ink-400">and {(families.length - topFamilies.length).toLocaleString()} more {families.length - topFamilies.length === 1 ? "family" : "families"}</p>
+              <p className="mt-1.5 text-caption text-ink-500 dark:text-ink-400">and {(families.length - topFamilies.length).toLocaleString()} more {families.length - topFamilies.length === 1 ? "family" : "families"}</p>
             )}
             {topFamilies.length > 0 && (
-              <div className="mt-auto pt-3 flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-ink-500 dark:text-ink-400">
+              <div className="mt-auto pt-3 flex flex-wrap gap-x-3.5 gap-y-1 text-caption text-ink-500 dark:text-ink-400">
                 {LEVELS.filter((l) => showInfo || l.sev > 0).map((l) => (
                   <span key={l.key} className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded-sm ${l.bg}`} />{SEVERITY_LABELS[l.sev]}</span>
                 ))}
@@ -297,9 +297,9 @@ export default function Dashboard() {
 
       {/* Scan files */}
       <section>
-        <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100 mb-2.5">Scan files</h2>
+        <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100 mb-2.5">Scan files</h2>
         <div className="card overflow-x-auto">
-          <table style={fileTable.style} className="text-sm tabular-nums">
+          <table style={fileTable.style} className="text-body tabular-nums">
             <TableHead table={fileTable} sortKey={fileSort.sortKey} sortDir={fileSort.sortDir} onSort={fileSort.toggleSort} />
             <tbody className="divide-y divide-ink-100 dark:divide-ink-700">
               {sortedFiles.map(({ file, counts, window }) => (
@@ -325,7 +325,7 @@ export default function Dashboard() {
                             {window.start ? (
                               <>
                                 <div className="text-ink-700 dark:text-ink-200">{formatScanStart(window.start)}</div>
-                                {window.durationMs !== null && <div className="text-xs text-ink-500 dark:text-ink-400">ran for {formatDuration(window.durationMs)}</div>}
+                                {window.durationMs !== null && <div className="text-caption text-ink-500 dark:text-ink-400">ran for {formatDuration(window.durationMs)}</div>}
                               </>
                             ) : <span className="text-ink-400 dark:text-ink-500">-</span>}
                           </td>

@@ -17,7 +17,7 @@ interface Props {
 
 export default function SeverityBar({ counts, max, numbers = true, className = "h-5" }: Props) {
   return (
-    <div className={`flex rounded-sm overflow-hidden bg-ink-100 dark:bg-ink-700 text-[11px] font-bold tabular-nums ${className}`}>
+    <div className={`flex rounded-sm overflow-hidden bg-ink-100 dark:bg-ink-700 text-tiny font-bold tabular-nums ${className}`}>
       {SEGMENTS.map((s) => {
         const value = max > 0 ? counts[s.key] : 0;
         const share = max > 0 ? value / max : 0;

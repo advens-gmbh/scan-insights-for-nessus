@@ -18,7 +18,7 @@ export function PanelButtons({ onClose }: { onClose: () => void }) {
   return (
     <div className="ml-auto flex items-center gap-1 shrink-0">
       {previous && (
-        <button onClick={goBack} className="btn-ghost h-8 px-2 text-xs gap-1" title={BACK_TO[previous.kind](previous)} aria-label="Back">
+        <button onClick={goBack} className="btn-ghost h-8 px-2 text-caption gap-1" title={BACK_TO[previous.kind](previous)} aria-label="Back">
           <ArrowLeft size={15} /> Back
         </button>
       )}
@@ -33,18 +33,18 @@ export function Section({ title, copy, actions, children }: { title: string; cop
   return (
     <section className="pt-4 border-t border-ink-200 dark:border-ink-700 first:pt-0 first:border-t-0">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-[15px] font-semibold text-ink-900 dark:text-ink-50">{title}</h3>
+        <h3 className="text-heading font-semibold text-ink-900 dark:text-ink-50">{title}</h3>
         {copy && <CopyButton text={copy} label={`Copy ${title.replace(/ \(\d+\)$/, "").toLowerCase()}`} variant="icon" />}
         {actions}
       </div>
-      <div className="text-sm leading-relaxed text-ink-700 dark:text-ink-200">{children}</div>
+      <div className="text-body leading-relaxed text-ink-700 dark:text-ink-200">{children}</div>
     </section>
   );
 }// Section
 
 export function Tag({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <span title={title} className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[11px] font-semibold bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-200">
+    <span title={title} className="inline-flex items-center gap-1 px-1.5 py-px rounded text-tiny font-semibold bg-ink-100 dark:bg-ink-700 text-ink-700 dark:text-ink-200">
       {children}
     </span>
   );

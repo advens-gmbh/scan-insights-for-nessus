@@ -40,8 +40,8 @@ export function CountBoxes({ counts }: { counts: SeverityCounts }) {
         const n = counts[c.key];
         return (
           <div key={c.sev} className="min-w-0 flex flex-col gap-1 px-3 py-2 bg-white dark:bg-ink-900">
-            <span className={`text-lg font-bold leading-tight tabular-nums ${n > 0 ? SEVERITY_COLORS[c.sev].text : "text-ink-300 dark:text-ink-600"}`}>{n.toLocaleString()}</span>
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-500 dark:text-ink-400"><span className={`w-[7px] h-[7px] rounded-full ${c.dot}`} />{c.label}</span>
+            <span className={`text-heading font-bold leading-tight tabular-nums ${n > 0 ? SEVERITY_COLORS[c.sev].text : "text-ink-300 dark:text-ink-600"}`}>{n.toLocaleString()}</span>
+            <span className="flex items-center gap-1.5 text-tiny font-semibold text-ink-500 dark:text-ink-400"><span className={`w-[7px] h-[7px] rounded-full ${c.dot}`} />{c.label}</span>
           </div>
         );
       })}
@@ -63,7 +63,7 @@ export function Cvss({ score, severity }: { score: CvssScore | null; severity: n
       <span className={`${SEVERITY_COLORS[severity].text} ${severity >= 3 ? "font-semibold" : ""}`}>
         {score.score.toFixed(1)}
       </span>
-      <span className="ml-1 text-[10px] text-ink-400" title={`CVSS v${score.version}`}>v{score.version}</span>
+      <span className="ml-1 text-tiny text-ink-400" title={`CVSS v${score.version}`}>v{score.version}</span>
     </span>
   );
 }// Cvss
@@ -87,7 +87,7 @@ export function FindingName({ pluginId, name, fileId }: { pluginId: number; name
 
 export function SeverityChips({ counts, showInfo }: { counts: number[]; showInfo: boolean }) {
   return (
-    <span className="flex gap-1 tabular-nums text-xs font-semibold">
+    <span className="flex gap-1 tabular-nums text-caption font-semibold">
       {COUNTS.filter((c) => showInfo || c.sev > 0).map((c) => (
         <span key={c.sev} className={`w-7 py-0.5 rounded text-center ${counts[c.sev] > 0 ? CHIP[c.sev] : ""}`} title={counts[c.sev] > 0 ? `${counts[c.sev]} ${c.label}` : undefined}>
           {counts[c.sev] > 0 ? counts[c.sev] : ""}
@@ -124,9 +124,9 @@ export function FindingGroups<G extends FindingGroup>({ groups, noun, header, fi
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between text-[13px] text-ink-500 dark:text-ink-400">
+      <div className="flex items-center justify-between text-small text-ink-500 dark:text-ink-400">
         <span>{groups.length.toLocaleString()} {groups.length === 1 ? noun[0] : noun[1]}</span>
-        <button onClick={() => setOpen(allOpen ? new Set() : new Set(groups.map((g) => g.key)))} className="btn-ghost h-7 px-2 text-xs">
+        <button onClick={() => setOpen(allOpen ? new Set() : new Set(groups.map((g) => g.key)))} className="btn-ghost h-7 px-2 text-caption">
           {allOpen ? "Collapse all" : "Expand all"}
         </button>
       </div>
@@ -170,7 +170,7 @@ export function FindingGroups<G extends FindingGroup>({ groups, noun, header, fi
         );
       })}
       {groups.length > shown && (
-        <button onClick={() => setShown((n) => n + GROUPS_PAGE)} className="btn-ghost w-full justify-center text-xs">
+        <button onClick={() => setShown((n) => n + GROUPS_PAGE)} className="btn-ghost w-full justify-center text-caption">
           Show {Math.min(GROUPS_PAGE, groups.length - shown)} more of {(groups.length - shown).toLocaleString()} remaining
         </button>
       )}

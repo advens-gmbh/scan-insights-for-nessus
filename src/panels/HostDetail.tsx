@@ -62,7 +62,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-ink-200 dark:border-ink-700 flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold tabular-nums text-ink-900 dark:text-ink-50">{host.ip}</h2>
+          <h2 className="text-title font-semibold tabular-nums text-ink-900 dark:text-ink-50">{host.ip}</h2>
           <CopyButton text={host.ip} variant="icon" label="Copy IP" />
           {host.credentialed_scan && <Tag>Credentialed</Tag>}
           {host.os_unsupported && <Tag title="The vendor no longer supports this operating system">Unsupported OS</Tag>}
@@ -70,7 +70,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
           <PanelButtons onClose={onClose} />
         </div>
         {(host.hostname || host.netbios || osValues.length > 0) && (
-          <p className="text-[13px] text-ink-500 dark:text-ink-400 truncate">
+          <p className="text-small text-ink-500 dark:text-ink-400 truncate">
             {[host.hostname ?? host.netbios, osValues[0]].filter(Boolean).join(" · ")}
           </p>
         )}
@@ -82,7 +82,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
         {acrossFiles.conflicts.length > 0 && (
           <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
             <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <p className="text-[13px] text-amber-800 dark:text-amber-300 leading-relaxed">
+            <p className="text-small text-amber-800 dark:text-amber-300 leading-relaxed">
               <span className="font-semibold">Possible identity conflict: </span>
               {acrossFiles.conflicts.join(" and ")} differ{acrossFiles.conflicts.length > 1 ? "" : "s"} across scan files.
               This IP may be different machines.
@@ -151,7 +151,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
                 <select
                   value={fileScope}
                   onChange={(e) => setFileScope(e.target.value)}
-                  className="input h-7 py-0 text-xs w-auto max-w-[11rem]"
+                  className="input h-7 py-0 text-caption w-auto max-w-[11rem]"
                   aria-label="Show the findings from"
                   title="Show the findings from one scan file, or merged from all of them"
                 >
@@ -160,7 +160,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
                 </select>
               )}
               <ShowInfoCheckbox />
-              <label className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
+              <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
                 <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
                 Group by port
               </label>
@@ -210,7 +210,7 @@ function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }
 
   return (
     <div className="card overflow-hidden">
-      <table className="w-full table-fixed text-sm tabular-nums">
+      <table className="w-full table-fixed text-body tabular-nums">
         <colgroup>
           <col className="w-[5.5rem]" />
           <col />
@@ -218,7 +218,7 @@ function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }
           <col className="w-[5.5rem]" />
         </colgroup>
         <thead>
-          <tr className="bg-ink-100 dark:bg-ink-700/60 text-[13px] text-left text-ink-500 dark:text-ink-300">
+          <tr className="bg-ink-100 dark:bg-ink-700/60 text-small text-left text-ink-500 dark:text-ink-300">
             <th className="px-3 py-2 font-semibold">Severity</th>
             <th className="px-3 py-2 font-semibold">Name</th>
             <th className="px-3 py-2 font-semibold">Port</th>
