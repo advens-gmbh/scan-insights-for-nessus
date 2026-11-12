@@ -54,7 +54,7 @@ export default function Welcome() {
         <div className="min-w-0">
           <h1 className="text-title font-bold text-ink-900 dark:text-ink-50">{first ? "Scan Insights for Nessus" : "Pick up where you left off"}</h1>
           <p className="mt-0.5 text-small text-ink-600 dark:text-ink-300">
-            {first ? "Your scans stay on this computer." : <>Tick files to open them together, or drop new <FileExt /> files anywhere.</>}
+            {first ? "Your scans are never uploaded." : <>Tick files to open them together, or drop new <FileExt /> files anywhere.</>}
           </p>
         </div>
         <span className="flex-1" />

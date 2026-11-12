@@ -51,9 +51,9 @@ export default function About({ collapsed }: { collapsed: boolean }) {
           <CompanyLogo mark className="h-[15px]" />
         ) : (
           <>
-            <span className="text-tiny font-semibold text-ink-500">Built by</span>
+            <span className="text-tiny font-semibold text-ink-400">Built by</span>
             <CompanyLogo className="h-[14px] shrink-0" />
-            {APP_VERSION && <span className="ml-auto text-tiny text-ink-500 tabular-nums">v{APP_VERSION}</span>}
+            {APP_VERSION && <span className="ml-auto text-tiny text-ink-400 tabular-nums">v{APP_VERSION}</span>}
           </>
         )}
       </button>
@@ -85,7 +85,7 @@ export default function About({ collapsed }: { collapsed: boolean }) {
               </button>
             </dd>
             <dt className="text-ink-500 dark:text-ink-400">Your data</dt>
-            <dd>Stays on this computer. The app works offline.</dd>
+            <dd>The app has no online features and never sends any data anywhere.</dd>
           </dl>
           <p className="pt-3 border-t border-ink-200 dark:border-ink-700 text-caption text-ink-500 dark:text-ink-400">
             Not affiliated with Tenable. Nessus is a trademark of Tenable, Inc.

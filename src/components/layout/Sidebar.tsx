@@ -49,7 +49,7 @@ export default function Sidebar() {
         {!sidebarCollapsed && (
           <div className="overflow-hidden">
             <p className="text-white font-semibold text-body leading-tight truncate">Scan Insights</p>
-            <p className="text-ink-500 text-tiny leading-tight truncate">for Nessus</p>
+            <p className="text-ink-400 text-tiny leading-tight truncate">for Nessus</p>
           </div>
         )}
       </div>
@@ -60,7 +60,7 @@ export default function Sidebar() {
           <div key={group.label ?? "top"} className="flex flex-col gap-0.5">
             {group.label && (sidebarCollapsed
               ? <span className="mx-3 my-2 border-t border-ink-700/60" aria-hidden="true" />
-              : <span className="px-3 pt-3.5 pb-1 text-tiny font-semibold text-ink-500">{group.label}</span>)}
+              : <span className="px-3 pt-3.5 pb-1 text-tiny font-semibold text-ink-400">{group.label}</span>)}
             {group.items.map(({ to, icon: Icon, label, count }) => {
               const n = count && counts ? counts[count] : null;
               return (
@@ -90,7 +90,7 @@ export default function Sidebar() {
       {/* Collapse toggle */}
       <button
         onClick={toggleSidebar}
-        className="flex items-center justify-center h-10 border-t border-ink-700/50 text-ink-500 hover:text-ink-300 transition-colors"
+        className="flex items-center justify-center h-10 border-t border-ink-700/50 text-ink-400 hover:text-ink-200 transition-colors"
         title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
