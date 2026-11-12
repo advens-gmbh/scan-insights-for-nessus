@@ -116,9 +116,9 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
         {differences.length > 0 && (
-          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <div className="text-small text-amber-800 dark:text-amber-300 leading-relaxed min-w-0">
+          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-warn-50 dark:bg-warn-900/20 border border-warn-200 dark:border-warn-700/40">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warn-600 dark:text-warn-400" />
+            <div className="text-small text-warn-800 dark:text-warn-300 leading-relaxed min-w-0">
               <p className="font-semibold">Scan files rate this differently</p>
               {differences.map((d) => (
                 <p key={d.severity} className="break-words" title={d.filenames.join("\n")}>
@@ -309,7 +309,7 @@ function HostRows({ open, columns, output, children }: { open: boolean; columns:
       {open && output && (
         <tr>
           <td colSpan={columns} className="px-3 pb-2.5">
-            <pre className="m-0 px-3 py-2 max-h-48 overflow-y-auto rounded-md border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 text-caption leading-relaxed whitespace-pre-wrap font-mono text-ink-700 dark:text-ink-200">
+            <pre className="m-0 px-3 py-2 max-h-48 overflow-y-auto rounded-lg border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 text-caption leading-relaxed whitespace-pre-wrap font-mono text-ink-700 dark:text-ink-200">
               {output}
             </pre>
           </td>
@@ -371,7 +371,7 @@ function Score({ label, value, sev }: { label: string; value: string; sev?: numb
   const color = sev === undefined ? "text-ink-900 dark:text-ink-50" : SEVERITY_COLORS[sev].text;
 
   return (
-    <div className="flex flex-col gap-0.5 min-w-[4.5rem] px-2.5 py-1.5 rounded-md border border-ink-200 dark:border-ink-700">
+    <div className="flex flex-col gap-0.5 min-w-[4.5rem] px-2.5 py-1.5 rounded-lg border border-ink-200 dark:border-ink-700">
       <span className={`text-heading font-bold leading-tight tabular-nums ${color}`}>{value}</span>
       <span className="text-tiny font-semibold text-ink-500 dark:text-ink-400">{label}</span>
     </div>

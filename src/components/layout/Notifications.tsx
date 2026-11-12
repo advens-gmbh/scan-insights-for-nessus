@@ -12,8 +12,8 @@ export default function Notifications() {
     <div className="flex flex-col items-end gap-2 w-[380px] max-w-full">
       {notifications.map((n) => {
         const styles = {
-          error:   "bg-red-50    dark:bg-red-950/90   border-red-200   dark:border-red-800   text-red-700   dark:text-red-300",
-          warning: "bg-amber-50  dark:bg-amber-950/90 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300",
+          error:   "bg-bad-50    dark:bg-bad-950/90   border-bad-200   dark:border-bad-800   text-bad-700   dark:text-bad-300",
+          warning: "bg-warn-50  dark:bg-warn-950/90 border-warn-200 dark:border-warn-800 text-warn-700 dark:text-warn-300",
           info:    "bg-white     dark:bg-ink-800    border-ink-200 dark:border-ink-700 text-ink-700 dark:text-ink-200",
         }[n.type];
         const Icon = { error: AlertCircle, warning: AlertTriangle, info: Info }[n.type];

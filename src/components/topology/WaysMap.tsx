@@ -422,7 +422,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
         onClick={() => onPick(`net:${n.key}`)}
         onKeyDown={(e) => e.key === "Enter" && onPick(`net:${n.key}`)}
         title={n.reasons.map((r) => r.text).join("\n") || undefined}
-        className={`absolute flex flex-col items-stretch text-left rounded-[10px] px-2.5 py-2 cursor-pointer select-none ${
+        className={`absolute flex flex-col items-stretch text-left rounded-xl px-2.5 py-2 cursor-pointer select-none ${
           isNever(n) ? "border-[1.5px] border-dashed border-ink-400 dark:border-ink-500 bg-ink-50/70 dark:bg-ink-900/50" : "border border-ink-200 dark:border-ink-600 bg-white dark:bg-ink-800 shadow-sm"
         } ${extra}`}
         style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
@@ -456,7 +456,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
           <div
             key={n.id}
             {...drag}
-            className="absolute flex flex-col text-left rounded-[10px] border border-dashed border-ink-300 dark:border-ink-500 bg-white dark:bg-ink-800 px-2.5 py-2 select-none"
+            className="absolute flex flex-col text-left rounded-xl border border-dashed border-ink-300 dark:border-ink-500 bg-white dark:bg-ink-800 px-2.5 py-2 select-none"
             style={{ left: b.x, top: b.y, width: b.w, height: b.h }}
           >
             <span className="flex items-center gap-1.5 min-w-0">
@@ -489,7 +489,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
               e.stopPropagation();
               toggleBlock(n.id);
             }}
-            className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 text-caption font-semibold hover:bg-accent-100 dark:hover:bg-accent-900/50"
+            className="inline-flex items-center gap-1 h-6 px-2 rounded-lg bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 text-caption font-semibold hover:bg-accent-100 dark:hover:bg-accent-900/50"
           >
             {n.open ? <><ChevronUp size={13} /> Fold</> : <><ChevronDown size={13} /> Show {nets.length} networks</>}
           </button>
@@ -504,7 +504,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
               data-block={n.block.key}
               onClick={() => onPick(n.id)}
               onKeyDown={(e) => e.key === "Enter" && onPick(n.id)}
-              className={`absolute flex flex-col rounded-[10px] border border-ink-200 dark:border-ink-600 bg-white dark:bg-ink-800 shadow-sm px-2.5 py-2 text-left cursor-pointer select-none ${ring(n.id)}`}
+              className={`absolute flex flex-col rounded-xl border border-ink-200 dark:border-ink-600 bg-white dark:bg-ink-800 shadow-sm px-2.5 py-2 text-left cursor-pointer select-none ${ring(n.id)}`}
               style={{ left: b.x, top: b.y, width: b.w, height: b.h }}
             >
               {head}
@@ -512,7 +512,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
               <span className="flex flex-wrap gap-0.5 mt-1.5" aria-hidden="true">
                 {nets.map((x) => {
                   const w = worstOf(x.group?.hosts ?? []);
-                  return <i key={x.key} className={`w-[7px] h-[7px] rounded-[2px] ${w === null ? "bg-ink-100 dark:bg-ink-700" : SEVERITY_BG[w]}`} />;
+                  return <i key={x.key} className={`w-[7px] h-[7px] rounded-sm ${w === null ? "bg-ink-100 dark:bg-ink-700" : SEVERITY_BG[w]}`} />;
                 })}
               </span>
               <span className="mt-auto pt-1.5">{toggle}</span>
@@ -607,7 +607,7 @@ function Machine({ m, box, worst, ring, drag, onOpen }: {
         onClick={onOpen}
         title={m.hopList.length > 1 ? m.hopList.map((h) => (h === "?" ? "no answer" : h)).join(" → ") : m.ips.join(", ")}
         aria-label={m.name}
-        className={`flex items-center justify-center w-9 h-9 text-white ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ${m.router ? "rounded-[10px]" : "rounded-full"} ${
+        className={`flex items-center justify-center w-9 h-9 text-white ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ${m.router ? "rounded-xl" : "rounded-full"} ${
           worst === null ? "bg-ink-300 dark:bg-ink-600" : SEVERITY_BG[worst]
         } ${ring}`}
       >

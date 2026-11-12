@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { folderOf, formatBytes, timeAgo } from "./format";
+import { folderOf, formatBytes, portNumbers, timeAgo } from "./format";
 
 describe("formatBytes", () => {
   it("picks a readable unit", () => {
@@ -34,5 +34,15 @@ describe("folderOf", () => {
     expect(folderOf("\\\\fileserver\\pentest\\b.nessus")).toBe("\\\\fileserver\\pentest");
     expect(folderOf("/home/me/c.nessus")).toBe("/home/me");
     expect(folderOf("c.nessus")).toBe("");
+  });
+});
+
+describe("portNumbers", () => {
+  it("lists ports in number order, each once", () => {
+    expect(portNumbers(["443/tcp", "53/udp", "8080/tcp", "22/tcp", "53/tcp", "445/udp", "445/tcp"])).toEqual([22, 53, 443, 445, 8080]);
+  });
+
+  it("skips what isn't a port", () => {
+    expect(portNumbers(["general/tcp", "80/tcp"])).toEqual([80]);
   });
 });

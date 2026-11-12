@@ -5,6 +5,9 @@ import { useScanStore } from "../stores/scanStore";
 import { buildHostEntries, osGuesses } from "../types/nessus";
 import type { ReportItem } from "../types/nessus";
 import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
+import { fileStart } from "../utils/fileFacts";
+
+const FILES_SHOWN = 3;
 import { groupByPort, openPorts, sortFindings } from "../utils/hostFindings";
 import SeverityBadge from "../components/common/SeverityBadge";
 import CopyButton from "../components/common/CopyButton";
@@ -39,6 +42,7 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
   const [fileScope, setFileScope] = useState(hostPanelFileId ?? "all");
 
   const acrossFiles = useMemo(() => buildHostEntries(files).find((h) => h.ip === ip), [files, ip]);
+  const [allFiles, setAllFiles] = useState(false);
   const scopedFiles = useMemo(
     () => (fileScope === "all" ? files : files.filter((f) => f.id === fileScope)),
     [files, fileScope]
@@ -57,6 +61,12 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
   const macs = host.mac ? host.mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
   const scan = scanWindow([host]);
   const multiFile = acrossFiles.file_ids.length > 1;
+  // newest scan first, with its date
+  const scanFiles = acrossFiles.file_ids.map((id, i) => {
+    const f = files.find((x) => x.id === id);
+    const start = f ? fileStart(f) : null;
+    return { id, filename: acrossFiles.filenames[i], start, date: start !== null ? formatScanStart(new Date(start)).slice(0, 10) : "" };
+  }).sort((a, b) => (b.start ?? 0) - (a.start ?? 0));
 
   return (
     <>
@@ -81,9 +91,9 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
         {acrossFiles.conflicts.length > 0 && (
-          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <p className="text-small text-amber-800 dark:text-amber-300 leading-relaxed">
+          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-warn-50 dark:bg-warn-900/20 border border-warn-200 dark:border-warn-700/40">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warn-600 dark:text-warn-400" />
+            <p className="text-small text-warn-800 dark:text-warn-300 leading-relaxed">
               <span className="font-semibold">Possible identity conflict: </span>
               {acrossFiles.conflicts.join(" and ")} differ{acrossFiles.conflicts.length > 1 ? "" : "s"} across scan files.
               This IP may be different machines.
@@ -100,7 +110,9 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
             <Detail label="NetBIOS name" value={host.netbios} />
             <Detail label="MAC address" value={macs.length ? macs.join("\n") : null} copy />
             <Detail label="System type" value={host.system_type} />
-            {scan.start && (
+            {multiFile ? (
+              scanFiles[0]?.start != null && <Detail label="Last scanned" value={formatScanStart(new Date(scanFiles[0].start))} />
+            ) : scan.start && (
               <Detail
                 label="Scanned"
                 value={`${formatScanStart(scan.start)}${scan.durationMs !== null ? `, ran for ${formatDuration(scan.durationMs)}` : ""}`}
@@ -109,16 +121,23 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
             <dt className="text-ink-500 dark:text-ink-400">{multiFile ? "Scan files" : "Scan file"}</dt>
             <dd className="col-span-2 min-w-0">
               <div className="flex flex-col items-start gap-0.5">
-                {acrossFiles.file_ids.map((id, i) => (
-                  <button
-                    key={id}
-                    onClick={() => openFilePanel(id)}
-                    title={`${acrossFiles.filenames[i]}\nShow the scan file`}
-                    className="max-w-full truncate text-left text-accent-700 dark:text-accent-400 hover:underline"
-                  >
-                    {acrossFiles.filenames[i].replace(/\.nessus$/i, "")}
-                  </button>
+                {(allFiles ? scanFiles : scanFiles.slice(0, FILES_SHOWN)).map((f) => (
+                  <span key={f.id} className="max-w-full flex items-baseline gap-1.5 min-w-0">
+                    <button
+                      onClick={() => openFilePanel(f.id)}
+                      title={`${f.filename}\nShow the scan file`}
+                      className="min-w-0 truncate text-left text-accent-700 dark:text-accent-400 hover:underline"
+                    >
+                      {f.filename.replace(/\.nessus$/i, "")}
+                    </button>
+                    {f.date && <span className="shrink-0 text-small text-ink-500 dark:text-ink-400 tabular-nums">· {f.date}</span>}
+                  </span>
                 ))}
+                {scanFiles.length > FILES_SHOWN && (
+                  <button onClick={() => setAllFiles(!allFiles)} className="mt-0.5 text-small font-semibold text-accent-700 dark:text-accent-400 hover:underline">
+                    {allFiles ? "Show fewer" : `Show all ${scanFiles.length}`}
+                  </button>
+                )}
               </div>
             </dd>
           </dl>

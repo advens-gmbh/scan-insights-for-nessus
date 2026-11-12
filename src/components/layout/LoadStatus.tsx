@@ -102,7 +102,7 @@ function OpeningCardBody({ opening: o, queue, batch }: { opening: Opening; queue
     <div className="min-h-[70vh] flex items-center justify-center">
       <section role="status" aria-label="Opening a file" className="card w-[560px] max-w-full p-6 flex flex-col gap-5 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-[10px] bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 flex items-center justify-center shrink-0"><FileText size={20} /></span>
+          <span className="w-10 h-10 rounded-xl bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 flex items-center justify-center shrink-0"><FileText size={20} /></span>
           <div className="min-w-0">
             <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">{batch.total > 1 ? `Opening file ${batch.done + 1} of ${batch.total}` : "Opening"}</div>
             <div className="text-heading font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>

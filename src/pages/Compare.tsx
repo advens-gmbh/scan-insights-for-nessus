@@ -57,7 +57,7 @@ const MATCHED_BY: Record<MatchedBy, { label: string; title: string }> = {
 
 const TONE: Record<string, string> = {
   bad:  "bg-critical/10 text-critical-fg dark:bg-critical/20",
-  good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  good: "bg-good-100 text-good-800 dark:bg-good-900/40 dark:text-good-300",
   // neither better nor worse ==> grey, so it isn't read as a severity
   warn: "bg-ink-100 text-ink-700 dark:bg-ink-700 dark:text-ink-200",
   same: "bg-ink-100 text-ink-500 dark:bg-ink-700 dark:text-ink-400",
@@ -266,8 +266,8 @@ export default function Compare() {
       </div>
 
       {/* Table */}
-      <div className="card flex-1 min-h-[320px] overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto h-full">
+      <div className="card min-h-0 flex flex-col overflow-hidden">
+        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
           <table style={table.style}>
             {shownView === "vulns"
               ? <TableHead table={vulnTable} sortKey={vulnSort.sortKey} sortDir={vulnSort.sortDir} onSort={vulnSort.toggleSort} />
@@ -369,7 +369,7 @@ function ScanPicker({ label, file, files, onPick, onOpen }: {
 
 function Change({ label, dot, a, b, color, neutral = false }: { label: string; dot?: string; a: number; b: number; color?: string; neutral?: boolean }) {
   const d = b - a;
-  const tone = d === 0 || neutral ? "text-ink-500 dark:text-ink-400" : d > 0 ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400";
+  const tone = d === 0 || neutral ? "text-ink-500 dark:text-ink-400" : d > 0 ? "text-critical-fg" : "text-good-700 dark:text-good-400";
   const text = d === 0 ? "no change" : d > 0 ? `▲ ${d.toLocaleString()} more` : `▼ ${(-d).toLocaleString()} fewer`;
   const line = useFitLine([a, b]);
 
@@ -433,7 +433,7 @@ function Delta({ value, sign }: { value: number; sign: "+" | "−" }) {
     return <span className="text-ink-300 dark:text-ink-600">-</span>;
   }
 
-  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>{sign}{value.toLocaleString()}</span>;
+  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-good-700 dark:text-good-400"}`}>{sign}{value.toLocaleString()}</span>;
 }// Delta
 
 function VulnRow({ row, cols, index, selected, measureRow, onClick }: {
@@ -489,7 +489,7 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
                 </span>
                 {row.hostname && <span className="block truncate text-caption text-ink-500 dark:text-ink-400">{row.hostname}</span>}
                 {row.conflict && (
-                  <span className="block truncate text-caption text-amber-700 dark:text-amber-400" title={row.countsA ? "Another machine has this IP in B" : "Another machine had this IP in A"}>
+                  <span className="block truncate text-caption text-warn-700 dark:text-warn-400" title={row.countsA ? "Another machine has this IP in B" : "Another machine had this IP in A"}>
                     {row.countsA ? "Another machine in B" : "Another machine in A"}: {row.conflict}
                   </span>
                 )}
@@ -498,7 +498,7 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
           case "change": return <td key={col.key} className="table-cell"><Pill change={row.change} map={HOST_CHANGE} /></td>;
           case "by":
             return (
-              <td key={col.key} className={`table-cell ${row.by === "ip" ? "text-amber-700 dark:text-amber-400" : "text-ink-600 dark:text-ink-300"}`} title={row.by ? MATCHED_BY[row.by].title : "Only in one of the scans"}>
+              <td key={col.key} className={`table-cell ${row.by === "ip" ? "text-warn-700 dark:text-warn-400" : "text-ink-600 dark:text-ink-300"}`} title={row.by ? MATCHED_BY[row.by].title : "Only in one of the scans"}>
                 {row.by ? MATCHED_BY[row.by].label : <span className="text-ink-300 dark:text-ink-600">-</span>}
               </td>
             );
@@ -511,7 +511,7 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
               return <td key={col.key} className="table-cell text-center text-ink-300 dark:text-ink-600">-</td>;
             }
             const color = b !== undefined && a !== undefined && b !== a
-              ? (b > a ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400")
+              ? (b > a ? "text-critical-fg" : "text-good-700 dark:text-good-400")
               : b ? SEVERITY_COLORS[sev[col.key]].text : "text-ink-400 dark:text-ink-500";
             return (
               <td key={col.key} className="table-cell text-center whitespace-nowrap tabular-nums">

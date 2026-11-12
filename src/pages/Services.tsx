@@ -224,7 +224,7 @@ export default function Services() {
           <Select value={activeFile} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the services from" className="w-60 shrink-0" />
         )}
 
-        <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-1 min-w-48" />
+        <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-1 min-w-60" />
 
         <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
@@ -242,8 +242,8 @@ export default function Services() {
       </div>
 
       {/* Table - fills remaining height, scrolls internally so thead stays sticky */}
-      <div className="card flex-1 overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto h-full">
+      <div className="card min-h-0 flex flex-col overflow-hidden">
+        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
           <table style={table.style}>
             <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
             <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">

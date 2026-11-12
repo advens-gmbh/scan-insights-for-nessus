@@ -1,5 +1,5 @@
 import plugin from "tailwindcss/plugin";
-import { accent, ink, severity } from "./src/theme/colors.js";
+import { accent, bad, good, ink, severity, warn } from "./src/theme/colors.js";
 
 const levels = Object.keys(severity);
 
@@ -31,10 +31,22 @@ export default {
       "figure-sm": ["24px", { lineHeight: "32px" }], // Compare's before → after
       figure: ["30px", { lineHeight: "36px" }],      // the Dashboard numbers
     },
+    // corners: 2 tiny marks, 4 tags and bars, 8 controls, 12 cards and panels, full pills and dots
+    borderRadius: {
+      none: "0",
+      sm: "2px",
+      DEFAULT: "4px",
+      lg: "8px",
+      xl: "12px",
+      full: "9999px",
+    },
     extend: {
       colors: {
         ink,
         accent,
+        good,
+        warn,
+        bad,
         ...severityColors,
       },
       fontFamily: {

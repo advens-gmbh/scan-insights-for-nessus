@@ -5,7 +5,7 @@ export default function Segmented<T extends string>({ label, value, onChange, op
   options: { value: T; label: string; count?: number }[];
 }) {
   return (
-    <div className="inline-flex rounded-md border border-ink-200 dark:border-ink-700 overflow-hidden" role="group" aria-label={label}>
+    <div className="inline-flex rounded-lg border border-ink-200 dark:border-ink-700 overflow-hidden" role="group" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.value}

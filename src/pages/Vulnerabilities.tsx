@@ -205,7 +205,7 @@ export default function Vulnerabilities() {
           <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the findings from" className="w-60 shrink-0" />
         )}
 
-        <div className="flex-1 min-w-48">
+        <div className="flex-1 min-w-60">
           <SearchBar
             value={search}
             onChange={setSearch}
@@ -222,8 +222,8 @@ export default function Vulnerabilities() {
       </div>
 
       {/* Table - fills remaining height, scrolls internally so thead stays sticky */}
-      <div className="card flex-1 overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto h-full">
+      <div className="card min-h-0 flex flex-col overflow-hidden">
+        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
           <table style={table.style}>
             <TableHead table={table} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
             <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">

@@ -39,3 +39,18 @@ export const severity = {
   low:      { fill: "#fbd655", on: "#1d2530", fg: { light: "#8a6a00", dark: "#ffdc63" } },
   info:     { fill: "#4690c6", on: "#ffffff", fg: { light: "#2c6aa1", dark: "#76b6ea" } },
 };
+
+// status, not severity: good = fixed or better (Tailwind: good-50 … good-950),
+// warn = needs a look, bad = failed. The same shades as Tailwind's emerald, amber and red.
+export const good = {
+  50: "#ecfdf5", 100: "#d1fae5", 200: "#a7f3d0", 300: "#6ee7b7", 400: "#34d399", 500: "#10b981",
+  600: "#059669", 700: "#047857", 800: "#065f46", 900: "#064e3b", 950: "#022c22",
+};
+export const warn = {
+  50: "#fffbeb", 100: "#fef3c7", 200: "#fde68a", 300: "#fcd34d", 400: "#fbbf24", 500: "#f59e0b",
+  600: "#d97706", 700: "#b45309", 800: "#92400e", 900: "#78350f", 950: "#451a03",
+};
+export const bad = {
+  50: "#fef2f2", 100: "#fee2e2", 200: "#fecaca", 300: "#fca5a5", 400: "#f87171", 500: "#ef4444",
+  600: "#dc2626", 700: "#b91c1c", 800: "#991b1b", 900: "#7f1d1d", 950: "#450a0a",
+};

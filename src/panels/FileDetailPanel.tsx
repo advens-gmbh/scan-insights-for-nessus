@@ -59,9 +59,9 @@ function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
         {(file.compliance_skipped ?? 0) > 0 && (
-          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <p className="text-small text-amber-800 dark:text-amber-300 leading-relaxed">
+          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-warn-50 dark:bg-warn-900/20 border border-warn-200 dark:border-warn-700/40">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warn-600 dark:text-warn-400" />
+            <p className="text-small text-warn-800 dark:text-warn-300 leading-relaxed">
               <span className="font-semibold">{file.compliance_skipped!.toLocaleString()} compliance check {file.compliance_skipped === 1 ? "result" : "results"} left out.</span>{" "}
               The app doesn't show compliance results yet. The vulnerabilities in this file are all here.
             </p>
@@ -132,7 +132,7 @@ function TargetList({ coverage, fileId }: { coverage: TargetCoverage[]; fileId: 
           <li key={t.target} className="contents">
             <span className="truncate" title={t.target}>{t.target}</span>
             {t.ips.length === 0 ? (
-              <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
+              <span className="flex items-center gap-1 text-warn-700 dark:text-warn-400">
                 <AlertTriangle size={13} /> not reached
               </span>
             ) : t.size !== null ? (

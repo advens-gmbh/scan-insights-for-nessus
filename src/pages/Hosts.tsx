@@ -22,6 +22,7 @@ import { usePageState } from "../stores/pageStore";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+import { portNumbers } from "../utils/format";
 import { Tag } from "../panels/PanelParts";
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -46,7 +47,6 @@ const COLUMNS: ColDef[] = [
   { key: "info",         label: "Info",         width: 76,  align: "center", dot: "bg-info", defaultHidden: true },
   { key: "ports",        label: "Open Ports",   width: 200 },
 ];// COLUMNS
-
 const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbios", "mac"];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ export default function Hosts() {
             case "medium":       return h.severity_counts.medium.toString();
             case "low":          return h.severity_counts.low.toString();
             case "info":         return h.severity_counts.info.toString();
-            case "ports":        return h.open_ports.map((p) => p.split("/")[0]).join(", ");
+            case "ports":        return portNumbers(h.open_ports).join(", ");
             default:             return "";
           }
         })
@@ -235,7 +235,7 @@ export default function Hosts() {
           <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the hosts from" className="w-60 shrink-0" />
         )}
 
-        <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-1 min-w-48" />
+        <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-1 min-w-60" />
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
@@ -250,7 +250,7 @@ export default function Hosts() {
                   setShowCopyMenu((v) => !v);
                 }}
                 className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
-                  copied ? "text-emerald-600 dark:text-emerald-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
+                  copied ? "text-good-600 dark:text-good-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
                 }`}
               >
                 {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
@@ -271,8 +271,8 @@ export default function Hosts() {
       </div>
 
       {/* Table */}
-      <div className="card flex-1 overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto h-full">
+      <div className="card min-h-0 flex flex-col overflow-hidden">
+        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
           <table style={table.style}>
             <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
             <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
@@ -321,8 +321,10 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
   onClick: () => void;
 }) {
   const sc = host.severity_counts;
-  const portSample = host.open_ports.map((p) => p.split("/")[0]).slice(0, 8).join(", ");
-  const extra = host.open_ports.length > 8 ? ` +${host.open_ports.length - 8}` : "";
+  const ports = portNumbers(host.open_ports);
+  const portSample = ports.slice(0, 8).join(", ");
+  const extra = ports.length > 8 ? ` +${ports.length - 8}` : "";
+  const ownDomain = host.domain && host.hostname && (host.hostname === host.domain || host.hostname.endsWith(`.${host.domain}`));
   const macs = macAddresses(host.mac);
 
   return (
@@ -348,7 +350,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
                       className="shrink-0"
                       title={`Identity conflict: ${host.conflicts.join(", ")} differ across files`}
                     >
-                      <AlertTriangle size={11} className="text-amber-500" />
+                      <AlertTriangle size={11} className="text-warn-500" />
                     </span>
                   )}
                   {host.file_ids.length > 1 && (
@@ -357,7 +359,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
                     </span>
                   )}
                 </span>
-                {host.domain && (
+                {host.domain && !ownDomain && (
                   <span className="truncate block text-tiny text-ink-500 dark:text-ink-400 mt-0.5">
                     {host.domain}
                   </span>
@@ -414,7 +416,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
           case "credentialed":
             return (
               <td key="credentialed" className="table-cell text-center">
-                <span className={`text-caption font-semibold ${host.credentialed_scan ? "text-emerald-600 dark:text-emerald-400" : "text-ink-500 dark:text-ink-400"}`}>
+                <span className={`text-caption font-semibold ${host.credentialed_scan ? "text-good-600 dark:text-good-400" : "text-ink-500 dark:text-ink-400"}`}>
                   {host.credentialed_scan ? "Yes" : "No"}
                 </span>
               </td>

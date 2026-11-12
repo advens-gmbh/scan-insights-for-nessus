@@ -10,7 +10,7 @@ interface ProjectStore {
   projects: Project[];
   load: () => Promise<void>;
   save: (projects: Project[]) => Promise<void>;
-  createProject: (name: string, files?: ProjectFilePath[]) => void;
+  createProject: (name: string, files?: ProjectFilePath[]) => string; // the new project's id
   deleteProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
   addFileToProject: (projectId: string, file: ProjectFilePath) => void;
@@ -52,6 +52,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     };
     const updated = [...get().projects, project];
     get().save(updated);
+    return project.id;
   },
 
   deleteProject: (id) => {

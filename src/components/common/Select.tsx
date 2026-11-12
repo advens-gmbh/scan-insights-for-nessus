@@ -168,7 +168,7 @@ export default function Select({ value, options, onChange, placeholder = "", siz
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(i)}
-                className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-md cursor-pointer ${i === active ? "bg-ink-100 dark:bg-ink-700" : ""}`}
+                className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-lg cursor-pointer ${i === active ? "bg-ink-100 dark:bg-ink-700" : ""}`}
               >
                 <span className="w-4 shrink-0 text-accent-700 dark:text-accent-400">{i === chosen && <Check size={14} strokeWidth={2.6} aria-hidden="true" />}</span>
                 <span className="min-w-0">

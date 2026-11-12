@@ -57,7 +57,7 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
     <div
       onMouseEnter={() => onHover(b)}
       onMouseLeave={() => onHover(null)}
-      className={`flex flex-col gap-1.5 transition-colors ${bare ? "rounded-md border border-ink-200 dark:border-ink-700 px-3 py-2.5" : "px-4 py-3 border-b border-ink-100 dark:border-ink-700/50"} ${
+      className={`flex flex-col gap-1.5 transition-colors ${bare ? "rounded-lg border border-ink-200 dark:border-ink-700 px-3 py-2.5" : "px-4 py-3 border-b border-ink-100 dark:border-ink-700/50"} ${
         lit ? "bg-accent-50/60 dark:bg-accent-900/20" : ""
       }`}
     >
@@ -575,7 +575,7 @@ export function MachinePanel({ machine, levels, worstShown, onClose, onHide }: {
               const worst = h ? worstShown(h) : null;
               return (
                 <li key={`${ip}-${i}`} className="flex items-start gap-2.5">
-                  <span className={`mt-1 w-2.5 h-2.5 shrink-0 ${machine.router ? "rounded-[3px]" : "rounded-full"} ${worst === null ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[worst]}`} />
+                  <span className={`mt-1 w-2.5 h-2.5 shrink-0 ${machine.router ? "rounded" : "rounded-full"} ${worst === null ? "bg-ink-200 dark:bg-ink-600" : SEVERITY_BG[worst]}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2 min-w-0">
                       {ip === "?" ? <span className="text-small text-ink-500 dark:text-ink-400">a router that didn't answer</span>

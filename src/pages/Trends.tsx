@@ -148,7 +148,7 @@ export default function Trends() {
             const start = fileWindow(f).start;
             return (
               <li key={f.id}>
-                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_6.5rem] items-center gap-3 px-1 py-1.5 rounded-md cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-body">
+                <label className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_9rem_6.5rem] items-center gap-3 px-1 py-1.5 rounded-lg cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50 text-body">
                   <input type="checkbox" checked={selectedIds.has(f.id)} onChange={() => toggle(f.id)} className="rounded accent-accent-600" />
                   <span className="truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</span>
                   <span className="truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</span>
@@ -160,7 +160,7 @@ export default function Trends() {
           })}
         </ul>
         {mixed && (
-          <p className="flex items-center gap-2 text-small text-amber-800 dark:text-amber-300">
+          <p className="flex items-center gap-2 text-small text-warn-800 dark:text-warn-300">
             <AlertTriangle size={14} className="shrink-0" />
             Some of these files scanned different targets or hosts, so the chart mixes different scans.
           </p>
@@ -269,7 +269,7 @@ function Step({ value }: { value: number }) {
   }
 
   return (
-    <span className={`ml-1 text-tiny font-semibold ${value > 0 ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>
+    <span className={`ml-1 text-tiny font-semibold ${value > 0 ? "text-critical-fg" : "text-good-700 dark:text-good-400"}`}>
       {value > 0 ? `▲${value.toLocaleString()}` : `▼${(-value).toLocaleString()}`}
     </span>
   );
@@ -284,5 +284,5 @@ function Count({ value, sign }: { value: number; sign: "+" | "−" }) {
     return <span className="text-ink-300 dark:text-ink-600">0</span>;
   }
 
-  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-emerald-700 dark:text-emerald-400"}`}>{sign}{value.toLocaleString()}</span>;
+  return <span className={`font-semibold ${sign === "+" ? "text-critical-fg" : "text-good-700 dark:text-good-400"}`}>{sign}{value.toLocaleString()}</span>;
 }// Count

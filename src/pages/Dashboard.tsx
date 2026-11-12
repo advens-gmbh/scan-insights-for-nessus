@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trash2, ShieldAlert, Server, Layers } from "lucide-react";
+import { X, ShieldAlert, Server, Layers } from "lucide-react";
 import type { ReactNode } from "react";
 import { useScanStore } from "../stores/scanStore";
 import { useSeverityStore } from "../stores/severityStore";
@@ -344,7 +344,7 @@ export default function Dashboard() {
                             <FileAction label="Vulnerabilities" onClick={() => navigate("/vulnerabilities", { state: { fileFilter: file.id } })}><ShieldAlert size={15} /></FileAction>
                             <FileAction label="Hosts" onClick={() => navigate("/hosts", { state: { fileFilter: file.id } })}><Server size={15} /></FileAction>
                             <FileAction label="Services" onClick={() => navigate("/services", { state: { fileFilter: file.id } })}><Layers size={15} /></FileAction>
-                            <FileAction label="Unload" danger onClick={() => unloadFile(file.id)}><Trash2 size={14} /></FileAction>
+                            <FileAction label="Unload" close onClick={() => unloadFile(file.id)}><X size={15} /></FileAction>
                           </td>
                         );
                       default: {
@@ -369,15 +369,15 @@ export default function Dashboard() {
 }// Dashboard
 
 // icon button with the same icon as the page in the sidebar
-function FileAction({ label, danger = false, onClick, children }: { label: string; danger?: boolean; onClick: () => void; children: ReactNode }) {
-  const text = danger ? "Unload this file" : `Open in ${label}`;
+function FileAction({ label, close = false, onClick, children }: { label: string; close?: boolean; onClick: () => void; children: ReactNode }) {
+  const text = close ? "Close this file" : `Open in ${label}`;
   return (
     <button
       onClick={onClick}
       title={text}
       aria-label={text}
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-md text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-700 transition-colors ${
-        danger ? "hover:text-red-600 dark:hover:text-red-400" : "hover:text-accent-700 dark:hover:text-accent-400"
+      className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-700 transition-colors ${
+        close ? "hover:text-ink-800 dark:hover:text-ink-100" : "hover:text-accent-700 dark:hover:text-accent-400"
       }`}
     >
       {children}

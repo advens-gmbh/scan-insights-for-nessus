@@ -218,7 +218,7 @@ function ExportOption({ icon, label, text, busy, disabled, onClick }: {
   onClick: () => void;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-md border border-ink-200 dark:border-ink-700 p-3">
+    <div className="flex items-center gap-4 rounded-lg border border-ink-200 dark:border-ink-700 p-3">
       <button onClick={onClick} disabled={disabled} className="btn-primary h-9 px-4 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
         {icon}
         {busy ? "Exporting…" : label}
@@ -247,8 +247,8 @@ function ResultLine({ result, onOpen, onShow, onRetry, onClose, busy }: {
 
   if (result.ok) {
     return (
-      <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20">
-        <span className={`${icon} text-emerald-700 dark:text-emerald-400`}><Check size={13} strokeWidth={3} /></span>
+      <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 bg-good-50 dark:bg-good-900/20">
+        <span className={`${icon} text-good-700 dark:text-good-400`}><Check size={13} strokeWidth={3} /></span>
         <div className="flex-1 min-w-[12rem]">
           <div className="text-body">
             <span className="font-bold text-ink-900 dark:text-ink-50">Saved {name}</span>
@@ -275,7 +275,7 @@ function ResultLine({ result, onOpen, onShow, onRetry, onClose, busy }: {
       <button onClick={() => setDetails(!details)} className="btn-ghost h-8 text-small">{details ? "Hide details" : "Details"}</button>
       {close}
       {details && (
-        <div className="basis-full font-mono text-tiny leading-[17px] text-ink-700 dark:text-ink-200 bg-white/70 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-md px-2.5 py-2 [overflow-wrap:anywhere] select-text">
+        <div className="basis-full font-mono text-tiny leading-[17px] text-ink-700 dark:text-ink-200 bg-white/70 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-lg px-2.5 py-2 [overflow-wrap:anywhere] select-text">
           {result.path}
           <br />
           {result.detail}

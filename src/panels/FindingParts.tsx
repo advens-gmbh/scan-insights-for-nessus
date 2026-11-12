@@ -133,7 +133,7 @@ export function FindingGroups<G extends FindingGroup>({ groups, noun, header, fi
       {groups.slice(0, shown).map((g) => {
         const expanded = open.has(g.key);
         return (
-          <div key={g.key} className="rounded-md border border-ink-200 dark:border-ink-700 overflow-hidden">
+          <div key={g.key} className="rounded-lg border border-ink-200 dark:border-ink-700 overflow-hidden">
             <div
               onClick={() => toggle(g.key)}
               className="grid grid-cols-[minmax(0,1fr)_auto_1.75rem] items-center gap-3 pl-3 pr-1 py-1 cursor-pointer bg-ink-50 dark:bg-ink-800 hover:bg-ink-100 dark:hover:bg-ink-700/70"

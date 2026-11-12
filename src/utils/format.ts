@@ -82,3 +82,8 @@ export function folderOf(path: string): string {
   const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return cut > 0 ? path.slice(0, cut) : "";
 }// folderOf
+
+// "443/tcp", "53/udp" → 53, 443: in number order, a port open on tcp and udp once
+export function portNumbers(openPorts: string[]): number[] {
+  return [...new Set(openPorts.map((p) => parseInt(p, 10)).filter((n) => !Number.isNaN(n)))].sort((a, b) => a - b);
+}// portNumbers

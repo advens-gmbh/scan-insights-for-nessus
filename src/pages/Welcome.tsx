@@ -177,7 +177,7 @@ function RecentRow({ file, size, picked, onToggle, onOpen, onRemove }: {
           onDoubleClick={(e) => e.stopPropagation()}
           title="Remove from the list"
           aria-label={`Remove ${file.filename} from the list`}
-          className={`w-7 h-7 inline-flex items-center justify-center rounded-md text-ink-500 hover:text-ink-700 hover:bg-ink-100 dark:hover:text-ink-100 dark:hover:bg-ink-700 focus-visible:opacity-100 ${gone ? "" : "opacity-0 group-hover:opacity-100"}`}
+          className={`w-7 h-7 inline-flex items-center justify-center rounded-lg text-ink-500 hover:text-ink-700 hover:bg-ink-100 dark:hover:text-ink-100 dark:hover:bg-ink-700 focus-visible:opacity-100 ${gone ? "" : "opacity-0 group-hover:opacity-100"}`}
         >
           <X size={15} />
         </button>
