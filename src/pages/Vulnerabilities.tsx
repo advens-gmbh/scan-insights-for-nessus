@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useScanStore } from "../stores/scanStore";
@@ -58,6 +59,7 @@ export default function Vulnerabilities() {
     }
   }, [location.key, location.state, setFileFilter]);
   const [exploitOnly, setExploitOnly] = usePageState("vulns:exploit", false);
+  const [familyFilter, setFamilyFilter] = usePageState("vulns:family", "");
   const { selected: selectedSeverities, toggle: toggleSeverity, matches: matchesSeverity } = useSeverityFilter("vulnerabilities");
   const table = useTableColumns("vulnerabilities", COLUMNS);
   const { sortKey, sortDir, toggleSort } = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
@@ -79,6 +81,10 @@ export default function Vulnerabilities() {
         return false;
       }
 
+      if (familyFilter && (v.plugin_family || "Other") !== familyFilter) {
+        return false;
+      }
+
       if (q) {
         return (
           v.plugin_name.toLowerCase().includes(q) ||
@@ -91,7 +97,7 @@ export default function Vulnerabilities() {
 
       return true;
     });
-  }, [vulnsForFilter, search, matchesSeverity, exploitOnly]);
+  }, [vulnsForFilter, search, matchesSeverity, exploitOnly, familyFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -162,7 +168,7 @@ export default function Vulnerabilities() {
   );
 
   if (files.length === 0) {
-    return <EmptyFilesNotice page="vulnerabilities" />;
+    return <EmptyFilesNotice page="vulnerabilities" columns={COLUMNS} search="Search vulnerabilities, CVEs, IPs…" />;
   }
 
   return (
@@ -180,6 +186,15 @@ export default function Vulnerabilities() {
             }`}
           >
             Exploit available {exploitCount.toLocaleString()}
+          </button>
+        )}
+        {familyFilter && (
+          <button
+            onClick={() => setFamilyFilter("")}
+            title="Show every family"
+            className="pill px-3 py-1 text-sm font-semibold gap-1.5 bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900"
+          >
+            {familyFilter} <X size={14} aria-hidden="true" />
           </button>
         )}
 

@@ -13,7 +13,6 @@ import IpLink from "../components/common/IpLink";
 import SeverityBadge from "../components/common/SeverityBadge";
 import type { SeverityCounts } from "../types/nessus";
 import { formatDuration, formatScanStart, rankHosts, scanWindow, topVulnerabilities } from "../utils/dashboard";
-import SeverityDonut from "../components/charts/SeverityDonut";
 import SeverityBar from "../components/charts/SeverityBar";
 import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
@@ -23,6 +22,7 @@ import Welcome from "./Welcome";
 
 const TOP_HOSTS = 10;
 const TOP_VULNS = 8;
+const TOP_FAMILIES = 10;
 
 const LEVELS = [
   { key: "critical", sev: 4, fg: "text-critical-fg", bg: "bg-critical" },
@@ -49,6 +49,17 @@ const FILE_COLUMNS: TableColumn<FileCol>[] = [
 
 const total = (c: SeverityCounts) => c.critical + c.high + c.medium + c.low + c.info;
 
+const TOTAL_CELL = "min-w-0 px-[18px] py-3.5 flex flex-col gap-1.5 text-left bg-white dark:bg-ink-800 hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors";
+
+function HostShare({ part, whole, fill }: { part: number; whole: number; fill: string }) {
+  const width = whole > 0 ? `${(part / whole) * 100}%` : "0%";
+  return (
+    <span className="mt-0.5 h-1 rounded-full bg-ink-100 dark:bg-ink-700 overflow-hidden" aria-hidden="true">
+      <span className={`block h-full rounded-full ${fill}`} style={{ width }} />
+    </span>
+  );
+}// HostShare
+
 export default function Dashboard() {
   const files = useScanStore((s) => s.files);
   const unloadFile = useScanStore((s) => s.unloadFile);
@@ -59,7 +70,6 @@ export default function Dashboard() {
   const allHosts = useMemo(() => buildHostEntries(files), [files]);
   const allVulns = useMemo(() => buildVulnEntries(files), [files]);
   const combined = useMemo(() => severityCounts(allHosts), [allHosts]);
-  const shown = visibleCounts(combined, showInfo);
 
   const affectedHosts = useMemo(() => {
     const c: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -91,6 +101,26 @@ export default function Dashboard() {
   const seriousCount = allVulns.filter((v) => v.severity >= 3).length;
   const topVulns = useMemo(() => topVulnerabilities(allVulns, TOP_VULNS), [allVulns]);
 
+  const families = useMemo(() => {
+    const by = new Map<string, SeverityCounts>();
+    for (const h of allHosts) {
+      for (const item of h.items) {
+        if (item.severity === 0 && !showInfo) {
+          continue;
+        }
+        const family = item.plugin_family || "Other";
+        const c = by.get(family) ?? { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+        c[LEVELS[4 - item.severity].key]++;
+        by.set(family, c);
+      }
+    }
+
+    return [...by].map(([family, counts]) => ({ family, counts, total: total(counts) }))
+      .sort((a, b) => b.total - a.total || a.family.localeCompare(b.family));
+  }, [allHosts, showInfo]);
+  const topFamilies = families.slice(0, TOP_FAMILIES);
+  const familyMax = Math.max(0, ...topFamilies.map((f) => f.total));
+
   const topHosts = useMemo(() => rankHosts(allHosts, showInfo, TOP_HOSTS), [allHosts, showInfo]);
   const hostMax = Math.max(0, ...topHosts.map((h) => total(visibleCounts(h.severity_counts, showInfo))));
 
@@ -118,6 +148,15 @@ export default function Dashboard() {
   const showSeverities = (sevs: number[], exploitOnly = false) => {
     useSeverityStore.getState().setSelection("vulnerabilities", sevs);
     usePageStore.getState().set("vulns:exploit", exploitOnly);
+    usePageStore.getState().set("vulns:family", "");
+    navigate("/vulnerabilities");
+  };
+
+  // opens Vulnerabilities with only this plugin family
+  const showFamily = (family: string) => {
+    useSeverityStore.getState().setSelection("vulnerabilities", showInfo ? [] : [4, 3, 2, 1]);
+    usePageStore.getState().set("vulns:exploit", false);
+    usePageStore.getState().set("vulns:family", family);
     navigate("/vulnerabilities");
   };
 
@@ -125,36 +164,34 @@ export default function Dashboard() {
     return <Welcome />;
   }
 
-  const shownTotal = total(shown);
-
   return (
     <div className="flex flex-col gap-6">
       {/* Totals */}
-      <section aria-label="Totals" className="grid grid-cols-3 xl:grid-cols-6 gap-3">
+      <section aria-label="Totals" className="card overflow-hidden grid grid-cols-3 xl:grid-cols-6 gap-px bg-ink-100 dark:bg-ink-700/70">
         {LEVELS.map((l) => (
           <button
             key={l.key}
             onClick={() => showSeverities([l.sev])}
-            className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5 text-left hover:border-ink-300 dark:hover:border-ink-600 transition-colors"
+            className={TOTAL_CELL}
             title={`Show ${SEVERITY_LABELS[l.sev]} findings`}
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-ink-500 dark:text-ink-400">
               <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />{SEVERITY_LABELS[l.sev]}
             </span>
             <span className={`text-3xl font-bold leading-none tabular-nums ${l.fg}`}>{combined[l.key].toLocaleString()}</span>
-            <span className="text-xs text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} hosts</span>
-            <span className={`absolute inset-x-0 bottom-0 h-1 ${l.bg}`} />
+            <span className="text-xs text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
+            <HostShare part={affectedHosts[l.key]} whole={allHosts.length} fill={l.bg} />
           </button>
         ))}
         <button
           onClick={() => showSeverities([], true)}
-          className="card relative overflow-hidden px-4 py-3.5 flex flex-col gap-1.5 text-left hover:border-ink-300 dark:hover:border-ink-600 transition-colors"
+          className={`${TOTAL_CELL} xl:shadow-[inset_1px_0_0_theme(colors.ink.200)] dark:xl:shadow-[inset_1px_0_0_theme(colors.ink.600)]`}
           title={`Findings with a public exploit, counted on each host they are on. ${exploits.metasploit.toLocaleString()} of them have a Metasploit module.\nShow them in Vulnerabilities`}
         >
           <span className="text-[13px] font-semibold text-ink-500 dark:text-ink-400">Exploitable</span>
           <span className="text-3xl font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>
-          <span className="text-xs text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} hosts</span>
-          <span className="absolute inset-x-0 bottom-0 h-1 bg-critical" />
+          <span className="text-xs text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
+          <HostShare part={exploits.hosts} whole={allHosts.length} fill="bg-ink-400 dark:bg-ink-500" />
         </button>
       </section>
 
@@ -197,7 +234,7 @@ export default function Dashboard() {
       </section>
 
       {/* Hosts + distribution */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-2">
         <section className="flex flex-col min-w-0">
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
             <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Most vulnerable hosts</h2>
@@ -211,9 +248,11 @@ export default function Dashboard() {
               const counts = visibleCounts(h.severity_counts, showInfo);
               const name = h.hostname ?? h.netbios;
               return (
-                <div key={h.ip} className="grid grid-cols-[8.5rem_minmax(0,10rem)_minmax(0,1fr)_2.5rem] gap-3.5 items-center px-4 py-2">
-                  <IpLink ip={h.ip} className="text-left" />
-                  <span className="truncate text-sm text-ink-500 dark:text-ink-400" title={name ?? undefined}>{name ?? "-"}</span>
+                <div key={h.ip} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_2.5rem] gap-3.5 items-center px-4 py-1 min-h-[2.75rem]">
+                  <span className="min-w-0 flex flex-col items-start">
+                    <IpLink ip={h.ip} className="text-left" />
+                    {name && <span className="max-w-full truncate text-xs leading-4 text-ink-500 dark:text-ink-400" title={name}>{name}</span>}
+                  </span>
                   <SeverityBar counts={counts} max={hostMax} />
                   <span className="text-right text-sm font-semibold tabular-nums text-ink-800 dark:text-ink-100">{total(counts)}</span>
                 </div>
@@ -224,24 +263,33 @@ export default function Dashboard() {
 
         <section className="flex flex-col min-w-0">
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
-            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Severity distribution</h2>
+            <h2 className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">Findings by family</h2>
             <ShowInfoCheckbox />
           </div>
-          <div className="card flex-1 flex flex-col items-center justify-center gap-3 p-5">
-            <SeverityDonut counts={shown} size={190} emptyText={combined.info > 0 ? "Only Info findings" : undefined} />
-            <div className="w-full flex flex-col gap-1.5">
-              {LEVELS.map((l) => {
-                const present = shownTotal > 0 && shown[l.key] > 0;
-                return { l, present };
-              }).sort((a, b) => Number(b.present) - Number(a.present)).map(({ l, present }) => (
-                <div key={l.key} className={`grid grid-cols-[0.875rem_1fr_auto_3rem] gap-2 items-center text-sm h-5 ${present ? "" : "invisible"}`} aria-hidden={!present}>
-                  <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />
-                  <span className="text-ink-700 dark:text-ink-200">{SEVERITY_LABELS[l.sev]}</span>
-                  <span className={`text-right font-bold tabular-nums ${l.fg}`}>{shown[l.key].toLocaleString()}</span>
-                  <span className="text-right text-xs tabular-nums text-ink-500 dark:text-ink-400">{shownTotal > 0 ? Math.round((shown[l.key] / shownTotal) * 100) : 0}%</span>
-                </div>
-              ))}
-            </div>
+          <div className="card flex-1 flex flex-col px-[18px] py-3.5">
+            {topFamilies.length === 0 && <p className="py-2 text-sm text-ink-500 dark:text-ink-400">No findings above Info.</p>}
+            {topFamilies.map((f) => (
+              <button
+                key={f.family}
+                onClick={() => showFamily(f.family)}
+                title={`Show the ${f.family} findings in Vulnerabilities`}
+                className="group grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_2.75rem] gap-3 items-center py-2 text-left"
+              >
+                <span className="truncate text-sm text-ink-700 dark:text-ink-200 group-hover:text-accent-700 dark:group-hover:text-accent-400">{f.family}</span>
+                <SeverityBar counts={f.counts} max={familyMax} />
+                <span className="text-right text-sm font-semibold tabular-nums text-ink-800 dark:text-ink-100">{f.total.toLocaleString()}</span>
+              </button>
+            ))}
+            {families.length > topFamilies.length && (
+              <p className="mt-1.5 text-xs text-ink-500 dark:text-ink-400">and {(families.length - topFamilies.length).toLocaleString()} more {families.length - topFamilies.length === 1 ? "family" : "families"}</p>
+            )}
+            {topFamilies.length > 0 && (
+              <div className="mt-auto pt-3 flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-ink-500 dark:text-ink-400">
+                {LEVELS.filter((l) => showInfo || l.sev > 0).map((l) => (
+                  <span key={l.key} className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded-sm ${l.bg}`} />{SEVERITY_LABELS[l.sev]}</span>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </div>

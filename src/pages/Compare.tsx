@@ -203,7 +203,7 @@ export default function Compare() {
       <p className="-mb-2 text-xs text-ink-500 dark:text-ink-400 shrink-0">
         Findings in A → in B, each one counted once per host, like on the Dashboard. The table below lists each vulnerability once.
       </p>
-      <div className={`grid gap-3 shrink-0 ${showInfo ? "grid-cols-6" : "grid-cols-5"}`}>
+      <div className={`card overflow-hidden grid gap-px bg-ink-100 dark:bg-ink-700/70 shrink-0 ${showInfo ? "grid-cols-6" : "grid-cols-5"}`}>
         <Change label="Critical" dot="bg-critical" a={countsA.critical} b={countsB.critical} color={SEVERITY_COLORS[4].text} />
         <Change label="High"     dot="bg-high"     a={countsA.high}     b={countsB.high}     color={SEVERITY_COLORS[3].text} />
         <Change label="Medium"   dot="bg-medium"   a={countsA.medium}   b={countsB.medium}   color={SEVERITY_COLORS[2].text} />
@@ -367,7 +367,7 @@ function Change({ label, dot, a, b, color, neutral = false }: { label: string; d
   const line = useFitLine([a, b]);
 
   return (
-    <div className="card px-4 py-3 flex flex-col gap-1 min-w-0">
+    <div className={`px-[18px] py-3 flex flex-col gap-1 min-w-0 bg-white dark:bg-ink-800 ${neutral ? "shadow-[inset_1px_0_0_theme(colors.ink.200)] dark:shadow-[inset_1px_0_0_theme(colors.ink.600)]" : ""}`}>
       <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">
         {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
         {label}

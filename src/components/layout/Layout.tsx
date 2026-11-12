@@ -11,12 +11,14 @@ import HostDetail from "../../panels/HostDetail";
 import ServiceDetail from "../../panels/ServiceDetail";
 import FileDetailPanel from "../../panels/FileDetailPanel";
 import { useUiStore } from "../../stores/uiStore";
+import { usePanelClickAway } from "./usePanelClickAway";
 import { useScanStore } from "../../stores/scanStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 
 export default function Layout() {
-  const { vulnPanelId, hostPanelIp, servicePanelKey, filePanelId, closePanels } = useUiStore();
+  const { vulnPanelId, hostPanelIp, servicePanelKey, filePanelId } = useUiStore();
   const panelOpen = vulnPanelId !== null || hostPanelIp !== null || servicePanelKey !== null || filePanelId !== null;
+  usePanelClickAway(panelOpen);
   const loadFiles = useScanStore((s) => s.loadFiles);
   const fileCount = useScanStore((s) => s.files.length);
   const loading = useScanStore((s) => s.loading);
@@ -63,13 +65,14 @@ export default function Layout() {
       </div>
 
       {/* Global slide-in panels */}
-      {panelOpen && <div className="panel-overlay" onClick={closePanels} aria-hidden="true" />}
+      {/* only dims; clicks go through to the page (usePanelClickAway) */}
+      {panelOpen && <div className="panel-overlay" aria-hidden="true" />}
       {vulnPanelId !== null && <VulnDetail pluginId={vulnPanelId} />}
       {hostPanelIp !== null && <HostDetail ip={hostPanelIp} />}
       {servicePanelKey !== null && <ServiceDetail serviceKey={servicePanelKey} />}
       {filePanelId !== null && <FileDetailPanel fileId={filePanelId} />}
 
-      <div className="fixed bottom-4 right-4 z-[200] flex flex-col items-end gap-2 max-w-[calc(100vw-32px)] pointer-events-none">
+      <div data-keeps-panel className="fixed bottom-4 right-4 z-[200] flex flex-col items-end gap-2 max-w-[calc(100vw-32px)] pointer-events-none">
         {failures.map((f) => <FailureCard key={f.id} failure={f} />)}
         {fileCount > 0 && <OpeningToast />}
         <Notifications />

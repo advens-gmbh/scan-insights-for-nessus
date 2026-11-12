@@ -189,7 +189,7 @@ export default function Services() {
   }, [openKey, rows, fileId, openServicePanel, scrollToIndex]);
 
   if (files.length === 0) {
-    return <EmptyFilesNotice page="services" />;
+    return <EmptyFilesNotice page="services" columns={COLUMNS} search="Search port, service, IP…" />;
   }
 
   const columnCount = table.visible.length;

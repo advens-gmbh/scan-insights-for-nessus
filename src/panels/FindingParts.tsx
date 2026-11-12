@@ -7,11 +7,11 @@ import type { CvssScore, ReportItem, SeverityCounts } from "../types/nessus";
 import SeverityBadge from "../components/common/SeverityBadge";
 
 export const COUNTS = [
-  { sev: 4, label: "Critical", key: "critical" },
-  { sev: 3, label: "High",     key: "high" },
-  { sev: 2, label: "Medium",   key: "medium" },
-  { sev: 1, label: "Low",      key: "low" },
-  { sev: 0, label: "Info",     key: "info" },
+  { sev: 4, label: "Critical", key: "critical", dot: "bg-critical" },
+  { sev: 3, label: "High",     key: "high",     dot: "bg-high" },
+  { sev: 2, label: "Medium",   key: "medium",   dot: "bg-medium" },
+  { sev: 1, label: "Low",      key: "low",      dot: "bg-low" },
+  { sev: 0, label: "Info",     key: "info",     dot: "bg-info" },
 ] as const;
 
 const GROUPS_PAGE = 100;
@@ -35,13 +35,13 @@ export interface FindingGroup {
 
 export function CountBoxes({ counts }: { counts: SeverityCounts }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-5 gap-px rounded-lg border border-ink-200 dark:border-ink-700 bg-ink-100 dark:bg-ink-700/70 overflow-hidden">
       {COUNTS.map((c) => {
         const n = counts[c.key];
         return (
-          <div key={c.sev} className="flex flex-col gap-0.5 min-w-[4.5rem] px-2.5 py-1.5 rounded-md border border-ink-200 dark:border-ink-700">
+          <div key={c.sev} className="min-w-0 flex flex-col gap-1 px-3 py-2 bg-white dark:bg-ink-900">
             <span className={`text-lg font-bold leading-tight tabular-nums ${n > 0 ? SEVERITY_COLORS[c.sev].text : "text-ink-300 dark:text-ink-600"}`}>{n.toLocaleString()}</span>
-            <span className="text-[11px] font-semibold text-ink-500 dark:text-ink-400">{c.label}</span>
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-500 dark:text-ink-400"><span className={`w-[7px] h-[7px] rounded-full ${c.dot}`} />{c.label}</span>
           </div>
         );
       })}

@@ -219,7 +219,7 @@ export default function Hosts() {
   );
 
   if (files.length === 0) {
-    return <EmptyFilesNotice page="hosts" />;
+    return <EmptyFilesNotice page="hosts" columns={COLUMNS} search="Search IP, hostname, OS, port…" />;
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
