@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::Serialize;
@@ -147,11 +147,34 @@ pub fn unload_all_files(state: State<'_, AppState>) -> Result<(), String> {
 // ── export ───────────────────────────────────────────────────────────────────
 
 #[tauri::command(async)]
-pub fn export_data(state: State<'_, AppState>, req: ExportRequest,) -> Result<(), String> {
+pub fn export_data(state: State<'_, AppState>, req: ExportRequest,) -> Result<(), export::ExportError> {
     // Snapshot the list so a long export doesn't block loading or unloading files.
     let files = state.files.lock().unwrap().clone();
-    export::export(&files, &req)
+    export::export(&files, &req)?;
+    state.exported.lock().unwrap().insert(PathBuf::from(&req.output_path));
+    Ok(())
 }// export_data
+
+fn exported_file(state: &AppState, path: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(path);
+    if state.exported.lock().unwrap().contains(&path) {
+        Ok(path)
+    } else {
+        Err("Only exported files can be opened from here".to_string())
+    }
+}// exported_file
+
+#[tauri::command]
+pub fn open_export(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let path = exported_file(&state, &path)?;
+    open::that_detached(path).map_err(|e| e.to_string())
+}// open_export
+
+#[tauri::command]
+pub fn show_export(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let path = exported_file(&state, &path)?;
+    crate::reveal::show_in_folder(&path).map_err(|e| e.to_string())
+}// show_export
 
 // ── persistence ──────────────────────────────────────────────────────────────
 
@@ -244,9 +267,20 @@ pub fn open_url(url: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify, file_sizes, host_page, is_web_url, load_error, require_hosts, save_json};
+    use super::{classify, exported_file, file_sizes, host_page, is_web_url, load_error, require_hosts, save_json};
+    use crate::state::AppState;
     use crate::parser::parse_str;
     use crate::private_file::testing::TempDir;
+
+    #[test]
+    fn only_files_exported_in_this_session_can_be_opened() {
+        let state = AppState::default();
+        state.exported.lock().unwrap().insert("C:/reports/scan-export.xlsx".into());
+
+        assert!(exported_file(&state, "C:/reports/scan-export.xlsx").is_ok());
+        assert!(exported_file(&state, "C:/Windows/System32/calc.exe").is_err());
+        assert!(exported_file(&state, "").is_err());
+    }
 
     #[test]
     fn saved_json_creates_its_folder_and_is_private() {

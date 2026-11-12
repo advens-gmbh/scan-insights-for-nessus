@@ -1,12 +1,57 @@
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{self, Write};
 use std::sync::Arc;
+
+use serde::Serialize;
 
 use crate::models::{ExportFormat, ExportRequest, NessusFile, ReportHost, ReportItem};
 use crate::private_file;
 use rust_xlsxwriter::{Format, Workbook, XlsxError};
 
-pub fn export(all_files: &[Arc<NessusFile>], req: &ExportRequest) -> Result<(), String> {
+// why an export failed
+#[derive(Debug, Serialize)]
+pub struct ExportError {
+    pub reason: &'static str,
+    pub detail: String,
+}// ExportError
+
+impl ExportError {
+    fn other(detail: impl Into<String>) -> Self {
+        Self { reason: "other", detail: detail.into() }
+    }
+}
+
+impl From<io::Error> for ExportError {
+    fn from(e: io::Error) -> Self {
+        Self { reason: io_reason(&e), detail: e.to_string() }
+    }
+}
+
+impl From<csv::Error> for ExportError {
+    fn from(e: csv::Error) -> Self {
+        let detail = e.to_string();
+        match e.into_kind() {
+            csv::ErrorKind::Io(io) => io.into(),
+            _ => Self::other(detail),
+        }
+    }
+}
+
+fn io_reason(e: &io::Error) -> &'static str {
+    // ERROR_SHARING_VIOLATION and ERROR_LOCK_VIOLATION: Excel keeps an open workbook locked
+    #[cfg(windows)]
+    if matches!(e.raw_os_error(), Some(32 | 33)) {
+        return "in_use";
+    }
+    match e.kind() {
+        io::ErrorKind::PermissionDenied | io::ErrorKind::ReadOnlyFilesystem => "denied",
+        io::ErrorKind::NotFound => "no_folder",
+        io::ErrorKind::StorageFull => "disk_full",
+        _ => "other",
+    }
+}// io_reason
+
+pub fn export(all_files: &[Arc<NessusFile>], req: &ExportRequest) -> Result<(), ExportError> {
     let files: Vec<&NessusFile> = all_files
         .iter()
         .filter(|f| req.file_ids.contains(&f.id))
@@ -14,7 +59,7 @@ pub fn export(all_files: &[Arc<NessusFile>], req: &ExportRequest) -> Result<(), 
         .collect();
 
     if files.is_empty() {
-        return Err("No matching files found for export".into());
+        return Err(ExportError::other("No matching files found for export"));
     }
 
     match req.format {
@@ -51,14 +96,13 @@ const COLUMNS: [&str; 22] = [
 
 // ── CSV ───────────────────────────────────────────────────────────────────────
 
-fn write_csv(files: &[&NessusFile], req: &ExportRequest) -> Result<(), String> {
-    let file = private_file::create(&req.output_path).map_err(|e| e.to_string())?;
+fn write_csv(files: &[&NessusFile], req: &ExportRequest) -> Result<(), ExportError> {
+    let file = private_file::create(&req.output_path)?;
     write_csv_records(csv::Writer::from_writer(file), files, req)
 }// write_csv
 
-fn write_csv_records<W: Write>(mut wtr: csv::Writer<W>, files: &[&NessusFile], req: &ExportRequest,) -> Result<(), String> {
-    wtr.write_record(COLUMNS)
-    .map_err(|e| e.to_string())?;
+fn write_csv_records<W: Write>(mut wtr: csv::Writer<W>, files: &[&NessusFile], req: &ExportRequest,) -> Result<(), ExportError> {
+    wtr.write_record(COLUMNS)?;
 
     for file in files {
         for host in &file.hosts {
@@ -90,12 +134,12 @@ fn write_csv_records<W: Write>(mut wtr: csv::Writer<W>, files: &[&NessusFile], r
                     &item.description,
                     &item.solution,
                 ];
-                wtr.write_record(cells.map(csv_safe)).map_err(|e| e.to_string())?;
+                wtr.write_record(cells.map(csv_safe))?;
             }
         }
     }
 
-    wtr.flush().map_err(|e| e.to_string())
+    Ok(wtr.flush()?)
 }// write_csv_records
 
 // Scan data can be influenced by the scanned systems, and spreadsheet apps run a cell
@@ -112,9 +156,9 @@ fn csv_safe(value: &str) -> String {
 
 // Excel stores every cell with its type, so text from the scan can't run as a formula
 // and needs no leading '. Scores and numbers stay numbers, so they sort and filter.
-fn write_xlsx(files: &[&NessusFile], req: &ExportRequest) -> Result<(), String> {
-    let bytes = build_xlsx(files, req).map_err(|e| e.to_string())?;
-    private_file::write(&req.output_path, bytes).map_err(|e| e.to_string())
+fn write_xlsx(files: &[&NessusFile], req: &ExportRequest) -> Result<(), ExportError> {
+    let bytes = build_xlsx(files, req).map_err(|e| ExportError::other(e.to_string()))?;
+    Ok(private_file::write(&req.output_path, bytes)?)
 }// write_xlsx
 
 fn build_xlsx(files: &[&NessusFile], req: &ExportRequest) -> Result<Vec<u8>, XlsxError> {
@@ -201,9 +245,9 @@ fn round1(v: f32) -> f64 {
 
 // ── Nessus XML ────────────────────────────────────────────────────────────────
 
-fn write_nessus(files: &[&NessusFile], req: &ExportRequest) -> Result<(), String> {
+fn write_nessus(files: &[&NessusFile], req: &ExportRequest) -> Result<(), ExportError> {
     let xml = build_nessus_xml(files, req);
-    private_file::write(&req.output_path, xml).map_err(|e| e.to_string())
+    Ok(private_file::write(&req.output_path, xml)?)
 }// write_nessus
 
 fn build_nessus_xml(files: &[&NessusFile], req: &ExportRequest) -> String {
@@ -541,6 +585,32 @@ mod tests {
             assert_eq!(mode(&xlsx_path), 0o600);
             assert_eq!(mode(&nessus_path), 0o600);
         }
+    }
+
+    #[test]
+    fn a_missing_folder_is_named_as_such() {
+        let scan = parse_str(
+            r#"<NessusClientData_v2><Report name="r"><ReportHost name="10.0.0.1"><ReportItem port="80" protocol="tcp" severity="2" pluginID="1" pluginName="p" pluginFamily="f"/></ReportHost></Report></NessusClientData_v2>"#,
+        )
+        .unwrap();
+        let temp = TempDir::new();
+        let mut req = request(&[2]);
+        req.output_path = temp.path().join("gone").join("out.csv").to_str().unwrap().to_string();
+
+        let err = write_csv(&[&scan], &req).unwrap_err();
+
+        assert_eq!(err.reason, "no_folder");
+        assert!(!err.detail.is_empty());
+    }
+
+    #[test]
+    fn io_errors_get_a_reason() {
+        assert_eq!(io_reason(&io::Error::from(io::ErrorKind::PermissionDenied)), "denied");
+        assert_eq!(io_reason(&io::Error::from(io::ErrorKind::NotFound)), "no_folder");
+        assert_eq!(io_reason(&io::Error::from(io::ErrorKind::StorageFull)), "disk_full");
+        assert_eq!(io_reason(&io::Error::from(io::ErrorKind::Interrupted)), "other");
+        #[cfg(windows)]
+        assert_eq!(io_reason(&io::Error::from_raw_os_error(32)), "in_use");
     }
 
     fn request(severities: &[u8]) -> ExportRequest {

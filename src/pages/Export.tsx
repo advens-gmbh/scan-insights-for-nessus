@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
-import { useScanStore } from "../stores/scanStore";
+import { AlertCircle, Check, Download, FileSpreadsheet, FileText, X } from "lucide-react";
+import { fileNameOf, useScanStore } from "../stores/scanStore";
+import { usePageState } from "../stores/pageStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useUiStore } from "../stores/uiStore";
 import type { ExportFormat, ExportRequest, NessusFile } from "../types/nessus";
 import { SEVERITY_LABELS, SEVERITY_ORDER } from "../types/nessus";
 import { formatScanStart, scanWindow } from "../utils/dashboard";
 import { byScanDate } from "../utils/trends";
+import { folderOf, timeAgo } from "../utils/format";
+import { explainExportError, exportErrorOf, needsAnotherPlace } from "../utils/exportResult";
+import type { ExportResult } from "../utils/exportResult";
 import SeverityPills from "../components/common/SeverityPills";
 import FileExt from "../components/common/FileExt";
 import EmptyFilesNotice from "./EmptyFilesNotice";
@@ -43,6 +47,7 @@ export default function Export() {
   const notify = useNotificationStore((s) => s.add);
   const { exportExcludedIds, setExportExcludedIds, exportSeverities: severities, setExportSeverities } = useUiStore();
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [result, setResult] = usePageState<ExportResult | null>("export:result", null);
 
   const sorted = useMemo(() => byScanDate(files).reverse(), [files]);
   const perFile = useMemo(() => new Map(files.map((f) => [f.id, countsOf(f)])), [files]);
@@ -68,10 +73,11 @@ export default function Export() {
   const toggleSeverity = (sev: number) =>
     setExportSeverities(severities.includes(sev) ? severities.filter((s) => s !== sev) : [...severities, sev]);
 
-  const doExport = async (format: ExportFormat) => {
-    const outputPath = await save({
+  // the same file again (Try again)
+  const doExport = async (format: ExportFormat, to?: string) => {
+    const outputPath = to ?? await save({
       filters: [SAVE_FILTER[format]],
-      defaultPath: `scan-export.${format}`,
+      defaultPath: result?.format === format ? result.path : `scan-export.${format}`,
     });
     if (!outputPath) {
       return;
@@ -81,13 +87,16 @@ export default function Export() {
     try {
       const req: ExportRequest = { file_ids: selected.map((f) => f.id), severities, output_path: outputPath, format };
       await invoke("export_data", { req });
-      notify(`Exported to ${outputPath}`);
+      setResult({ ok: true, path: outputPath, format, findings, files: selected.length, at: new Date().toISOString() });
     } catch (e) {
-      notify(`Export failed: ${String(e)}`, "error");
+      setResult({ ok: false, path: outputPath, format, ...exportErrorOf(e) });
     } finally {
       setExporting(null);
     }
   };
+
+  const openResult = (command: "open_export" | "show_export", path: string) =>
+    invoke(command, { path }).catch(() => notify(`Couldn't open ${fileNameOf(path)}. It may have been moved or deleted.`, "error"));
 
   return (
     <div className="flex flex-col gap-4">
@@ -180,6 +189,16 @@ export default function Export() {
             text={<>The selected files will be merged into one <FileExt /> scan file and the duplicates will be removed.</>}
           />
         </div>
+        {result && (
+          <ResultLine
+            result={result}
+            onOpen={() => openResult("open_export", result.path)}
+            onShow={() => openResult("show_export", result.path)}
+            onRetry={() => doExport(result.format, !result.ok && needsAnotherPlace(result.reason) ? undefined : result.path)}
+            onClose={() => setResult(null)}
+            busy={exporting !== null}
+          />
+        )}
         {!canExport && exporting === null && (
           <p className="text-[13px] text-ink-500 dark:text-ink-400">
             {selected.length === 0 ? "Select at least one scan file." : "Select at least one severity with findings."}
@@ -208,3 +227,60 @@ function ExportOption({ icon, label, text, busy, disabled, onClick }: {
     </div>
   );
 }// ExportOption
+
+function ResultLine({ result, onOpen, onShow, onRetry, onClose, busy }: {
+  result: ExportResult;
+  onOpen: () => void;
+  onShow: () => void;
+  onRetry: () => void;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const [details, setDetails] = useState(false);
+  const name = fileNameOf(result.path);
+  const close = (
+    <button onClick={onClose} className="btn-ghost h-8 w-8 p-0 justify-center" aria-label="Close" title="Close">
+      <X size={15} />
+    </button>
+  );
+  const icon = "w-5 h-5 rounded-full bg-white dark:bg-ink-800 flex items-center justify-center shrink-0";
+
+  if (result.ok) {
+    return (
+      <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20">
+        <span className={`${icon} text-emerald-700 dark:text-emerald-400`}><Check size={13} strokeWidth={3} /></span>
+        <div className="flex-1 min-w-[12rem]">
+          <div className="text-sm">
+            <span className="font-bold text-ink-900 dark:text-ink-50">Saved {name}</span>
+            <span className="text-ink-600 dark:text-ink-300"> · {result.findings.toLocaleString()} {result.findings === 1 ? "finding" : "findings"} from {result.files} {result.files === 1 ? "file" : "files"} · {timeAgo(result.at)}</span>
+          </div>
+          <div className="text-xs text-ink-500 dark:text-ink-400 truncate" title={result.path}>{folderOf(result.path)}</div>
+        </div>
+        <button onClick={onOpen} className="btn-secondary h-8 text-[13px]">Open</button>
+        <button onClick={onShow} className="btn-secondary h-8 text-[13px]">Show in folder</button>
+        {close}
+      </div>
+    );
+  }
+
+  const another = needsAnotherPlace(result.reason);
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 bg-critical/5 dark:bg-critical/10 border border-critical/30">
+      <span className={`${icon} text-critical-fg`}><AlertCircle size={14} /></span>
+      <div className="flex-1 min-w-[12rem] text-sm">
+        <div className="font-bold text-ink-900 dark:text-ink-50">Couldn't save {name}</div>
+        <div className="text-ink-700 dark:text-ink-200">{explainExportError(result.reason)}</div>
+      </div>
+      <button onClick={onRetry} disabled={busy} className="btn-secondary h-8 text-[13px] disabled:opacity-50">{another ? "Choose another folder…" : "Try again"}</button>
+      <button onClick={() => setDetails(!details)} className="btn-ghost h-8 text-[13px]">{details ? "Hide details" : "Details"}</button>
+      {close}
+      {details && (
+        <div className="basis-full font-mono text-[11.5px] leading-[17px] text-ink-700 dark:text-ink-200 bg-white/70 dark:bg-ink-900 border border-ink-100 dark:border-ink-700 rounded-md px-2.5 py-2 [overflow-wrap:anywhere] select-text">
+          {result.path}
+          <br />
+          {result.detail}
+        </div>
+      )}
+    </div>
+  );
+}// ResultLine

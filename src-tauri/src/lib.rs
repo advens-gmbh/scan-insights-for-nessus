@@ -3,6 +3,7 @@ mod export;
 mod models;
 mod parser;
 mod private_file;
+mod reveal;
 mod state;
 #[cfg(windows)]
 mod window_icon;
@@ -25,6 +26,8 @@ pub fn run() {
             commands::unload_file,
             commands::unload_all_files,
             commands::export_data,
+            commands::open_export,
+            commands::show_export,
             commands::save_projects,
             commands::load_projects,
             commands::save_settings,
