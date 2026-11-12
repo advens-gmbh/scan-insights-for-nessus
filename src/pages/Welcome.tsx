@@ -7,7 +7,7 @@ import { useProjectStore } from "../stores/projectStore";
 import type { Project, RecentFile } from "../types/nessus";
 import { folderOf, formatBytes, timeAgo } from "../utils/format";
 import FileExt from "../components/common/FileExt";
-import logo from "../../src-tauri/icons/128x128.png";
+import logo from "../assets/app-icon.svg";
 
 const PROJECTS_SHOWN = 3;
 const RECENT_ROWS = 8;
@@ -52,7 +52,7 @@ export default function Welcome() {
   return (
     <div className="flex flex-col gap-6">
       <section className="card flex flex-wrap items-center gap-4 px-5 py-4">
-        <img src={logo} alt="" className="w-11 h-11 rounded-xl" />
+        <img src={logo} alt="" className="w-11 h-11" />
         <div className="min-w-0">
           <h1 className="text-[19px] font-bold text-ink-900 dark:text-ink-50">Pick up where you left off</h1>
           <p className="mt-0.5 text-[13px] text-ink-600 dark:text-ink-300">Tick files to open them together, or drop new <FileExt /> files anywhere.</p>
@@ -235,7 +235,7 @@ function FirstRun({ openFiles, projects, loadFiles }: { openFiles: () => void; p
   return (
     <div className="flex flex-col gap-7">
       <div className="flex items-center gap-4">
-        <img src={logo} alt="" className="w-[52px] h-[52px] rounded-[14px]" />
+        <img src={logo} alt="" className="w-[52px] h-[52px]" />
         <div>
           <h1 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Scan Insights for Nessus</h1>
           <p className="mt-1 text-sm text-ink-600 dark:text-ink-300">Your scans stay on this computer.</p>

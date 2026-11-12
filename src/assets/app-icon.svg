@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <!-- the severity donut from the Dashboard: Critical, High, Medium, Low, Info, clockwise from the top -->
+  <g fill="none" stroke-width="19">
+    <path d="M33.30 11.54A20.5 20.5 0 0 1 48.58 19.94" stroke="#c81e48"/><!-- critical -->
+    <path d="M49.97 22.13A20.5 20.5 0 0 1 46.95 46.02" stroke="#f25857"/><!-- high -->
+    <path d="M45.06 47.80A20.5 20.5 0 0 1 17.06 46.04" stroke="#fb9d59"/><!-- medium -->
+    <path d="M15.41 44.04A20.5 20.5 0 0 1 11.66 29.44" stroke="#fbd655"/><!-- low -->
+    <path d="M12.15 26.89A20.5 20.5 0 0 1 30.70 11.54" stroke="#4690c6"/><!-- info -->
+  </g>
+</svg>

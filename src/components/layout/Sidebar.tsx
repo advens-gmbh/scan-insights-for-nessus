@@ -5,7 +5,8 @@ import type { LucideIcon } from "lucide-react";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
 import { buildHostEntries, buildServiceEntries, buildVulnEntries } from "../../types/nessus";
-import logo from "../../../src-tauri/icons/128x128.png";
+import logo from "../../assets/app-icon.svg";
+import About from "./About";
 
 type Counted = "vulnerabilities" | "hosts" | "services";
 interface Item { to: string; icon: LucideIcon; label: string; count?: Counted }
@@ -43,8 +44,8 @@ export default function Sidebar() {
       className="flex flex-col bg-ink-900 text-ink-300 transition-all duration-200 overflow-hidden shrink-0"
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-14 border-b border-ink-700/50 shrink-0">
-        <img src={logo} alt="" className="w-7 h-7 rounded-lg shrink-0" />
+      <div className={`flex items-center h-14 border-b border-ink-700/50 shrink-0 ${sidebarCollapsed ? "justify-center" : "gap-3 px-4"}`}>
+        <img src={logo} alt="" className="w-7 h-7 shrink-0" />
         {!sidebarCollapsed && (
           <div className="overflow-hidden">
             <p className="text-white font-semibold text-sm leading-tight truncate">Scan Insights</p>
@@ -54,7 +55,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-2.5 flex flex-col gap-0.5 overflow-y-auto" aria-label="Pages">
+      <nav className="flex-1 px-2 py-2.5 flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden" aria-label="Pages">
         {NAV_GROUPS.map((group) => (
           <div key={group.label ?? "top"} className="flex flex-col gap-0.5">
             {group.label && (sidebarCollapsed
@@ -67,7 +68,7 @@ export default function Sidebar() {
                   key={to}
                   to={to}
                   end={to === "/"}
-                  className={({ isActive }) => isActive ? "nav-item-active" : "nav-item"}
+                  className={({ isActive }) => `${isActive ? "nav-item-active" : "nav-item"}${sidebarCollapsed ? " justify-center px-0" : ""}`}
                   title={sidebarCollapsed ? (n !== null ? `${label} (${n.toLocaleString()})` : label) : undefined}
                 >
                   <Icon className="w-4.5 h-4.5 shrink-0" size={18} />
@@ -83,6 +84,8 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
+
+      <About collapsed={sidebarCollapsed} />
 
       {/* Collapse toggle */}
       <button
