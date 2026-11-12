@@ -41,7 +41,7 @@ export default function Sidebar() {
   return (
     <aside
       style={{ width: sidebarCollapsed ? "64px" : "240px" }}
-      className="flex flex-col bg-ink-900 text-ink-300 transition-all duration-200 overflow-hidden shrink-0"
+      className="on-dark flex flex-col bg-ink-900 text-ink-300 transition-all duration-200 overflow-hidden shrink-0"
     >
       {/* Logo */}
       <div className={`flex items-center h-14 border-b border-ink-700/50 shrink-0 ${sidebarCollapsed ? "justify-center" : "gap-3 px-4"}`}>

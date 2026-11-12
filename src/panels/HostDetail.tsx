@@ -9,6 +9,7 @@ import { groupByPort, openPorts, sortFindings } from "../utils/hostFindings";
 import SeverityBadge from "../components/common/SeverityBadge";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
+import Select, { fileOption } from "../components/common/Select";
 import { PanelButtons, Section, Tag, useEscape } from "./PanelParts";
 import { CountBoxes, Cvss, FindingGroups, FindingName, itemScore } from "./FindingParts";
 
@@ -148,16 +149,18 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
           actions={
             <div className="flex items-center gap-3">
               {multiFile && (
-                <select
+                <Select
                   value={fileScope}
-                  onChange={(e) => setFileScope(e.target.value)}
-                  className="input h-7 py-0 text-caption w-auto max-w-[11rem]"
-                  aria-label="Show the findings from"
+                  onChange={setFileScope}
+                  size="xs"
+                  ariaLabel="Show the findings from"
                   title="Show the findings from one scan file, or merged from all of them"
-                >
-                  <option value="all">All files</option>
-                  {acrossFiles.file_ids.map((id, i) => <option key={id} value={id}>{acrossFiles.filenames[i].replace(/\.nessus$/i, "")}</option>)}
-                </select>
+                  className="w-44"
+                  options={[{ value: "all", label: "All files" }, ...acrossFiles.file_ids.map((id, i) => {
+                    const f = files.find((x) => x.id === id);
+                    return f ? fileOption(f) : { value: id, label: acrossFiles.filenames[i].replace(/\.nessus$/i, "") };
+                  })]}
+                />
               )}
               <ShowInfoCheckbox />
               <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">

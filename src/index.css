@@ -10,6 +10,20 @@
   :root {
     --sidebar-w: 240px;
     --sidebar-w-collapsed: 64px;
+    --focus: theme(colors.accent.600);
+  }
+
+  /* one focus ring for everything Tab reaches: dark teal on light surfaces, light teal on dark ones */
+  .dark, .on-dark {
+    --focus: theme(colors.accent.400);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  /* a card clips what's outside it, so there the ring sits just inside the edge */
+  .card :focus-visible {
+    outline-offset: -2px;
   }
 
   * {
@@ -43,29 +57,26 @@
   }
 
   .btn {
-    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-body font-medium
-           transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1;
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-body font-medium transition-colors;
   }
 
   .btn-primary {
-    @apply btn bg-accent-600 hover:bg-accent-700 text-white focus-visible:ring-accent-500;
+    @apply btn bg-accent-600 hover:bg-accent-700 text-white;
   }
 
   .btn-secondary {
     @apply btn bg-ink-100 hover:bg-ink-200 text-ink-700
-           dark:bg-ink-700 dark:hover:bg-ink-600 dark:text-ink-200
-           focus-visible:ring-ink-400;
+           dark:bg-ink-700 dark:hover:bg-ink-600 dark:text-ink-200;
   }
 
   .btn-ghost {
     @apply btn bg-transparent hover:bg-ink-100 dark:hover:bg-ink-700 text-ink-600
-           dark:text-ink-300 focus-visible:ring-ink-400;
+           dark:text-ink-300;
   }
 
   .btn-danger {
     @apply btn bg-red-50 hover:bg-red-100 text-red-600
-           dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400
-           focus-visible:ring-red-500;
+           dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400;
   }
 
   .input {

@@ -11,6 +11,7 @@ import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import SearchBar from "../components/common/SearchBar";
+import Select, { fileOption } from "../components/common/Select";
 import { ExploitTag, PanelButtons, Section, Tag, useEscape } from "./PanelParts";
 import type { VulnEntry } from "../types/nessus";
 
@@ -212,10 +213,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
         <Section title={`Affected hosts · ${ips.length} ${ips.length === 1 ? "host" : "hosts"}${hosts.length !== ips.length ? `, ${hosts.length} instances` : ""}`}>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {showFile && (
-              <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)} className="input h-8 py-0 text-body w-auto max-w-56">
-                <option value="all">All files</option>
-                {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
-              </select>
+              <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the hosts from" className="w-56" />
             )}
             <SearchBar value={ipSearch} onChange={setIpSearch} placeholder="Filter IPs…" className="flex-1 min-w-36" />
           </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FolderOpen, Plus, Trash2, X, FileText, Download, Pencil } from "lucide-react";
 import { useProjectStore } from "../stores/projectStore";
 import { useScanStore } from "../stores/scanStore";
+import Select, { fileOption } from "../components/common/Select";
 import { formatDate } from "../utils/format";
 import { Tag } from "../panels/PanelParts";
 
@@ -130,7 +131,7 @@ export default function Projects() {
                         title="Rename"
                       >
                         <span className="truncate">{project.name}</span>
-                        <Pencil size={13} className="shrink-0 text-ink-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+                        <Pencil size={13} className="shrink-0 text-ink-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
                       </button>
                     )}
                     <p className="text-caption text-ink-500 dark:text-ink-400 mt-0.5">Created {formatDate(project.created_at)}</p>
@@ -150,7 +151,7 @@ export default function Projects() {
                   {count === 0 && <li className="text-small text-ink-500 dark:text-ink-400">No files yet. Add loaded files below.</li>}
                   {project.file_paths.map((fp) => (
                     <li key={fp.path} className="flex items-center gap-2.5 rounded-md bg-ink-50 dark:bg-ink-700/50 px-3 py-2">
-                      <FileText size={14} className="text-ink-400 shrink-0" />
+                      <FileText size={14} className="text-ink-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="flex items-center gap-2 text-body text-ink-800 dark:text-ink-100">
                           <span className="truncate">{fp.filename.replace(/\.nessus$/i, "")}</span>
@@ -171,21 +172,19 @@ export default function Projects() {
                 </ul>
 
                 {notInProject.length > 0 && (
-                  <select
-                    onChange={(e) => {
-                      const f = files.find((x) => x.id === e.target.value);
+                  <Select
+                    value=""
+                    onChange={(id) => {
+                      const f = files.find((x) => x.id === id);
                       if (f) {
                         addFileToProject(project.id, { path: f.path, filename: f.filename });
                       }
-                      e.target.value = "";
                     }}
-                    className="input h-8 py-0 text-small"
-                    defaultValue=""
-                    aria-label="Add a loaded file"
-                  >
-                    <option value="">Add a loaded file…</option>
-                    {notInProject.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
-                  </select>
+                    placeholder="Add a loaded file…"
+                    ariaLabel="Add a loaded file"
+                    className="w-64"
+                    options={notInProject.map(fileOption)}
+                  />
                 )}
 
                 <button

@@ -5,6 +5,7 @@ import { useUiStore } from "../stores/uiStore";
 import { buildHostEntries } from "../types/nessus";
 import type { HostEntry } from "../types/nessus";
 import SeverityPills from "../components/common/SeverityPills";
+import Select from "../components/common/Select";
 import WaysMap from "../components/topology/WaysMap";
 import type { WaysControls } from "../components/topology/WaysMap";
 import { CrowdPanel, MachineList, MachinePanel, WayPanel, machineScore, strengthRank } from "../components/topology/TopologyPanel";
@@ -121,24 +122,20 @@ export default function Topology() {
       <div className="flex flex-wrap items-center gap-2">
         <SeverityPills counts={severityCounts} selected={severities} onToggle={toggle} />
         <span className="flex-1" />
-        <label className="inline-flex items-center gap-2 h-8 pl-2.5 pr-1 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-small text-ink-500 dark:text-ink-400">
+        <span className="inline-flex items-center gap-2 text-small text-ink-500 dark:text-ink-400">
           Attack path to
-          <select
+          <Select
             value={goal ?? ""}
-            onChange={(e) => pick(e.target.value || null)}
-            className="h-6 max-w-[190px] rounded border border-ink-200 dark:border-ink-600 bg-ink-50 dark:bg-ink-900 px-1.5 text-small font-semibold tabular-nums text-ink-800 dark:text-ink-100"
-          >
-            <option value="">a network…</option>
-            {choices.never.length > 0 && (
-              <optgroup label="Never scanned">
-                {choices.never.map((n) => <option key={n.key} value={netEnd(n.key)}>{n.key}</option>)}
-              </optgroup>
-            )}
-            <optgroup label="Scanned">
-              {choices.scanned.map((n) => <option key={n.key} value={netEnd(n.key)}>{n.key}</option>)}
-            </optgroup>
-          </select>
-        </label>
+            onChange={(v) => pick(v || null)}
+            placeholder="a network…"
+            ariaLabel="Attack path to"
+            className="w-48"
+            options={[
+              ...choices.never.map((n) => ({ value: netEnd(n.key), label: n.key, group: "Never scanned" })),
+              ...choices.scanned.map((n) => ({ value: netEnd(n.key), label: n.key, group: "Scanned" })),
+            ]}
+          />
+        </span>
         {/* the view controls wrap as one group */}
         <span className="inline-flex items-center gap-2">
           <span className="inline-flex items-center h-8 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 overflow-hidden">
@@ -182,7 +179,7 @@ export default function Topology() {
             <span className="flex items-center gap-1.5"><span className="w-5 border-t-2 border-dashed border-ink-300 dark:border-ink-600" />Likely or possible</span>
             <span className="flex items-center gap-1.5"><span className="w-5 border-t-4 rounded border-accent-500" />Attack path</span>
             <span className="flex items-center gap-1.5"><span className="w-4 h-3 rounded-[3px] border border-dashed border-ink-400" />Never scanned</span>
-            <span className="ml-auto text-ink-400 dark:text-ink-500">Click a network for its attack path · drag to move · scroll to zoom</span>
+            <span className="ml-auto text-ink-500 dark:text-ink-400">Click a network for its attack path · drag to move · scroll to zoom</span>
           </div>
         </section>
 

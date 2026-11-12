@@ -86,7 +86,7 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
               n.scanned ? "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200" : "border-dashed border-ink-300 dark:border-ink-500 text-ink-500 dark:text-ink-400"
             }`}
           >
-            {n.key}{!n.scanned && <span className="text-ink-400 dark:text-ink-500">never scanned</span>}
+            {n.key}{!n.scanned && <span className="text-ink-500 dark:text-ink-400">never scanned</span>}
           </span>
         ))}
       </div>
@@ -159,7 +159,7 @@ function ReachChips({ c, graph, onPick }: { c: WayCrowd; graph: WayGraph; onPick
               scanned ? "border-ink-200 dark:border-ink-600 text-ink-700 dark:text-ink-200" : "border-dashed border-ink-300 dark:border-ink-500 text-ink-500 dark:text-ink-400"
             }`}
           >
-            {key}{!scanned && <span className="text-ink-400 dark:text-ink-500">never scanned</span>}
+            {key}{!scanned && <span className="text-ink-500 dark:text-ink-400">never scanned</span>}
           </button>
         );
       })}

@@ -554,7 +554,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
     >
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
         {titles.map((t, i) => t.title && (
-          <span key={i} className="absolute top-0 text-caption font-semibold text-ink-400 dark:text-ink-500 whitespace-nowrap" style={{ left: t.x }}>{t.title}</span>
+          <span key={i} className="absolute top-0 text-caption font-semibold text-ink-500 dark:text-ink-400 whitespace-nowrap" style={{ left: t.x }}>{t.title}</span>
         ))}
         <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible" aria-hidden="true">{below}</svg>
         {[...placed.values()].map(render)}

@@ -10,6 +10,7 @@ import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { spreadsheetCell } from "../utils/spreadsheet";
 import IpLink from "../components/common/IpLink";
 import SearchBar from "../components/common/SearchBar";
+import Select, { fileOption } from "../components/common/Select";
 import SpacerRow from "../components/common/SpacerRow";
 import ColumnPicker from "../components/common/ColumnPicker";
 import SeverityPills from "../components/common/SeverityPills";
@@ -231,18 +232,14 @@ export default function Hosts() {
         <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
 
         {files.length > 1 && (
-          <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-caption w-auto max-w-[16rem]">
-            <option value="all">All files</option>
-            {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
-          </select>
+          <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the hosts from" className="w-60 shrink-0" />
         )}
 
         <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-1 min-w-48" />
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
-          <span className="text-caption text-ink-400">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
+          <span className="text-caption text-ink-500">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
           {sorted.length > 0 && (
             <div className="relative" ref={copyMenuRef}>
               <button
@@ -299,7 +296,7 @@ export default function Hosts() {
               <SpacerRow height={paddingBottom} colSpan={visibleCols.length} />
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={visibleCols.length} className="table-cell text-center text-ink-400 py-10">
+                  <td colSpan={visibleCols.length} className="table-cell text-center text-ink-500 py-10">
                     No hosts match the current filter.
                   </td>
                 </tr>
@@ -361,12 +358,12 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
                   )}
                 </span>
                 {host.domain && (
-                  <span className="truncate block text-tiny text-ink-400 dark:text-ink-500 mt-0.5">
+                  <span className="truncate block text-tiny text-ink-500 dark:text-ink-400 mt-0.5">
                     {host.domain}
                   </span>
                 )}
                 {host.alt_hostnames.length > 0 && (
-                  <span className="truncate block text-tiny text-ink-400 dark:text-ink-500 mt-0.5">
+                  <span className="truncate block text-tiny text-ink-500 dark:text-ink-400 mt-0.5">
                     {host.alt_hostnames.slice(0, 2).join(", ")}
                     {host.alt_hostnames.length > 2 ? ` +${host.alt_hostnames.length - 2}` : ""}
                   </span>
@@ -381,7 +378,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
               <td key="os" className="table-cell text-ink-500">
                 <span className="flex items-center gap-1.5 min-w-0" title={title}>
                   <span className="truncate">{guesses[0] ?? "-"}</span>
-                  {guesses.length > 1 && <span className="shrink-0 text-ink-400">+{guesses.length - 1}</span>}
+                  {guesses.length > 1 && <span className="shrink-0 text-ink-500">+{guesses.length - 1}</span>}
                 </span>
                 {host.os_unsupported && (
                   <span className="block mt-1 leading-none"><Tag title="The vendor no longer supports this operating system">Unsupported</Tag></span>
@@ -417,7 +414,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
           case "credentialed":
             return (
               <td key="credentialed" className="table-cell text-center">
-                <span className={`text-caption font-semibold ${host.credentialed_scan ? "text-emerald-600 dark:text-emerald-400" : "text-ink-400 dark:text-ink-600"}`}>
+                <span className={`text-caption font-semibold ${host.credentialed_scan ? "text-emerald-600 dark:text-emerald-400" : "text-ink-500 dark:text-ink-400"}`}>
                   {host.credentialed_scan ? "Yes" : "No"}
                 </span>
               </td>
@@ -463,7 +460,7 @@ function CopyMenuItem({ label, sub, onClick }: { label: string; sub: string; onC
       className="w-full flex flex-col items-start px-3 py-2 rounded text-left hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors"
     >
       <span className="text-body text-ink-700 dark:text-ink-200 font-medium">{label}</span>
-      <span className="text-tiny text-ink-400 dark:text-ink-500">{sub}</span>
+      <span className="text-tiny text-ink-500 dark:text-ink-400">{sub}</span>
     </button>
   );
 }// CopyMenuItem

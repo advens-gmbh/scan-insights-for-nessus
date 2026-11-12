@@ -63,7 +63,7 @@ export function Cvss({ score, severity }: { score: CvssScore | null; severity: n
       <span className={`${SEVERITY_COLORS[severity].text} ${severity >= 3 ? "font-semibold" : ""}`}>
         {score.score.toFixed(1)}
       </span>
-      <span className="ml-1 text-tiny text-ink-400" title={`CVSS v${score.version}`}>v{score.version}</span>
+      <span className="ml-1 text-tiny text-ink-500" title={`CVSS v${score.version}`}>v{score.version}</span>
     </span>
   );
 }// Cvss

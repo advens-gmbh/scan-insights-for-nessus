@@ -6,6 +6,7 @@ import { useUiStore } from "../stores/uiStore";
 import { buildServiceEntries } from "../types/nessus";
 import type { ServiceEntry } from "../types/nessus";
 import SearchBar from "../components/common/SearchBar";
+import Select, { fileOption } from "../components/common/Select";
 import SpacerRow from "../components/common/SpacerRow";
 import ColumnPicker from "../components/common/ColumnPicker";
 import SeverityPills from "../components/common/SeverityPills";
@@ -220,14 +221,7 @@ export default function Services() {
         </div>
 
         {files.length > 1 && (
-          <select
-            value={activeFile}
-            onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-caption w-auto max-w-[16rem]"
-          >
-            <option value="all">All files</option>
-            {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
-          </select>
+          <Select value={activeFile} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the services from" className="w-60 shrink-0" />
         )}
 
         <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-1 min-w-48" />
@@ -239,7 +233,7 @@ export default function Services() {
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
-          <span className="text-caption text-ink-400">
+          <span className="text-caption text-ink-500">
             {grouped
               ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
               : `${filtered.length.toLocaleString()} services`}
@@ -282,7 +276,7 @@ export default function Services() {
               <SpacerRow height={paddingBottom} colSpan={columnCount} />
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={columnCount} className="table-cell text-center text-ink-400 py-10">
+                  <td colSpan={columnCount} className="table-cell text-center text-ink-500 py-10">
                     No services match the current filter.
                   </td>
                 </tr>

@@ -9,6 +9,7 @@ import { formatNessusDate } from "../utils/format";
 import type { VulnEntry } from "../types/nessus";
 import SeverityBadge from "../components/common/SeverityBadge";
 import SearchBar from "../components/common/SearchBar";
+import Select, { fileOption } from "../components/common/Select";
 import SpacerRow from "../components/common/SpacerRow";
 import ColumnPicker from "../components/common/ColumnPicker";
 import SeverityPills from "../components/common/SeverityPills";
@@ -201,14 +202,7 @@ export default function Vulnerabilities() {
 
         {/* File filter */}
         {files.length > 1 && (
-          <select
-            value={fileFilter}
-            onChange={(e) => setFileFilter(e.target.value)}
-            className="input h-8 py-0 text-caption w-auto max-w-[16rem]"
-          >
-            <option value="all">All files</option>
-            {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
-          </select>
+          <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the findings from" className="w-60 shrink-0" />
         )}
 
         <div className="flex-1 min-w-48">
@@ -221,7 +215,7 @@ export default function Vulnerabilities() {
 
         <div className="flex items-center gap-3 shrink-0">
           <ColumnPicker table={table} />
-          <span className="text-caption text-ink-400">
+          <span className="text-caption text-ink-500">
             {sorted.length.toLocaleString()} {sorted.length === 1 ? "vulnerability" : "vulnerabilities"}
           </span>
         </div>
@@ -251,7 +245,7 @@ export default function Vulnerabilities() {
               <SpacerRow height={paddingBottom} colSpan={table.visible.length} />
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={table.visible.length} className="table-cell text-center text-ink-400 py-10">
+                  <td colSpan={table.visible.length} className="table-cell text-center text-ink-500 py-10">
                     No vulnerabilities match the current filter.
                   </td>
                 </tr>
@@ -317,7 +311,7 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
                   <Dash />
                 )}
                 {cvss !== null && (
-                  <span className="ml-1 text-tiny text-ink-400" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
+                  <span className="ml-1 text-tiny text-ink-500" title={`CVSS v${cvss.version}`}>v{cvss.version}</span>
                 )}
               </td>
             );

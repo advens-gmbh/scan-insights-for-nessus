@@ -21,7 +21,7 @@ export default function RouteError() {
       <p className="text-body text-ink-500 dark:text-ink-400 max-w-md">
         A damaged or unusual scan file can cause this. Your loaded files are still available on the other pages.
       </p>
-      <p className="text-caption text-ink-400 max-w-md break-words">
+      <p className="text-caption text-ink-500 max-w-md break-words">
         {error instanceof Error ? error.message : "Unknown error"}
       </p>
       <button onClick={goToDashboard} className="btn-primary mt-1">Go to Dashboard</button>

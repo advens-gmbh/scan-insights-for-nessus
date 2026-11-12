@@ -23,6 +23,7 @@ import { usePageState } from "../stores/pageStore";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
+import Select, { fileOption } from "../components/common/Select";
 
 type View = "vulns" | "hosts";
 type VulnFilter = "changes" | "new" | "fixed" | "partly" | "increased" | "unverified" | "unchanged";
@@ -297,7 +298,7 @@ export default function Compare() {
               <SpacerRow height={paddingBottom} colSpan={columnCount} />
               {rowCount === 0 && (
                 <tr>
-                  <td colSpan={columnCount} className="table-cell text-center text-ink-400 py-10">Nothing in this group.</td>
+                  <td colSpan={columnCount} className="table-cell text-center text-ink-500 py-10">Nothing in this group.</td>
                 </tr>
               )}
             </tbody>
@@ -358,11 +359,7 @@ function ScanPicker({ label, file, files, onPick, onOpen }: {
   return (
     <div className="flex flex-col gap-1 min-w-0">
       <label className="text-small font-semibold text-ink-500 dark:text-ink-400" htmlFor={id}>{label}</label>
-      <select id={id} value={file.id} onChange={(e) => onPick(e.target.value)} className="input">
-        {[file, ...files.filter((f) => f.id !== file.id)].map((f) => (
-          <option key={f.id} value={f.id}>{f.filename.replace(/\.nessus$/i, "")}</option>
-        ))}
-      </select>
+      <Select id={id} value={file.id} onChange={onPick} options={files.map(fileOption)} size="md" />
       <button onClick={onOpen} className="h-5 text-left text-caption text-ink-500 dark:text-ink-400 hover:text-accent-700 dark:hover:text-accent-400 truncate" title="Scan file details">
         {details}
       </button>
@@ -384,8 +381,8 @@ function Change({ label, dot, a, b, color, neutral = false }: { label: string; d
       </span>
       {/* sized in em from the line's 24px, which shrinks only as far as long counts need */}
       <span ref={line} className="flex items-baseline gap-[0.25em] whitespace-nowrap tabular-nums leading-8" style={{ fontSize: LINE_PX }}>
-        <span className="text-[0.625em] font-semibold text-ink-400 dark:text-ink-500">{a.toLocaleString()}</span>
-        <span className="text-[0.58em] text-ink-400 dark:text-ink-500">→</span>
+        <span className="text-[0.625em] font-semibold text-ink-500 dark:text-ink-400">{a.toLocaleString()}</span>
+        <span className="text-[0.58em] text-ink-500 dark:text-ink-400">→</span>
         <span className={`font-bold ${b > 0 && color ? color : "text-ink-900 dark:text-ink-50"}`}>{b.toLocaleString()}</span>
       </span>
       <span className={`text-caption font-semibold ${tone}`}>{text}</span>
@@ -518,7 +515,7 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
               : b ? SEVERITY_COLORS[sev[col.key]].text : "text-ink-400 dark:text-ink-500";
             return (
               <td key={col.key} className="table-cell text-center whitespace-nowrap tabular-nums">
-                <span className="text-ink-400 dark:text-ink-500">{a?.toLocaleString() ?? "–"}</span>
+                <span className="text-ink-500 dark:text-ink-400">{a?.toLocaleString() ?? "–"}</span>
                 <span className="mx-1 text-ink-300 dark:text-ink-600">→</span>
                 <span className={`font-semibold ${color}`}>{b?.toLocaleString() ?? "–"}</span>
               </td>
