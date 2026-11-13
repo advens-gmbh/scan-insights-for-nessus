@@ -1,10 +1,11 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import type { ScanFile } from "../../types/nessus";
 import { fileWindow } from "../../utils/fileFacts";
-import { formatScanStart } from "../../utils/dashboard";
+import { formatScanStart } from "../../utils/format";
+import { useFloatingList } from "../../hooks/useFloatingList";
 
 export interface SelectOption {
   value: string;
@@ -39,24 +40,14 @@ export function fileOption(f: ScanFile): SelectOption {
 
 // the app's own dropdown: the list follows the theme, and arrows, Enter, Esc and typing work like a native one
 export default function Select({ value, options, onChange, placeholder = "", size = "sm", id, ariaLabel, title, className = "" }: Props) {
-  const [open, setOpen] = useState(false);
+  const { open, place, wrap, trigger, list, listId, show: showList, close } = useFloatingList(320);
   const [active, setActive] = useState(0);
-  const wrap = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
-  const [place, setPlace] = useState<CSSProperties | null>(null);
-  const listId = useId();
   const chosen = options.findIndex((o) => o.value === value);
 
   const show = () => {
     setActive(Math.max(chosen, 0));
-    placeList();
-    setOpen(true);
-  };
-  const close = (refocus = true) => {
-    setOpen(false);
-    if (refocus) trigger.current?.focus();
+    showList();
   };
   const pick = (i: number) => {
     const o = options[i];
@@ -64,53 +55,14 @@ export default function Select({ value, options, onChange, placeholder = "", siz
     close();
   };
 
-  const placeList = () => {
-    const r = trigger.current?.getBoundingClientRect();
-    if (!r) return;
-    const below = window.innerHeight - r.bottom - 8;
-    const above = r.top - 8;
-    const up = below < 200 && above > below;
-    setPlace({
-      position: "fixed",
-      left: Math.min(r.left, window.innerWidth - 16 - Math.min(416, window.innerWidth - 32)),
-      minWidth: r.width,
-      ...(up ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 }),
-      maxHeight: Math.min(320, up ? above : below),
-    });
-  };
-  const placeRef = useRef(placeList);
-  useLayoutEffect(() => {
-    placeRef.current = placeList;
-  });
-  useEffect(() => {
-    if (!open) return;
-    const follow = () => placeRef.current();
-    window.addEventListener("scroll", follow, true);
-    window.addEventListener("resize", follow);
-    return () => {
-      window.removeEventListener("scroll", follow, true);
-      window.removeEventListener("resize", follow);
-    };
-  }, [open]);
-
   // the list takes the keys while it's open
   useLayoutEffect(() => {
     if (open && place) list.current?.focus();
-  }, [open, place]);
+  }, [open, place, list]);
 
   useEffect(() => {
     if (open) document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: "nearest" });
   }, [open, active, listId]);
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!wrap.current?.contains(t) && !list.current?.contains(t)) setOpen(false);
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [open]);
 
   // typing jumps to the next option starting with the typed letters
   const typeAhead = (key: string, now: number) => {

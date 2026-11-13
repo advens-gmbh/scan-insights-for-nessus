@@ -5,8 +5,8 @@ import { useScanStore } from "../../stores/scanStore";
 import { useUiStore } from "../../stores/uiStore";
 import { displayScanName } from "../../types/nessus";
 import type { ScanFile, SeverityCounts } from "../../types/nessus";
-import { formatScanStart } from "../../utils/dashboard";
-import { fileCounts, fileWindow } from "../../utils/trends";
+import { formatScanStart } from "../../utils/format";
+import { fileWindow } from "../../utils/fileFacts";
 
 const BAR = [
   { key: "critical", className: "bg-critical" },
@@ -27,7 +27,7 @@ export default function FilesMenu({ onClose }: { onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
 
   // newest scan first
-  const rows = useMemo(() => files.map((file) => ({ file, start: fileWindow(file).start, counts: fileCounts(file) }))
+  const rows = useMemo(() => files.map((file) => ({ file, start: fileWindow(file).start, counts: file.counts }))
     .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0)), [files]);
 
   useEffect(() => {

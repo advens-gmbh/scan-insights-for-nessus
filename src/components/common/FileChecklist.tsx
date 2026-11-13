@@ -1,9 +1,10 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent } from "react";
+import { useLayoutEffect } from "react";
+import type { KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import type { ScanFile } from "../../types/nessus";
 import { fileOption } from "./Select";
+import { useFloatingList } from "../../hooks/useFloatingList";
 
 interface Props {
   files: ScanFile[];
@@ -15,67 +16,13 @@ interface Props {
 
 // like Select, but with a tick box per file, to check/uncheck several files
 export default function FileChecklist({ files, picked, onChange, ariaLabel, className = "" }: Props) {
-  const [open, setOpen] = useState(false);
-  const [place, setPlace] = useState<CSSProperties | null>(null);
-  const wrap = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLDivElement>(null);
-  const listId = useId();
+  const { open, place, wrap, trigger, list, listId, show, close } = useFloatingList(360);
   const all = picked.length === files.length;
   const label = all ? "All files" : picked.length === 0 ? "No files" : `${picked.length} of ${files.length} files`;
 
-  // the list floats over the page, below the button or above it when there's more room there
-  const placeList = () => {
-    const r = trigger.current?.getBoundingClientRect();
-    if (!r) return;
-    const below = window.innerHeight - r.bottom - 8;
-    const above = r.top - 8;
-    const up = below < 200 && above > below;
-    setPlace({
-      position: "fixed",
-      left: Math.min(r.left, window.innerWidth - 16 - Math.min(416, window.innerWidth - 32)),
-      minWidth: r.width,
-      ...(up ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 }),
-      maxHeight: Math.min(360, up ? above : below),
-    });
-  };
-  const placeRef = useRef(placeList);
-  useLayoutEffect(() => {
-    placeRef.current = placeList;
-  });
-  useEffect(() => {
-    if (!open) return;
-    const follow = () => placeRef.current();
-    window.addEventListener("scroll", follow, true);
-    window.addEventListener("resize", follow);
-    return () => {
-      window.removeEventListener("scroll", follow, true);
-      window.removeEventListener("resize", follow);
-    };
-  }, [open]);
-
   useLayoutEffect(() => {
     if (open && place) list.current?.querySelector("input")?.focus();
-  }, [open, place]);
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!wrap.current?.contains(t) && !list.current?.contains(t)) setOpen(false);
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [open]);
-
-  const show = () => {
-    placeList();
-    setOpen(true);
-  };
-  const close = () => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
+  }, [open, place, list]);
 
   const toggle = (id: string) =>
     onChange(picked.includes(id) ? picked.filter((p) => p !== id) : files.map((f) => f.id).filter((f) => f === id || picked.includes(f)));
@@ -92,7 +39,7 @@ export default function FileChecklist({ files, picked, onChange, ariaLabel, clas
       e.stopPropagation();
       close();
     } else if (e.key === "Tab") {
-      setOpen(false);
+      close(false);
     }
   };
 

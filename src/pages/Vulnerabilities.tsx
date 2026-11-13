@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
 import { ExploitTag, Tag } from "../panels/PanelParts";
-import { useEffect, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useMemo } from "react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import { ratedScore, SEVERITY_COLORS, vulnScore } from "../types/nessus";
@@ -9,18 +8,16 @@ import { formatNessusDate } from "../utils/format";
 import type { VulnRow } from "../types/nessus";
 import { useQuery } from "../data/query";
 import SeverityBadge from "../components/common/SeverityBadge";
-import SearchBar from "../components/common/SearchBar";
-import Select, { fileOption } from "../components/common/Select";
-import SpacerRow from "../components/common/SpacerRow";
-import ColumnPicker from "../components/common/ColumnPicker";
 import SeverityPills from "../components/common/SeverityPills";
-import TableHead from "../components/common/TableHead";
+import DataTable from "../components/common/DataTable";
+import TableToolbar from "../components/common/TableToolbar";
+import { Dash, SELECTED_ROW } from "../components/common/TableCells";
+import { useFileFilter } from "../hooks/useFileFilter";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { countBySeverity } from "../utils/severityFilter";
 import { useTableSort } from "../hooks/useTableSort";
 import { usePageState } from "../stores/pageStore";
-import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 
@@ -46,28 +43,21 @@ const COLUMNS: ColDef[] = [
 ];// COLUMNS
 
 const NO_ROWS: VulnRow[] = [];
+const SEARCH = "Search vulnerabilities, CVEs, IPs…";
 
 export default function Vulnerabilities() {
   const files = useScanStore((s) => s.files);
   const openVulnPanel = useUiStore((s) => s.openVulnPanel);
   const openPluginId = useUiStore((s) => s.vulnPanelId);
-  const location = useLocation();
 
   const [search, setSearch] = usePageState("vulns:search", "");
-  const [chosenFile, setFileFilter] = usePageState("vulns:file", "all");
-  const fileFilter = chosenFile === "all" || files.some((f) => f.id === chosenFile) ? chosenFile : "all";
-
-  useEffect(() => {
-    const handed = (location.state as { fileFilter?: string } | null)?.fileFilter;
-    if (handed) {
-      setFileFilter(handed);
-    }
-  }, [location.key, location.state, setFileFilter]);
+  const [fileFilter, setFileFilter] = useFileFilter("vulns");
   const [exploitOnly, setExploitOnly] = usePageState("vulns:exploit", false);
   const [familyFilter, setFamilyFilter] = usePageState("vulns:family", "");
   const { selected: selectedSeverities, toggle: toggleSeverity, clear: clearSeverities, matches: matchesSeverity } = useSeverityFilter("vulnerabilities");
   const table = useTableColumns("vulnerabilities", COLUMNS);
-  const { sortKey, sortDir, toggleSort } = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
+  const sort = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
+  const { sortKey, sortDir } = sort;
 
   const scope = fileFilter === "all" ? null : fileFilter;
   const answer = useQuery<VulnRow[]>("vuln_rows", files.length > 0 ? { file: scope } : null);
@@ -129,37 +119,7 @@ export default function Vulnerabilities() {
     });
   }, [filtered, sortKey, sortDir]);
 
-  const { scrollRef, rows, paddingTop, paddingBottom, measureRow, scrollToIndex } = useVirtualRows(sorted.length);
-
-  // while a finding is open, up and down move to the previous and next one in the table's order
-  useEffect(() => {
-    if (openPluginId === null) {
-      return;
-    }
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") {
-        return;
-      }
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) {
-        return;
-      }
-
-      const index = sorted.findIndex((v) => v.plugin_id === openPluginId);
-      const next = index === -1 ? 0 : index + (e.key === "ArrowDown" ? 1 : -1);
-      if (next < 0 || next >= sorted.length) {
-        return;
-      }
-
-      e.preventDefault();
-      openVulnPanel(sorted[next].plugin_id, fileFilter !== "all" ? fileFilter : undefined);
-      scrollToIndex(next, { align: "auto" });
-    };
-    window.addEventListener("keydown", onKey);
-
-    return () => window.removeEventListener("keydown", onKey);
-  }, [openPluginId, sorted, fileFilter, openVulnPanel, scrollToIndex]);
+  const fileId = fileFilter !== "all" ? fileFilter : undefined;
 
   const severityCounts = useMemo(
     () => countBySeverity(vulnsForFilter.filter((v) => !exploitOnly || v.exploit_available).map((v) => [v.severity])),
@@ -171,86 +131,69 @@ export default function Vulnerabilities() {
   );
 
   if (files.length === 0) {
-    return <EmptyFilesNotice page="vulnerabilities" columns={COLUMNS} search="Search vulnerabilities, CVEs, IPs…" />;
+    return <EmptyFilesNotice page="vulnerabilities" columns={COLUMNS} search={SEARCH} />;
   }
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* Filters */}
-      {/* line 1 holds the filter pills; line 2 search and file, with the table's tools on the right. */}
-      <div className="flex flex-col gap-3 shrink-0">
-        <div className="flex flex-wrap items-center gap-3">
-        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
-        {(exploitCount > 0 || exploitOnly) && (
-          <button
-            onClick={() => setExploitOnly(!exploitOnly)}
-            aria-pressed={exploitOnly}
-            title={exploitOnly ? "Show all vulnerabilities" : "Show only vulnerabilities with a public exploit"}
-            className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${
-              exploitOnly ? "bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900" : "bg-ink-100 text-ink-700 hover:bg-ink-200 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600"
-            }`}
-          >
-            Exploit available {exploitCount.toLocaleString()}
-          </button>
-        )}
-        {familyFilter && (
-          <button
-            onClick={() => setFamilyFilter("")}
-            title="Show every family"
-            className="pill px-3 py-1 text-body font-semibold gap-1.5 bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900"
-          >
-            {familyFilter} <X size={14} aria-hidden="true" />
-          </button>
-        )}
-        </div>
+      <TableToolbar
+        pills={
+          <>
+            <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
+            {(exploitCount > 0 || exploitOnly) && (
+              <button
+                onClick={() => setExploitOnly(!exploitOnly)}
+                aria-pressed={exploitOnly}
+                title={exploitOnly ? "Show all vulnerabilities" : "Show only vulnerabilities with a public exploit"}
+                className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${
+                  exploitOnly ? "bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900" : "bg-ink-100 text-ink-700 hover:bg-ink-200 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600"
+                }`}
+              >
+                Exploit available {exploitCount.toLocaleString()}
+              </button>
+            )}
+            {familyFilter && (
+              <button
+                onClick={() => setFamilyFilter("")}
+                title="Show every family"
+                className="pill px-3 py-1 text-body font-semibold gap-1.5 bg-ink-800 text-white dark:bg-ink-100 dark:text-ink-900"
+              >
+                {familyFilter} <X size={14} aria-hidden="true" />
+              </button>
+            )}
+          </>
+        }
+        search={{ value: search, onChange: setSearch, placeholder: SEARCH }}
+        file={{ value: fileFilter, onChange: setFileFilter, ariaLabel: "Show the findings from" }}
+        table={table}
+        count={`${sorted.length.toLocaleString()} ${sorted.length === 1 ? "vulnerability" : "vulnerabilities"}`}
+      />
 
-        <div className="flex items-center gap-3">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search vulnerabilities, CVEs, IPs…" className="flex-[1_1_15rem] min-w-40" />
-          {files.length > 1 && (
-            <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the findings from" className="flex-[0_1_15rem] min-w-[9.5rem]" />
-          )}
-          <div className="ml-auto flex items-center gap-3 shrink-0">
-            <ColumnPicker table={table} />
-            <span className="text-caption text-ink-500">
-              {sorted.length.toLocaleString()} {sorted.length === 1 ? "vulnerability" : "vulnerabilities"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Table - fills remaining height, scrolls internally so thead stays sticky */}
-      <div className="card min-h-0 flex flex-col overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
-          <table style={table.style}>
-            <TableHead table={table} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
-              <SpacerRow height={paddingTop} colSpan={table.visible.length} />
-              {rows.map((row) => {
-                const v = sorted[row.index];
-                return (
-                  <VulnRow
-                    key={v.plugin_id}
-                    vuln={v}
-                    visibleCols={table.visible}
-                    index={row.index}
-                    measureRow={measureRow}
-                    selected={v.plugin_id === openPluginId}
-                    onClick={() => openVulnPanel(v.plugin_id, fileFilter !== "all" ? fileFilter : undefined)}
-                  />
-                );
-              })}
-              <SpacerRow height={paddingBottom} colSpan={table.visible.length} />
-              {sorted.length === 0 && answer !== undefined && (
-                <tr>
-                  <td colSpan={table.visible.length} className="table-cell text-center text-ink-500 py-10">
-                    No vulnerabilities match the current filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        table={table}
+        sort={sort}
+        count={sorted.length}
+        empty={answer !== undefined ? "No vulnerabilities match the current filter." : null}
+        keys={{
+          open: openPluginId !== null,
+          current: () => sorted.findIndex((v) => v.plugin_id === openPluginId),
+          go: (i) => openVulnPanel(sorted[i].plugin_id, fileId),
+        }}
+        row={(index, measure) => {
+          const v = sorted[index];
+          return (
+            <VulnRow
+              key={v.plugin_id}
+              vuln={v}
+              visibleCols={table.visible}
+              index={index}
+              measureRow={measure}
+              selected={v.plugin_id === openPluginId}
+              onClick={() => openVulnPanel(v.plugin_id, fileId)}
+            />
+          );
+        }}
+      />
     </div>
   );
 }// Vulnerabilities
@@ -268,7 +211,7 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
     <tr
       ref={measureRow}
       data-index={index}
-      className={`table-row ${selected ? "!bg-accent-50 dark:!bg-accent-900/30" : ""}`}
+      className={`table-row ${selected ? SELECTED_ROW : ""}`}
       aria-selected={selected}
       onClick={onClick}
     >
@@ -351,7 +294,3 @@ function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
     </tr>
   );
 }// VulnRow
-
-function Dash() {
-  return <span className="text-ink-300 dark:text-ink-600">-</span>;
-}// Dash

@@ -87,3 +87,23 @@ export function folderOf(path: string): string {
 export function portNumbers(openPorts: string[]): number[] {
   return [...new Set(openPorts.map((p) => parseInt(p, 10)).filter((n) => !Number.isNaN(n)))].sort((a, b) => a - b);
 }// portNumbers
+
+export function formatScanStart(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}// formatScanStart
+
+export function formatDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) {
+    return "under 1 min";
+  }
+
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) {
+    return `${m} min`;
+  }
+
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}// formatDuration

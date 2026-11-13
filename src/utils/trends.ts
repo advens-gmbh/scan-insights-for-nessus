@@ -1,7 +1,6 @@
 import type { ScanFile } from "../types/nessus";
 import { fileStart } from "./fileFacts";
 
-export { fileCounts, fileStart, fileWindow } from "./fileFacts";
 
 export type SameScans = Map<string, string>;
 

@@ -14,7 +14,7 @@ import ScanName from "../components/common/ScanName";
 import IpLink from "../components/common/IpLink";
 import SeverityBadge from "../components/common/SeverityBadge";
 import type { SeverityCounts } from "../types/nessus";
-import { formatDuration, formatScanStart } from "../utils/dashboard";
+import { formatDuration, formatScanStart } from "../utils/format";
 import { fileWindow } from "../utils/fileFacts";
 import SeverityBar from "../components/charts/SeverityBar";
 import TableHead from "../components/common/TableHead";

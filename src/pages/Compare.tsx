@@ -10,24 +10,23 @@ import type { ScanFile, SeverityCounts } from "../types/nessus";
 import { defaultPair } from "../utils/compare";
 import { useQuery } from "../data/query";
 import type { Comparison, HostChange, HostDelta, MatchedBy, VulnChange, VulnDelta } from "../utils/compare";
-
-const NO_VULNS: VulnDelta[] = [];
-const NO_HOSTS: HostDelta[] = [];
-import { formatScanStart } from "../utils/dashboard";
-import { fileCounts, fileWindow } from "../utils/fileFacts";
+import { formatScanStart } from "../utils/format";
+import { fileWindow } from "../utils/fileFacts";
 import { compareHosts } from "../utils/ip";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import Segmented from "../components/common/Segmented";
 import SeverityBadge from "../components/common/SeverityBadge";
-import SpacerRow from "../components/common/SpacerRow";
-import TableHead from "../components/common/TableHead";
+import DataTable from "../components/common/DataTable";
+import { SELECTED_ROW } from "../components/common/TableCells";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
 import { usePageState } from "../stores/pageStore";
-import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import Select, { fileOption } from "../components/common/Select";
+
+const NO_VULNS: VulnDelta[] = [];
+const NO_HOSTS: HostDelta[] = [];
 
 type View = "vulns" | "hosts";
 type VulnFilter = "changes" | "new" | "fixed" | "partly" | "increased" | "unverified" | "unchanged";
@@ -182,7 +181,6 @@ export default function Compare() {
   }, [hostRows, hostFilter, hostSort.sortKey, hostSort.sortDir]);
 
   const rowCount = shownView === "vulns" ? shownVulns.length : shownHosts.length;
-  const { scrollRef, rows, paddingTop, paddingBottom, measureRow } = useVirtualRows(rowCount);
 
   if (files.length < 2) {
     return <EmptyFilesNotice page="compare" />;
@@ -192,10 +190,8 @@ export default function Compare() {
     return null;
   }
 
-  const countsA = fileCounts(fileA);
-  const countsB = fileCounts(fileB);
-  const table = shownView === "vulns" ? vulnTable : hostTable;
-  const columnCount = table.visible.length;
+  const countsA = fileA.counts;
+  const countsB = fileB.counts;
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -268,46 +264,49 @@ export default function Compare() {
         <span className="ml-auto"><ShowInfoCheckbox /></span>
       </div>
 
-      {/* Table */}
-      <div className="card min-h-0 flex flex-col overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
-          <table style={table.style}>
-            {shownView === "vulns"
-              ? <TableHead table={vulnTable} sortKey={vulnSort.sortKey} sortDir={vulnSort.sortDir} onSort={vulnSort.toggleSort} />
-              : <TableHead table={hostTable} sortKey={hostSort.sortKey} sortDir={hostSort.sortDir} onSort={hostSort.toggleSort} />}
-            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
-              <SpacerRow height={paddingTop} colSpan={columnCount} />
-              {rows.map((row) => shownView === "vulns" ? (
-                <VulnRow
-                  key={shownVulns[row.index].pluginId}
-                  row={shownVulns[row.index]}
-                  cols={vulnTable.visible}
-                  index={row.index}
-                  selected={shownVulns[row.index].pluginId === openPluginId}
-                  measureRow={measureRow}
-                  onClick={() => openVulnPanel(shownVulns[row.index].pluginId, shownVulns[row.index].hostsB > 0 ? fileB.id : fileA.id)}
-                />
-              ) : (
-                <HostRow
-                  key={shownHosts[row.index].key}
-                  row={shownHosts[row.index]}
-                  cols={hostTable.visible}
-                  index={row.index}
-                  selected={shownHosts[row.index].ip === openIp && shownHosts[row.index].countsB !== null}
-                  measureRow={measureRow}
-                  onClick={() => openHostPanel(shownHosts[row.index].ip, shownHosts[row.index].countsB ? fileB.id : fileA.id)}
-                />
-              ))}
-              <SpacerRow height={paddingBottom} colSpan={columnCount} />
-              {rowCount === 0 && (
-                <tr>
-                  <td colSpan={columnCount} className="table-cell text-center text-ink-500 py-10">Nothing in this group.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {shownView === "vulns" ? (
+        <DataTable
+          table={vulnTable}
+          sort={vulnSort}
+          count={rowCount}
+          empty="Nothing in this group."
+          row={(index, measure) => {
+            const r = shownVulns[index];
+            return (
+              <VulnRow
+                key={r.pluginId}
+                row={r}
+                cols={vulnTable.visible}
+                index={index}
+                selected={r.pluginId === openPluginId}
+                measureRow={measure}
+                onClick={() => openVulnPanel(r.pluginId, r.hostsB > 0 ? fileB.id : fileA.id)}
+              />
+            );
+          }}
+        />
+      ) : (
+        <DataTable
+          table={hostTable}
+          sort={hostSort}
+          count={rowCount}
+          empty="Nothing in this group."
+          row={(index, measure) => {
+            const r = shownHosts[index];
+            return (
+              <HostRow
+                key={r.key}
+                row={r}
+                cols={hostTable.visible}
+                index={index}
+                selected={r.ip === openIp && r.countsB !== null}
+                measureRow={measure}
+                onClick={() => openHostPanel(r.ip, r.countsB ? fileB.id : fileA.id)}
+              />
+            );
+          }}
+        />
+      )}
 
       <p className="text-caption text-ink-500 dark:text-ink-400 shrink-0">
         Hosts are matched by MAC address, then hostname, then NetBIOS name, and by IP only when neither scan has one of these.
@@ -426,7 +425,7 @@ function VulnRow({ row, cols, index, selected, measureRow, onClick }: {
   onClick: () => void;
 }) {
   return (
-    <tr ref={measureRow} data-index={index} className={`table-row ${selected ? "!bg-accent-50 dark:!bg-accent-900/30" : ""}`} aria-selected={selected} onClick={onClick}>
+    <tr ref={measureRow} data-index={index} className={`table-row ${selected ? SELECTED_ROW : ""}`} aria-selected={selected} onClick={onClick}>
       {cols.map((col) => {
         switch (col.key) {
           case "severity": return <td key={col.key} className="table-cell"><SeverityBadge severity={row.severity} size="sm" /></td>;
@@ -459,7 +458,7 @@ function HostRow({ row, cols, index, selected, measureRow, onClick }: {
   const sev: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
 
   return (
-    <tr ref={measureRow} data-index={index} className={`table-row ${selected ? "!bg-accent-50 dark:!bg-accent-900/30" : ""}`} aria-selected={selected} onClick={onClick}>
+    <tr ref={measureRow} data-index={index} className={`table-row ${selected ? SELECTED_ROW : ""}`} aria-selected={selected} onClick={onClick}>
       {cols.map((col) => {
         switch (col.key) {
           case "host":

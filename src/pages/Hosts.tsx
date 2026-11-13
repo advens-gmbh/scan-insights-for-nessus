@@ -1,5 +1,4 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { ChevronDown, Check, Copy, AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
@@ -10,17 +9,15 @@ import { compareHosts } from "../utils/ip";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { spreadsheetCell } from "../utils/spreadsheet";
 import IpLink from "../components/common/IpLink";
-import SearchBar from "../components/common/SearchBar";
-import Select, { fileOption } from "../components/common/Select";
-import SpacerRow from "../components/common/SpacerRow";
-import ColumnPicker from "../components/common/ColumnPicker";
 import SeverityPills from "../components/common/SeverityPills";
-import TableHead from "../components/common/TableHead";
+import DataTable from "../components/common/DataTable";
+import TableToolbar from "../components/common/TableToolbar";
+import { CountCell, SELECTED_ROW } from "../components/common/TableCells";
+import { useFileFilter } from "../hooks/useFileFilter";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { useTableSort } from "../hooks/useTableSort";
 import { usePageState } from "../stores/pageStore";
-import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import { portNumbers } from "../utils/format";
@@ -55,28 +52,21 @@ const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbio
 const COPY_MENU_W = 208; // w-52
 
 const NO_ROWS: HostRow[] = [];
+const SEARCH = "Search IP, hostname, OS, port…";
 
 export default function Hosts() {
   const files = useScanStore((s) => s.files);
   const openHostPanel = useUiStore((s) => s.openHostPanel);
   const openIp = useUiStore((s) => s.hostPanelIp);
-  const location = useLocation();
 
   const [search, setSearch] = usePageState("hosts:search", "");
-  const [chosenFile, setFileFilter] = usePageState("hosts:file", "all");
-  const fileFilter = chosenFile === "all" || files.some((f) => f.id === chosenFile) ? chosenFile : "all";
-
-  useEffect(() => {
-    const handed = (location.state as { fileFilter?: string } | null)?.fileFilter;
-    if (handed) {
-      setFileFilter(handed);
-    }
-  }, [location.key, location.state, setFileFilter]);
+  const [fileFilter, setFileFilter] = useFileFilter("hosts");
   const { selected: selectedSeverities, toggle: toggleSeverity, clear: clearSeverities, matches: matchesSeverity } = useSeverityFilter("hosts");
 
   const table = useTableColumns("hosts", COLUMNS);
   const visibleCols = table.visible;
-  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort("hosts", visibleCols, "critical", "desc", TEXT_SORT_KEYS);
+  const sort = useTableSort("hosts", visibleCols, "critical", "desc", TEXT_SORT_KEYS);
+  const { sortKey: activeSort, sortDir } = sort;
 
   // ── Data pipeline ───────────────────────────────────────────────────────────
 
@@ -126,36 +116,7 @@ export default function Hosts() {
     return sortDir === "desc" ? -cmp : cmp;
   }), [filtered, activeSort, sortDir]);
 
-  const { scrollRef, rows, paddingTop, paddingBottom, measureRow, scrollToIndex } = useVirtualRows(sorted.length);
-
-  useEffect(() => {
-    if (openIp === null) {
-      return;
-    }
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") {
-        return;
-      }
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) {
-        return;
-      }
-
-      const index = sorted.findIndex((h) => h.ip === openIp);
-      const next = index === -1 ? 0 : index + (e.key === "ArrowDown" ? 1 : -1);
-      if (next < 0 || next >= sorted.length) {
-        return;
-      }
-
-      e.preventDefault();
-      openHostPanel(sorted[next].ip, fileFilter !== "all" ? fileFilter : undefined);
-      scrollToIndex(next, { align: "auto" });
-    };
-    window.addEventListener("keydown", onKey);
-
-    return () => window.removeEventListener("keydown", onKey);
-  }, [openIp, sorted, fileFilter, openHostPanel, scrollToIndex]);
+  const fileId = fileFilter !== "all" ? fileFilter : undefined;
 
   const [copied, setCopied] = useState(false);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
@@ -219,94 +180,74 @@ export default function Hosts() {
   );
 
   if (files.length === 0) {
-    return <EmptyFilesNotice page="hosts" columns={COLUMNS} search="Search IP, hostname, OS, port…" />;
+    return <EmptyFilesNotice page="hosts" columns={COLUMNS} search={SEARCH} />;
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* Filters bar */}
-      {/* line 1 holds the filter pills; line 2 search and file, with the table's tools on the right. */}
-      <div className="flex flex-col gap-3 shrink-0">
-        <div className="flex flex-wrap items-center gap-3">
-          <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-[1_1_15rem] min-w-40" />
-          {files.length > 1 && (
-            <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the hosts from" className="flex-[0_1_15rem] min-w-[9.5rem]" />
-          )}
-          <div className="ml-auto flex items-center gap-3 shrink-0">
-            <ColumnPicker table={table} />
-            {sorted.length > 0 && (
-              <div className="relative" ref={copyMenuRef}>
-                <button
-                  onClick={(e) => {
-                    // open towards whichever side has room for the menu
-                    const r = e.currentTarget.getBoundingClientRect();
-                    setMenuLeftward(r.left + COPY_MENU_W > window.innerWidth - 8);
-                    setShowCopyMenu((v) => !v);
-                  }}
-                  className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
-                    copied ? "text-good-600 dark:text-good-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
-                  }`}
-                >
-                  {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
-                  {copied ? "Copied!" : "Copy"}
-                  {!copied && <ChevronDown size={11} className="opacity-60" />}
-                </button>
-                {showCopyMenu && (
-                  <div className={`absolute ${menuLeftward ? "right-0" : "left-0"} top-full mt-1 z-50 card p-1 w-52 shadow-xl`}>
-                    <CopyMenuItem label="IP addresses" sub="one per line" onClick={() => copy("ips")} />
-                    <CopyMenuItem label="Hostnames" sub="one per line" onClick={() => copy("hostnames")} />
-                    <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
-                    <CopyMenuItem label="Visible columns" sub="TSV - pastes into Excel / Sheets" onClick={() => copy("visible")} />
-                  </div>
-                )}
+      <TableToolbar
+        pills={<SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />}
+        search={{ value: search, onChange: setSearch, placeholder: SEARCH }}
+        file={{ value: fileFilter, onChange: setFileFilter, ariaLabel: "Show the hosts from" }}
+        table={table}
+        tools={sorted.length > 0 && (
+          <div className="relative" ref={copyMenuRef}>
+            <button
+              onClick={(e) => {
+                // open towards whichever side has room for the menu
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenuLeftward(r.left + COPY_MENU_W > window.innerWidth - 8);
+                setShowCopyMenu((v) => !v);
+              }}
+              className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
+                copied ? "text-good-600 dark:text-good-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
+              }`}
+            >
+              {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
+              {copied ? "Copied!" : "Copy"}
+              {!copied && <ChevronDown size={11} className="opacity-60" />}
+            </button>
+            {showCopyMenu && (
+              <div className={`absolute ${menuLeftward ? "right-0" : "left-0"} top-full mt-1 z-50 card p-1 w-52 shadow-xl`}>
+                <CopyMenuItem label="IP addresses" sub="one per line" onClick={() => copy("ips")} />
+                <CopyMenuItem label="Hostnames" sub="one per line" onClick={() => copy("hostnames")} />
+                <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
+                <CopyMenuItem label="Visible columns" sub="TSV - pastes into Excel / Sheets" onClick={() => copy("visible")} />
               </div>
             )}
-            <span className="text-caption text-ink-500">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
           </div>
-        </div>
-      </div>
+        )}
+        count={`${sorted.length.toLocaleString()} ${sorted.length === 1 ? "host" : "hosts"}`}
+      />
 
-      {/* Table */}
-      <div className="card min-h-0 flex flex-col overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
-          <table style={table.style}>
-            <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
-            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
-              <SpacerRow height={paddingTop} colSpan={visibleCols.length} />
-              {rows.map((row) => {
-                const h = sorted[row.index];
-                const fileId = fileFilter !== "all" ? fileFilter : undefined;
-                return (
-                  <HostRow
-                    key={h.ip}
-                    host={h}
-                    visibleCols={visibleCols}
-                    fileId={fileId}
-                    index={row.index}
-                    selected={h.ip === openIp}
-                    measureRow={measureRow}
-                    onClick={() => openHostPanel(h.ip, fileId)}
-                  />
-                );
-              })}
-              <SpacerRow height={paddingBottom} colSpan={visibleCols.length} />
-              {sorted.length === 0 && answer !== undefined && (
-                <tr>
-                  <td colSpan={visibleCols.length} className="table-cell text-center text-ink-500 py-10">
-                    No hosts match the current filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        table={table}
+        sort={sort}
+        count={sorted.length}
+        empty={answer !== undefined ? "No hosts match the current filter." : null}
+        keys={{
+          open: openIp !== null,
+          current: () => sorted.findIndex((h) => h.ip === openIp),
+          go: (i) => openHostPanel(sorted[i].ip, fileId),
+        }}
+        row={(index, measure) => {
+          const h = sorted[index];
+          return (
+            <HostRow
+              key={h.ip}
+              host={h}
+              visibleCols={visibleCols}
+              fileId={fileId}
+              index={index}
+              selected={h.ip === openIp}
+              measureRow={measure}
+              onClick={() => openHostPanel(h.ip, fileId)}
+            />
+          );
+        }}
+      />
     </div>
   );
 }// Hosts
@@ -333,7 +274,7 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
     <tr
       ref={measureRow}
       data-index={index}
-      className={`table-row ${selected ? "!bg-accent-50 dark:!bg-accent-900/30" : ""}`}
+      className={`table-row ${selected ? SELECTED_ROW : ""}`}
       aria-selected={selected}
       onClick={onClick}
     >
@@ -424,11 +365,11 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
               </td>
             );
 
-          case "critical": return <td key="critical" className="table-cell text-center">{sc.critical > 0 ? <SevCount value={sc.critical} sev={4} /> : <Dash />}</td>;
-          case "high":     return <td key="high"     className="table-cell text-center">{sc.high     > 0 ? <SevCount value={sc.high}     sev={3} /> : <Dash />}</td>;
-          case "medium":   return <td key="medium"   className="table-cell text-center">{sc.medium   > 0 ? <SevCount value={sc.medium}   sev={2} /> : <Dash />}</td>;
-          case "low":      return <td key="low"      className="table-cell text-center">{sc.low      > 0 ? <SevCount value={sc.low}      sev={1} /> : <Dash />}</td>;
-          case "info":     return <td key="info"     className="table-cell text-center">{sc.info     > 0 ? <SevCount value={sc.info}     sev={0} /> : <Dash />}</td>;
+          case "critical": return <CountCell key="critical" value={sc.critical} severity={4} />;
+          case "high":     return <CountCell key="high"     value={sc.high}     severity={3} />;
+          case "medium":   return <CountCell key="medium"   value={sc.medium}   severity={2} />;
+          case "low":      return <CountCell key="low"      value={sc.low}      severity={1} />;
+          case "info":     return <CountCell key="info"     value={sc.info}     severity={0} />;
 
           case "ports":
             return (
@@ -447,15 +388,6 @@ function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onCli
 function macAddresses(mac: string | null): string[] {
   return mac ? mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
 }// macAddresses
-
-function SevCount({ value, sev }: { value: number; sev: number }) {
-  const color = { 4: "text-critical-fg", 3: "text-high-fg", 2: "text-medium-fg", 1: "text-low-fg", 0: "text-info-fg" }[sev] ?? "text-info-fg";
-  return <span className={`font-semibold text-body ${color}`}>{value.toLocaleString()}</span>;
-}// SevCount
-
-function Dash() {
-  return <span className="text-ink-300 dark:text-ink-600">-</span>;
-}// Dash
 
 function CopyMenuItem({ label, sub, onClick }: { label: string; sub: string; onClick: () => void }) {
   return (

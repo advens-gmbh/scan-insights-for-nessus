@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -142,6 +143,16 @@ fn save_json<T: Serialize>(dir: &Path, name: &str, value: &T) -> Result<(), Stri
     private_file::write(dir.join(name), json).map_err(|e| e.to_string())
 }// save_json
 
+// what was saved under `name`, or the empty default before anything was
+fn load_json<T: DeserializeOwned + Default>(dir: &Path, name: &str) -> Result<T, String> {
+    let path = dir.join(name);
+    if !path.exists() {
+        return Ok(T::default());
+    }
+    let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&raw).map_err(|e| e.to_string())
+}// load_json
+
 #[tauri::command]
 pub fn save_projects(app: AppHandle, projects: Vec<Project>,) -> Result<(), String> {
     save_json(&app_data_dir(&app)?, "projects.json", &projects)
@@ -149,12 +160,7 @@ pub fn save_projects(app: AppHandle, projects: Vec<Project>,) -> Result<(), Stri
 
 #[tauri::command]
 pub fn load_projects(app: AppHandle) -> Result<Vec<Project>, String> {
-    let path = app_data_dir(&app)?.join("projects.json");
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&raw).map_err(|e| e.to_string())
+    load_json(&app_data_dir(&app)?, "projects.json")
 }// load_projects
 
 #[tauri::command]
@@ -164,12 +170,7 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String
 
 #[tauri::command]
 pub fn load_settings(app: AppHandle) -> Result<AppSettings, String> {
-    let path = app_data_dir(&app)?.join("settings.json");
-    if !path.exists() {
-        return Ok(AppSettings::default());
-    }
-    let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&raw).map_err(|e| e.to_string())
+    load_json(&app_data_dir(&app)?, "settings.json")
 }// load_settings
 
 #[tauri::command]
@@ -181,12 +182,7 @@ pub fn save_recent_files(app: AppHandle, files: Vec<RecentFile>) -> Result<(), S
 
 #[tauri::command]
 pub fn load_recent_files(app: AppHandle) -> Result<Vec<RecentFile>, String> {
-    let path = app_data_dir(&app)?.join("recent_files.json");
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&raw).map_err(|e| e.to_string())
+    load_json(&app_data_dir(&app)?, "recent_files.json")
 }// load_recent_files
 
 // ── url opener ───────────────────────────────────────────────────────────────
@@ -219,7 +215,7 @@ pub fn open_url(url: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify, exported_file, file_sizes, is_web_url, load_error, require_hosts, save_json};
+    use super::{classify, exported_file, file_sizes, is_web_url, load_error, load_json, require_hosts, save_json};
     use crate::state::AppState;
     use crate::parser::parse_str;
     use crate::private_file::testing::TempDir;
@@ -251,6 +247,19 @@ mod tests {
             assert_eq!(mode(&dir), 0o700);
             assert_eq!(mode(&dir.join("values.json")), 0o600);
         }
+    }
+
+    #[test]
+    fn loaded_json_is_what_was_saved_or_the_default() {
+        let temp = TempDir::new();
+        let dir = temp.path().join("app-data");
+
+        assert_eq!(load_json::<Vec<i32>>(&dir, "values.json").unwrap(), Vec::<i32>::new());
+        save_json(&dir, "values.json", &vec![3, 4]).unwrap();
+        assert_eq!(load_json::<Vec<i32>>(&dir, "values.json").unwrap(), [3, 4]);
+
+        std::fs::write(dir.join("broken.json"), "[1,").unwrap();
+        assert!(load_json::<Vec<i32>>(&dir, "broken.json").is_err());
     }
 
     #[test]

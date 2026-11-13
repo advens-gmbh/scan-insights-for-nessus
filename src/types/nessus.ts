@@ -107,8 +107,8 @@ export interface HostRow {
   system_type: string | null;
   credentialed_scan: boolean;
   os_unsupported: boolean;
-  host_start: string | null;
-  host_end: string | null;
+  start: number | null;
+  duration_ms: number | null;
   alt_hostnames: string[];
   file_id: string;       // primary (first) file
   filename: string;      // primary (first) filename

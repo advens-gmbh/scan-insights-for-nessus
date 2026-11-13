@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { folderOf, formatBytes, portNumbers, timeAgo } from "./format";
+import { folderOf, formatBytes, portNumbers, timeAgo, formatDuration } from "./format";
 
 describe("formatBytes", () => {
   it("picks a readable unit", () => {
@@ -44,5 +44,14 @@ describe("portNumbers", () => {
 
   it("skips what isn't a port", () => {
     expect(portNumbers(["general/tcp", "80/tcp"])).toEqual([80]);
+  });
+});
+
+describe("formatDuration", () => {
+  it("shows hours and minutes", () => {
+    expect(formatDuration((60 + 48) * 60000)).toBe("1 h 48 min");
+    expect(formatDuration(3 * 3600000)).toBe("3 h");
+    expect(formatDuration(54 * 60000)).toBe("54 min");
+    expect(formatDuration(20000)).toBe("under 1 min");
   });
 });

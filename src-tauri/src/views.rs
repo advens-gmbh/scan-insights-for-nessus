@@ -560,8 +560,8 @@ pub struct HostRow<'a> {
     system_type: Option<&'a str>,
     credentialed_scan: bool,
     os_unsupported: bool,
-    host_start: Option<&'a str>,
-    host_end: Option<&'a str>,
+    start: Option<i64>,       // ms since 1970
+    duration_ms: Option<i64>,
     alt_hostnames: &'a [String],
     file_id: &'a str,
     filename: &'a str,
@@ -576,6 +576,7 @@ impl Host {
     pub fn row<'a>(&'a self, view: &'a View) -> HostRow<'a> {
         let p = &self.props;
         let files: Vec<&NessusFile> = self.file_ids.iter().map(|&f| view.files[f as usize].as_ref()).collect();
+        let (start, duration_ms) = scan_window([p]);
         HostRow {
             ip: &p.ip,
             hostname: p.hostname.as_deref(),
@@ -586,8 +587,8 @@ impl Host {
             system_type: p.system_type.as_deref(),
             credentialed_scan: p.credentialed_scan,
             os_unsupported: p.os_unsupported,
-            host_start: p.host_start.as_deref(),
-            host_end: p.host_end.as_deref(),
+            start,
+            duration_ms,
             alt_hostnames: &p.alt_hostnames,
             file_id: &files[0].id,
             filename: &files[0].filename,
@@ -794,6 +795,18 @@ mod tests {
         // 7 Nov 2025 was a Friday
         assert_eq!(nessus_time(Some("Sat Nov  7 22:10:03 2025")), nessus_time(Some("Fri Nov 7 22:10:03 2025")));
         assert!(nessus_time(Some("Sat Nov  7 22:10:03 2025")).is_some());
+    }
+
+    #[test]
+    fn a_host_row_has_its_own_scan_time() {
+        let a = scan("a", &(host("10.0.0.1", r#"<tag name="HOST_START">Mon Jan  1 10:00:00 2024</tag><tag name="HOST_END">Mon Jan  1 10:30:00 2024</tag>"#, &[]) + &host("10.0.0.2", r#"<tag name="HOST_START">Mon Jan  1 09:00:00 2024</tag>"#, &[])));
+        let view = View::new(vec![a]);
+        let row = |ip: &str| serde_json::to_value(view.hosts().list.iter().find(|h| h.props.ip == ip).unwrap().row(&view)).unwrap();
+        assert_eq!(row("10.0.0.1")["start"], serde_json::json!(nessus_time(Some("Mon Jan 1 10:00:00 2024"))));
+        assert_eq!(row("10.0.0.1")["duration_ms"], serde_json::json!(30 * 60 * 1000));
+        // started, but no end time
+        assert!(row("10.0.0.2")["start"].is_i64());
+        assert!(row("10.0.0.2")["duration_ms"].is_null());
     }
 
     #[test]

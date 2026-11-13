@@ -4,8 +4,9 @@ import { AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import type { ScanFile, SeverityCounts } from "../types/nessus";
-import { formatDuration, formatScanStart } from "../utils/dashboard";
-import { byScanDate, defaultTrendSelection, fileCounts, fileStart, fileWindow, previousRuns, sameScan, sameScansOf } from "../utils/trends";
+import { formatDuration, formatScanStart } from "../utils/format";
+import { byScanDate, defaultTrendSelection, previousRuns, sameScan, sameScansOf } from "../utils/trends";
+import { fileStart, fileWindow } from "../utils/fileFacts";
 import { useQuery } from "../data/query";
 import type { TableColumn } from "../utils/tableColumns";
 import TableHead from "../components/common/TableHead";
@@ -72,7 +73,7 @@ export default function Trends() {
   }, [runs]);
 
   const points: TrendPoint[] = useMemo(
-    () => runs.map((f) => ({ id: f.id, date: label(f), filename: f.filename, ...fileCounts(f) })),
+    () => runs.map((f) => ({ id: f.id, date: label(f), filename: f.filename, ...f.counts })),
     [runs, label]
   );
 
@@ -91,10 +92,10 @@ export default function Trends() {
       return {
         file: f,
         start: fileStart(f),
-        counts: fileCounts(f),
+        counts: f.counts,
         window: fileWindow(f),
         previous: before,
-        countsBefore: before ? fileCounts(before.file) : null,
+        countsBefore: before ? before.file.counts : null,
         changes: changed,
       };
     });

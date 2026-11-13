@@ -1,25 +1,20 @@
-import { useEffect, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import type { ServiceEntry } from "../types/nessus";
 import { useQuery } from "../data/query";
-import SearchBar from "../components/common/SearchBar";
-import Select, { fileOption } from "../components/common/Select";
-import SpacerRow from "../components/common/SpacerRow";
-import ColumnPicker from "../components/common/ColumnPicker";
 import SeverityPills from "../components/common/SeverityPills";
-import TableHead from "../components/common/TableHead";
+import DataTable from "../components/common/DataTable";
+import TableToolbar from "../components/common/TableToolbar";
+import { CountCell, SELECTED_ROW } from "../components/common/TableCells";
+import { useFileFilter } from "../hooks/useFileFilter";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { useTableColumns } from "../hooks/useTableColumns";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { groupServices } from "../utils/serviceGroups";
 import { useTableSort } from "../hooks/useTableSort";
 import { usePageState } from "../stores/pageStore";
-
-const NO_GROUPS = new Set<string>();
-import { useVirtualRows } from "../hooks/useVirtualRows";
 import type { TableColumn } from "../utils/tableColumns";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import { ExploitTag } from "../panels/PanelParts";
@@ -47,8 +42,9 @@ const COLUMNS: ColDef[] = [
   { key: "exploit",  label: "Exploit",  width: 100 },
 ];// COLUMNS
 
-
 const NO_ROWS: ServiceEntry[] = [];
+const NO_GROUPS = new Set<string>();
+const SEARCH = "Search port, service, IP…";
 
 export default function Services() {
   const files = useScanStore((s) => s.files);
@@ -59,24 +55,16 @@ export default function Services() {
 
   const [search, setSearch] = usePageState("services:search", "");
   const [protocol, setProtocol] = usePageState<Protocol>("services:protocol", "all");
-  const location = useLocation();
-  const [chosenFile, setFileFilter] = usePageState("services:file", "all");
-  const fileFilter = chosenFile === "all" || files.some((f) => f.id === chosenFile) ? chosenFile : "all";
+  const [fileFilter, setFileFilter] = useFileFilter("services");
   const [openGroups, setOpenGroups] = usePageState<Set<string>>("services:open", NO_GROUPS);
 
-  useEffect(() => {
-    const handed = (location.state as { fileFilter?: string } | null)?.fileFilter;
-    if (handed) {
-      setFileFilter(handed);
-    }
-  }, [location.key, location.state, setFileFilter]);
   const { selected: selectedSeverities, toggle: toggleSeverity, clear: clearSeverities, matches: matchesSeverity } = useSeverityFilter("services");
 
   const table = useTableColumns("services", COLUMNS);
-  const { sortKey: activeSort, sortDir, toggleSort } = useTableSort("services", table.visible, "port", "asc", ASCENDING_FIRST);
+  const sort = useTableSort("services", table.visible, "port", "asc", ASCENDING_FIRST);
+  const { sortKey: activeSort, sortDir } = sort;
 
-  const activeFile = files.some((f) => f.id === fileFilter) ? fileFilter : "all";
-  const fileId = activeFile !== "all" ? activeFile : undefined;
+  const fileId = fileFilter !== "all" ? fileFilter : undefined;
   const answer = useQuery<ServiceEntry[]>("service_rows", files.length > 0 ? { file: fileId ?? null } : null);
   const services = answer ?? NO_ROWS;
 
@@ -140,7 +128,6 @@ export default function Services() {
     return out;
   }, [filtered, grouped, openGroups, activeSort, sortDir]);
 
-  const { scrollRef, rows: virtualRows, paddingTop, paddingBottom, measureRow, scrollToIndex } = useVirtualRows(rows.length);
 
   const toggleGroup = (name: string) => {
     setOpenGroups((prev) => {
@@ -155,138 +142,90 @@ export default function Services() {
     });
   };
 
-  useEffect(() => {
-    if (openKey === null) {
-      return;
-    }
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") {
-        return;
-      }
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) {
-        return;
-      }
-
-      const step = e.key === "ArrowDown" ? 1 : -1;
-      const current = rows.findIndex((r) => r.kind === "service" && r.service.key === openKey);
-      let next = current === -1 ? 0 : current + step;
-      while (next >= 0 && next < rows.length && rows[next].kind !== "service") {
-        next += current === -1 ? 1 : step;
-      }
-      const row = rows[next];
-      if (!row || row.kind !== "service") {
-        return;
-      }
-
-      e.preventDefault();
-      openServicePanel(row.service.key, fileId);
-      scrollToIndex(next, { align: "auto" });
-    };
-    window.addEventListener("keydown", onKey);
-
-    return () => window.removeEventListener("keydown", onKey);
-  }, [openKey, rows, fileId, openServicePanel, scrollToIndex]);
-
   if (files.length === 0) {
-    return <EmptyFilesNotice page="services" columns={COLUMNS} search="Search port, service, IP…" />;
+    return <EmptyFilesNotice page="services" columns={COLUMNS} search={SEARCH} />;
   }
 
-  const columnCount = table.visible.length;
   const groupCount = grouped ? new Set(rows.filter((r) => !(r.kind === "service" && r.nested)).map((r) => r.kind === "group" ? r.name : r.service.key)).size : 0;
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* Filters */}
-      {/* line 1 holds the filter pills; line 2 search and file, with the table's tools on the right. */}
-      <div className="flex flex-col gap-3 shrink-0">
-        <div className="flex flex-wrap items-center gap-3">
-        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
+      <TableToolbar
+        pills={
+          <>
+            <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
+            <div className="flex items-center gap-1.5">
+              {(["all", "tcp", "udp"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setProtocol(p)}
+                  aria-pressed={protocol === p}
+                  className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${
+                    protocol === p
+                      ? "bg-accent-600 text-white"
+                      : "bg-ink-100 dark:bg-ink-700 text-ink-600 dark:text-ink-300"
+                  }`}
+                >
+                  {p === "all" ? "All" : p.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </>
+        }
+        search={{ value: search, onChange: setSearch, placeholder: SEARCH }}
+        file={{ value: fileFilter, onChange: setFileFilter, ariaLabel: "Show the services from" }}
+        table={table}
+        tools={
+          <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none">
+            <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
+            Group by service
+          </label>
+        }
+        count={grouped
+          ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
+          : `${filtered.length.toLocaleString()} services`}
+      />
 
-        <div className="flex items-center gap-1.5">
-          {(["all", "tcp", "udp"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setProtocol(p)}
-              aria-pressed={protocol === p}
-              className={`pill px-3 py-1 text-body font-semibold cursor-pointer transition-colors ${
-                protocol === p
-                  ? "bg-accent-600 text-white"
-                  : "bg-ink-100 dark:bg-ink-700 text-ink-600 dark:text-ink-300"
-              }`}
-            >
-              {p === "all" ? "All" : p.toUpperCase()}
-            </button>
-          ))}
-        </div>
-
-        </div>
-
-        <div className="flex items-center gap-3">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-[1_1_15rem] min-w-40" />
-          {files.length > 1 && (
-            <Select value={activeFile} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the services from" className="flex-[0_1_15rem] min-w-[9.5rem]" />
-          )}
-          <div className="ml-auto flex items-center gap-3 shrink-0">
-            <ColumnPicker table={table} />
-            <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none">
-              <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
-              Group by service
-            </label>
-            <span className="text-caption text-ink-500">
-              {grouped
-                ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
-                : `${filtered.length.toLocaleString()} services`}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Table - fills remaining height, scrolls internally so thead stays sticky */}
-      <div className="card min-h-0 flex flex-col overflow-hidden">
-        <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
-          <table style={table.style}>
-            <TableHead table={table} sortKey={activeSort} sortDir={sortDir} onSort={toggleSort} />
-            <tbody className="divide-y divide-ink-100 dark:divide-ink-700/50">
-              <SpacerRow height={paddingTop} colSpan={columnCount} />
-              {virtualRows.map((vr) => {
-                const row = rows[vr.index];
-                return row.kind === "group" ? (
-                  <ServiceRow
-                    key={`group:${row.name}`}
-                    service={row.summary}
-                    visibleCols={table.visible}
-                    index={vr.index}
-                    measureRow={measureRow}
-                    group={{ name: row.name, ports: row.ports, open: row.open }}
-                    onClick={() => toggleGroup(row.name)}
-                  />
-                ) : (
-                  <ServiceRow
-                    key={row.service.key}
-                    service={row.service}
-                    visibleCols={table.visible}
-                    index={vr.index}
-                    nested={row.nested}
-                    selected={row.service.key === openKey}
-                    measureRow={measureRow}
-                    onClick={() => openServicePanel(row.service.key, fileId)}
-                  />
-                );
-              })}
-              <SpacerRow height={paddingBottom} colSpan={columnCount} />
-              {rows.length === 0 && answer !== undefined && (
-                <tr>
-                  <td colSpan={columnCount} className="table-cell text-center text-ink-500 py-10">
-                    No services match the current filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        table={table}
+        sort={sort}
+        count={rows.length}
+        empty={answer !== undefined ? "No services match the current filter." : null}
+        keys={{
+          open: openKey !== null,
+          current: () => rows.findIndex((r) => r.kind === "service" && r.service.key === openKey),
+          selectable: (i) => rows[i].kind === "service",
+          go: (i) => {
+            const row = rows[i];
+            if (row.kind === "service") openServicePanel(row.service.key, fileId);
+          },
+        }}
+        row={(index, measure) => {
+          const row = rows[index];
+          return row.kind === "group" ? (
+            <ServiceRow
+              key={`group:${row.name}`}
+              service={row.summary}
+              visibleCols={table.visible}
+              index={index}
+              measureRow={measure}
+              group={{ name: row.name, ports: row.ports, open: row.open }}
+              onClick={() => toggleGroup(row.name)}
+            />
+          ) : (
+            <ServiceRow
+              key={row.service.key}
+              service={row.service}
+              visibleCols={table.visible}
+              index={index}
+              nested={row.nested}
+              selected={row.service.key === openKey}
+              measureRow={measure}
+              onClick={() => openServicePanel(row.service.key, fileId)}
+            />
+          );
+        }}
+      />
     </div>
   );
 }// Services
@@ -303,7 +242,7 @@ function ServiceRow({ service, visibleCols, index, nested = false, selected = fa
 }) {
   const sc = service.severity_counts;
   const names = service.svc_names.join(", ");
-  const tone = group ? "bg-ink-50 dark:bg-ink-800/60" : selected ? "!bg-accent-50 dark:!bg-accent-900/30" : "";
+  const tone = group ? "bg-ink-50 dark:bg-ink-800/60" : selected ? SELECTED_ROW : "";
 
   return (
     <tr
@@ -348,15 +287,15 @@ function ServiceRow({ service, visibleCols, index, nested = false, selected = fa
           case "findings":
             return <td key={col.key} className="table-cell text-center text-ink-700 dark:text-ink-200">{service.findings.length.toLocaleString()}</td>;
           case "critical":
-            return <Count key={col.key} value={sc.critical} color="text-critical-fg" />;
+            return <CountCell key={col.key} value={sc.critical} severity={4} />;
           case "high":
-            return <Count key={col.key} value={sc.high} color="text-high-fg" />;
+            return <CountCell key={col.key} value={sc.high} severity={3} />;
           case "medium":
-            return <Count key={col.key} value={sc.medium} color="text-medium-fg" />;
+            return <CountCell key={col.key} value={sc.medium} severity={2} />;
           case "low":
-            return <Count key={col.key} value={sc.low} color="text-low-fg" />;
+            return <CountCell key={col.key} value={sc.low} severity={1} />;
           case "info":
-            return <Count key={col.key} value={sc.info} color="text-info-fg" />;
+            return <CountCell key={col.key} value={sc.info} severity={0} />;
           case "exploit":
             return (
               <td key={col.key} className="table-cell">
@@ -370,13 +309,3 @@ function ServiceRow({ service, visibleCols, index, nested = false, selected = fa
     </tr>
   );
 }// ServiceRow
-
-function Count({ value, color }: { value: number; color: string }) {
-  return (
-    <td className="table-cell text-center">
-      {value > 0
-        ? <span className={`font-semibold text-body ${color}`}>{value.toLocaleString()}</span>
-        : <span className="text-ink-300 dark:text-ink-600">-</span>}
-    </td>
-  );
-}// Count

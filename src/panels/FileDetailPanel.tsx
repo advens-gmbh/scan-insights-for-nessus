@@ -4,7 +4,7 @@ import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
 import type { ScanFile } from "../types/nessus";
 import { useQuery } from "../data/query";
-import { formatDuration, formatScanStart } from "../utils/dashboard";
+import { formatDuration, formatScanStart } from "../utils/format";
 import { fileWindow } from "../utils/fileFacts";
 import { splitTargets, targetCoverage } from "../utils/fileTargets";
 import type { TargetCoverage } from "../utils/fileTargets";

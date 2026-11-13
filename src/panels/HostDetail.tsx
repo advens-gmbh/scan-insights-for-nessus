@@ -5,7 +5,7 @@ import { useScanStore } from "../stores/scanStore";
 import { osGuesses } from "../types/nessus";
 import type { FindingRow, HostRow } from "../types/nessus";
 import { useQuery } from "../data/query";
-import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
+import { formatDuration, formatScanStart } from "../utils/format";
 import { fileStart } from "../utils/fileFacts";
 
 const FILES_SHOWN = 3;
@@ -56,7 +56,6 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
   const { tcp, udp } = detail;
   const osValues = osGuesses(host.os);
   const macs = host.mac ? host.mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
-  const scan = scanWindow([host]);
   const multiFile = acrossFiles.file_ids.length > 1;
   // newest scan first, with its date
   const scanFiles = acrossFiles.file_ids.map((id, i) => {
@@ -109,10 +108,10 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
             <Detail label="System type" value={host.system_type} />
             {multiFile ? (
               scanFiles[0]?.start != null && <Detail label="Last scanned" value={formatScanStart(new Date(scanFiles[0].start))} />
-            ) : scan.start && (
+            ) : host.start !== null && (
               <Detail
                 label="Scanned"
-                value={`${formatScanStart(scan.start)}${scan.durationMs !== null ? `, ran for ${formatDuration(scan.durationMs)}` : ""}`}
+                value={`${formatScanStart(new Date(host.start))}${host.duration_ms !== null ? `, ran for ${formatDuration(host.duration_ms)}` : ""}`}
               />
             )}
             <dt className="text-ink-500 dark:text-ink-400">{multiFile ? "Scan files" : "Scan file"}</dt>
