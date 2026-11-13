@@ -1,6 +1,6 @@
 [package]
 name = "scan-insights-for-nessus"
-version = "0.1.0"
+version = "1.0.0"
 description = "Scan Insights for Nessus - desktop .nessus file viewer"
 authors = []
 edition = "2021"

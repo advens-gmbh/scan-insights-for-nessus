@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (cmd: string, args?: unknown) => invoke(cmd, args) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+// how many files are read at once depends on the cores, so every machine gets the same
+vi.stubGlobal("navigator", { hardwareConcurrency: 8 });
 
 const { useScanStore } = await import("./scanStore");
 const { useNotificationStore } = await import("./notificationStore");
