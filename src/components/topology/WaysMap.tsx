@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { ChevronDown, ChevronUp, Monitor, Router } from "lucide-react";
-import type { HostEntry } from "../../types/nessus";
+import type { TopologyHost } from "../../types/nessus";
 import type { Link, ScannerNode, WayCrowd, WayEdge, WayGraph, WayMachine, WayNet, WayNode } from "../../utils/topology";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
@@ -49,7 +49,7 @@ interface Props {
   target: string | null;
   lit: string | null;                           // a hovered machine
   picked: string | null;                        // the machine shown in the side panel
-  worstShown: (h: HostEntry) => number | null;
+  worstShown: (h: TopologyHost) => number | null;
   onPick: (target: string) => void;
   onMachine: (id: string) => void;
   onZoom: (k: number) => void;
@@ -201,7 +201,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
   // where the map was left, kept while the same files are loaded
   const loaded = graph.starts.join("|") + graph.nets.size;
   const [saved, save] = usePageState<{ loaded: string; x: number; y: number; k: number } | null>("topology:view", null);
-  const restored = useRef(saved?.loaded === loaded);
+  const fittedFor = useRef(saved?.loaded === loaded ? loaded : null);
   const [view, setView] = useState(() => (saved?.loaded === loaded ? { x: saved.x, y: saved.y, k: saved.k } : { x: 20, y: 10, k: 1 }));
   useEffect(() => save({ loaded, ...view }), [loaded, view, save]);
   const viewRef = useRef(view);
@@ -241,11 +241,12 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
   useLayoutEffect(() => {
     fitRef.current = fit;
   }, [fit]);
+  // remembers which files the view belongs to
   useLayoutEffect(() => {
-    if (restored.current) {
-      restored.current = false;
+    if (fittedFor.current === loaded) {
       return;
     }
+    fittedFor.current = loaded;
     fitRef.current(FIRST_ZOOM);
   }, [loaded]);
 
@@ -368,11 +369,11 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
   const above = [...lines.entries()].filter(([k]) => onWay.has(k)).map(([, l]) => l);
 
   const onWayNode = new Set(way?.nodes ?? []);
-  const worstOf = (hosts: HostEntry[]) => hosts.reduce<number | null>((w, h) => {
+  const worstOf = (hosts: TopologyHost[]) => hosts.reduce<number | null>((w, h) => {
     const s = worstShown(h);
     return s !== null && (w === null || s > w) ? s : w;
   }, null);
-  const bar = (hosts: HostEntry[]) => {
+  const bar = (hosts: TopologyHost[]) => {
     const counts = [0, 0, 0, 0, 0];
     hosts.forEach((h) => {
       const s = worstShown(h);

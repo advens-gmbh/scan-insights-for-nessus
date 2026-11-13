@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { ratedScore, SEVERITY_COLORS } from "../types/nessus";
-import type { CvssScore, ReportItem, SeverityCounts } from "../types/nessus";
+import type { CvssScore, FindingRow, SeverityCounts } from "../types/nessus";
 import SeverityBadge from "../components/common/SeverityBadge";
 
 export const COUNTS = [
@@ -30,7 +30,7 @@ export interface FindingGroup {
   key: string;
   counts: number[]; // indexed by severity
   worst: number;
-  items: ReportItem[];
+  items: FindingRow[];
 }// FindingGroup
 
 export function CountBoxes({ counts }: { counts: SeverityCounts }) {
@@ -49,7 +49,7 @@ export function CountBoxes({ counts }: { counts: SeverityCounts }) {
   );
 }// CountBoxes
 
-export function itemScore(i: ReportItem): CvssScore | null {
+export function itemScore(i: FindingRow): CvssScore | null {
   return ratedScore({ cvss4: i.cvss4_base_score, cvss3: i.cvss3_base_score, cvss2: i.cvss_base_score, severity: i.severity });
 }// itemScore
 

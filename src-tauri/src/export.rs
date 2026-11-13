@@ -349,7 +349,7 @@ fn merge_hosts<'a>(files: &[&'a NessusFile], req: &ExportRequest) -> Vec<MergedH
             let target = &mut merged[slot];
             target.fill_gaps_from(host);
 
-            let key = |i: &&'a ReportItem| (i.plugin_id, i.port, i.protocol.as_str());
+            let key = |i: &&'a ReportItem| (i.plugin_id, i.port, &*i.protocol);
             let mut fresh: Vec<&'a ReportItem> = Vec::new();
             for item in items {
                 match target.seen.get(&key(&item)) {
@@ -502,14 +502,14 @@ fn write_report_item(out: &mut String, item: &ReportItem, source_file: &str) {
         write_elem(out, "unsupported_by_vendor", "true");
     }
     let optional = [
-        ("metasploit_name", &item.metasploit_name),
-        ("exploitability_ease", &item.exploit_ease),
-        ("exploit_code_maturity", &item.exploit_maturity),
-        ("cisa-known-exploited", &item.cisa_known_exploited),
-        ("patch_publication_date", &item.patch_publication_date),
-        ("vuln_publication_date", &item.vuln_publication_date),
-        ("script_version", &item.script_version),
-        ("plugin_output", &item.plugin_output),
+        ("metasploit_name", item.metasploit_name.as_deref()),
+        ("exploitability_ease", item.exploit_ease.as_deref()),
+        ("exploit_code_maturity", item.exploit_maturity.as_deref()),
+        ("cisa-known-exploited", item.cisa_known_exploited.as_deref()),
+        ("patch_publication_date", item.patch_publication_date.as_deref()),
+        ("vuln_publication_date", item.vuln_publication_date.as_deref()),
+        ("script_version", item.script_version.as_deref()),
+        ("plugin_output", item.plugin_output.as_deref()),
     ];
     for (tag, value) in optional {
         if let Some(value) = value {

@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { severityCounts } from "../types/nessus";
-import type { NessusFile } from "../types/nessus";
-import { compareHosts } from "../utils/ip";
-import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
+import type { ScanFile } from "../types/nessus";
+import { useQuery } from "../data/query";
+import { formatDuration, formatScanStart } from "../utils/dashboard";
+import { fileWindow } from "../utils/fileFacts";
 import { splitTargets, targetCoverage } from "../utils/fileTargets";
 import type { TargetCoverage } from "../utils/fileTargets";
 import IpLink from "../components/common/IpLink";
@@ -15,6 +15,16 @@ import { CountBoxes } from "./FindingParts";
 
 const HOSTS_COLLAPSED = 24; // 6 rows of 4 at the panel's full width
 const TARGETS_COLLAPSED = 10;
+
+// a host of the file, as file_host_list answers it (sorted by address)
+interface BriefHost {
+  ip: string;
+  name: string;
+  hostname: string | null;
+  credentialed_scan: boolean;
+}// BriefHost
+
+const NO_HOSTS: BriefHost[] = [];
 
 export default function FileDetailPanel({ fileId }: { fileId: string }) {
   const closeFilePanel = useUiStore((s) => s.closeFilePanel);
@@ -32,12 +42,14 @@ export default function FileDetailPanel({ fileId }: { fileId: string }) {
   );
 }// FileDetailPanel
 
-function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void }) {
-  const hosts = [...file.hosts].sort((a, b) => compareHosts(a.ip, b.ip));
-  const coverage = targetCoverage(splitTargets(file.target), hosts);
+function FileContent({ file, onClose }: { file: ScanFile; onClose: () => void }) {
+  const listed = useQuery<BriefHost[]>("file_host_list", { id: file.id });
+  const hosts = listed ?? NO_HOSTS;
+  // nothing counts as missed until the hosts are here
+  const coverage = useMemo(() => (listed ? targetCoverage(splitTargets(file.target), listed) : []), [file.target, listed]);
   const missed = coverage.filter((t) => t.ips.length === 0);
-  const scan = scanWindow(file.hosts);
-  const credentialed = hosts.filter((h) => h.credentialed_scan).length;
+  const scan = fileWindow(file);
+  const credentialed = file.credentialed;
   const withoutCredentials = credentialed > 0 ? hosts.filter((h) => !h.credentialed_scan) : [];
   const name = file.filename.replace(/\.nessus$/i, "");
   const scanned = scan.start ? `${formatScanStart(scan.start)}${scan.durationMs !== null ? `, ran for ${formatDuration(scan.durationMs)}` : ""}` : null;
@@ -51,9 +63,9 @@ function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void 
           <PanelButtons onClose={onClose} />
         </div>
         <p className="text-small text-ink-500 dark:text-ink-400 truncate">
-          {[file.report_name, `${hosts.length} ${hosts.length === 1 ? "host" : "hosts"}`].filter(Boolean).join(" · ")}
+          {[file.report_name, `${file.host_count} ${file.host_count === 1 ? "host" : "hosts"}`].filter(Boolean).join(" · ")}
         </p>
-        <CountBoxes counts={severityCounts(file.hosts)} />
+        <CountBoxes counts={file.counts} />
       </div>
 
       {/* Body */}
@@ -76,8 +88,8 @@ function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void 
               label="Credentialed"
               value={
                 credentialed === 0 ? "No"
-                  : credentialed === hosts.length ? `Yes, all ${hosts.length} hosts`
-                  : `${credentialed} of ${hosts.length} hosts`
+                  : credentialed === file.host_count ? `Yes, all ${file.host_count} hosts`
+                  : `${credentialed} of ${file.host_count} hosts`
               }
             />
             <Detail label="File" value={file.path} copy />
@@ -88,6 +100,9 @@ function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void 
           title={`Targets (${coverage.length})${missed.length > 0 ? ` · ${missed.length} not reached` : ""}`}
           actions={coverage.length > 0 && (
             <div className="flex items-center gap-1">
+              {missed.length > 0 && missed.length < coverage.length && (
+                <CopyButton text={coverage.filter((t) => t.ips.length > 0).map((t) => t.target).join("\n")} label="Copy reached" />
+              )}
               {missed.length > 0 && <CopyButton text={missed.map((t) => t.target).join("\n")} label="Copy not reached" />}
               <CopyButton text={coverage.map((t) => t.target).join("\n")} label="Copy all" />
             </div>
@@ -101,7 +116,7 @@ function FileContent({ file, onClose }: { file: NessusFile; onClose: () => void 
         </Section>
 
         <IpSection
-          title={`Hosts (${hosts.length})`}
+          title={`Hosts (${file.host_count})`}
           hosts={hosts}
           fileId={file.id}
           empty="No hosts in this scan file."

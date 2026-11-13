@@ -1,10 +1,10 @@
-import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, ShieldAlert, Server, Layers, Network, GitCompare, TrendingUp, FolderOpen, Download, ChevronLeft, ChevronRight,} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
-import { buildHostEntries, buildServiceEntries, buildVulnEntries } from "../../types/nessus";
+import { useQuery } from "../../data/query";
+import type { ListCounts } from "../../data/types";
 import logo from "../../assets/app-icon.svg";
 import About from "./About";
 
@@ -31,12 +31,9 @@ const NAV_GROUPS: { label: string | null; items: Item[] }[] = [
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
-  const files = useScanStore((s) => s.files);
-  const counts = useMemo<Record<Counted, number> | null>(() => files.length === 0 ? null : {
-    vulnerabilities: buildVulnEntries(files).length,
-    hosts: buildHostEntries(files).length,
-    services: buildServiceEntries(files).length,
-  }, [files]);
+  const anyOpen = useScanStore((s) => s.files.length > 0);
+  const listed = useQuery<ListCounts>("list_counts", anyOpen ? {} : null);
+  const counts: Record<Counted, number> | null = anyOpen && listed ? listed : null;
 
   return (
     <aside

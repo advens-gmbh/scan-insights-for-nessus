@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import type { NessusFile, SeverityCounts } from "../types/nessus";
+import type { ScanFile, SeverityCounts } from "../types/nessus";
 import { formatDuration, formatScanStart } from "../utils/dashboard";
-import { byScanDate, defaultTrendSelection, fileCounts, fileStart, fileWindow, previousRuns, runChanges, sameScan } from "../utils/trends";
+import { byScanDate, defaultTrendSelection, fileCounts, fileStart, fileWindow, previousRuns, sameScan, sameScansOf } from "../utils/trends";
+import { useQuery } from "../data/query";
 import type { TableColumn } from "../utils/tableColumns";
 import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
@@ -51,18 +52,20 @@ export default function Trends() {
   const openFilePanel = useUiStore((s) => s.openFilePanel);
   const navigate = useNavigate();
 
+  const samePairs = useQuery<{ a: string; b: string; reason: string }[]>("same_scans", files.length > 0 ? {} : null);
+  const same = useMemo(() => sameScansOf(samePairs ?? []), [samePairs]);
   const sorted = useMemo(() => byScanDate(files), [files]);
   const selectedIds = useMemo(
-    () => new Set((storedIds ?? defaultTrendSelection(files)).filter((id) => files.some((f) => f.id === id))),
-    [storedIds, files]
+    () => new Set((storedIds ?? defaultTrendSelection(files, same)).filter((id) => files.some((f) => f.id === id))),
+    [storedIds, files, same]
   );
   const runs = useMemo(() => sorted.filter((f) => selectedIds.has(f.id)), [sorted, selectedIds]);
 
   const label = useMemo(() => {
-    const day = (f: NessusFile) => formatScanStart(new Date(fileStart(f))).slice(0, 10);
+    const day = (f: ScanFile) => formatScanStart(new Date(fileStart(f))).slice(0, 10);
     const days = runs.map(day);
 
-    return (f: NessusFile) => {
+    return (f: ScanFile) => {
       const d = day(f);
       return days.filter((x) => x === d).length > 1 ? formatScanStart(new Date(fileStart(f))) : d;
     };
@@ -73,10 +76,18 @@ export default function Trends() {
     [runs, label]
   );
 
+  const previous = useMemo(() => previousRuns(runs, same), [runs, same]);
+  const changePairs = useMemo(() => runs.flatMap((f) => {
+    const before = previous.get(f.id);
+    return before ? [[before.file.id, f.id]] : [];
+  }), [runs, previous]);
+  const changes = useQuery<({ added: number; fixed: number } | null)[]>("run_changes", changePairs.length > 0 ? { pairs: changePairs, showInfo } : null);
+
   const rows = useMemo(() => {
-    const previous = previousRuns(runs);
+    let next = 0;
     return runs.map((f) => {
       const before = previous.get(f.id) ?? null;
+      const changed = before ? changes?.[next++] ?? null : null;
       return {
         file: f,
         start: fileStart(f),
@@ -84,15 +95,15 @@ export default function Trends() {
         window: fileWindow(f),
         previous: before,
         countsBefore: before ? fileCounts(before.file) : null,
-        changes: before ? runChanges(before.file, f, showInfo) : null,
+        changes: changed,
       };
     });
-  }, [runs, showInfo]);
+  }, [runs, previous, changes]);
 
   const mixed = useMemo(() => {
     const newest = runs[runs.length - 1];
-    return runs.some((f) => f !== newest && !sameScan(f, newest));
-  }, [runs]);
+    return runs.some((f) => f !== newest && !sameScan(same, f, newest));
+  }, [runs, same]);
 
   const table = useTableColumns("trends", showInfo ? RUN_COLUMNS : RUN_COLUMNS_NO_INFO);
   const { sortKey, sortDir, toggleSort } = useTableSort("trends", table.visible, "scanned", "desc", ["file"]);
@@ -101,7 +112,7 @@ export default function Trends() {
       switch (sortKey) {
         case "file":    return r.file.filename.toLowerCase();
         case "scanned": return r.start;
-        case "hosts":   return r.file.hosts.length;
+        case "hosts":   return r.file.host_count;
         case "added":   return r.changes?.added ?? -1;
         case "fixed":   return r.changes?.fixed ?? -1;
         case "compared": return 0;
@@ -153,7 +164,7 @@ export default function Trends() {
                   <span className="truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</span>
                   <span className="truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</span>
                   <span className="tabular-nums text-ink-500 dark:text-ink-400">{start ? formatScanStart(start) : "-"}</span>
-                  <span className="tabular-nums text-right whitespace-nowrap text-ink-500 dark:text-ink-400">{f.hosts.length.toLocaleString()} {f.hosts.length === 1 ? "host" : "hosts"}</span>
+                  <span className="tabular-nums text-right whitespace-nowrap text-ink-500 dark:text-ink-400">{f.host_count.toLocaleString()} {f.host_count === 1 ? "host" : "hosts"}</span>
                 </label>
               </li>
             );
@@ -216,7 +227,7 @@ export default function Trends() {
                               </td>
                             );
                           case "hosts":
-                            return <td key={col.key} className="table-cell text-center tabular-nums">{file.hosts.length.toLocaleString()}</td>;
+                            return <td key={col.key} className="table-cell text-center tabular-nums">{file.host_count.toLocaleString()}</td>;
                           case "added":
                             return <td key={col.key} className="table-cell text-center" title={versus}>{changes ? <Count value={changes.added} sign="+" /> : <Dash />}</td>;
                           case "fixed":

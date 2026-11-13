@@ -4,7 +4,7 @@ import { Plus, X } from "lucide-react";
 import { useScanStore } from "../../stores/scanStore";
 import { useUiStore } from "../../stores/uiStore";
 import { displayScanName } from "../../types/nessus";
-import type { NessusFile, SeverityCounts } from "../../types/nessus";
+import type { ScanFile, SeverityCounts } from "../../types/nessus";
 import { formatScanStart } from "../../utils/dashboard";
 import { fileCounts, fileWindow } from "../../utils/trends";
 
@@ -70,7 +70,7 @@ export default function FilesMenu({ onClose }: { onClose: () => void }) {
 }// FilesMenu
 
 function Row({ file, start, counts, showInfo, onDetails, onClose }: {
-  file: NessusFile;
+  file: ScanFile;
   start: Date | null;
   counts: SeverityCounts;
   showInfo: boolean;
@@ -85,7 +85,7 @@ function Row({ file, start, counts, showInfo, onDetails, onClose }: {
         <button onClick={onDetails} className="block max-w-full truncate text-left text-body font-semibold text-accent-700 dark:text-accent-400 hover:underline" title={`${file.path}
 Show the scan file's details`}>{file.filename}</button>
         <div className="text-caption text-ink-500 dark:text-ink-400 truncate">
-          {[name, `${file.hosts.length.toLocaleString()} ${file.hosts.length === 1 ? "host" : "hosts"}`, start ? `scanned ${formatScanStart(start)}` : null].filter(Boolean).join(" · ")}
+          {[name, `${file.host_count.toLocaleString()} ${file.host_count === 1 ? "host" : "hosts"}`, start ? `scanned ${formatScanStart(start)}` : null].filter(Boolean).join(" · ")}
         </div>
       </div>
       <span className="flex gap-0.5 h-1.5 w-[70px] rounded-full overflow-hidden bg-ink-100 dark:bg-ink-700 shrink-0" title={shown.map((b) => `${counts[b.key].toLocaleString()} ${b.key}`).join(", ") || (showInfo ? "No findings" : "No findings above Info")}>

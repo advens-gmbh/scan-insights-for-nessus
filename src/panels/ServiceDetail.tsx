@@ -1,15 +1,24 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "../data/query";
+import type { FindingRow, ServiceEntry } from "../types/nessus";
 import { useAfterPaint } from "../hooks/useAfterPaint";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { buildHostEntries, buildServiceEntries, isHttps, isPlainHttp } from "../types/nessus";
-import { groupByHost } from "../utils/hostFindings";
+import { isHttps, isPlainHttp } from "../types/nessus";
 import { httpUrl, httpsUrl } from "../utils/webUrls";
 import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import { ExploitTag, PanelButtons, Section, useEscape } from "./PanelParts";
+
+// what the backend's service_detail command answers
+interface ServiceData {
+  service: ServiceEntry;
+  hostnames: Record<string, string | null>;
+  host_groups: { key: string; ip: string; hostname: string | null; items: FindingRow[]; counts: number[]; worst: number }[];
+  seen_in: number; // files the port is in
+}// ServiceData
 import { CountBoxes, Cvss, FindingGroups, FindingName } from "./FindingParts";
 
 const ROWS_PAGE = 200;
@@ -37,26 +46,21 @@ function ServiceContent({ serviceKey, onClose }: { serviceKey: string; onClose: 
   const [showAllHosts, setShowAllHosts] = useState(false);
   const [visibleFindings, setVisibleFindings] = useState(ROWS_PAGE);
 
-  const files = useMemo(() => (fileId ? allFiles.filter((f) => f.id === fileId) : allFiles), [allFiles, fileId]);
-  const service = useMemo(() => buildServiceEntries(files).find((s) => s.key === serviceKey), [files, serviceKey]);
-  const hosts = buildHostEntries(files);
-  const hostnames = useMemo(() => new Map(hosts.map((h) => [h.ip, h.hostname ?? h.netbios])), [hosts]);
-  const hostGroups = useMemo(
-    () => (grouped && service ? groupByHost(hosts, service.port, service.protocol, (i) => showInfo || i.severity > 0) : []),
-    [grouped, service, hosts, showInfo]
-  );
-
+  const detail = useQuery<ServiceData | null>("service_detail", { key: serviceKey, file: fileId ?? null, showInfo });
+  const service = detail?.service;
+  const hostnames = useMemo(() => new Map(Object.entries(detail?.hostnames ?? {})), [detail]);
+  const hostGroups = grouped && detail ? detail.host_groups : [];
   if (!service) {
     return null;
   }
 
-  const { port, protocol } = service;
+  const { port } = service;
   const names = service.svc_names.join(" ");
   const findings = showInfo ? service.findings : service.findings.filter((f) => f.severity > 0);
   const hostIps = showAllHosts ? service.host_ips : service.host_ips.slice(0, HOSTS_COLLAPSED);
   const httpUrls = isPlainHttp(port, names) ? service.host_ips.map((ip) => httpUrl(ip, port)) : [];
   const httpsUrls = isHttps(port, names) ? service.host_ips.map((ip) => httpsUrl(ip, port)) : [];
-  const seenIn = files.filter((f) => f.hosts.some((h) => h.items.some((i) => i.port === port && i.protocol === protocol))).length;
+  const seenIn = detail?.seen_in ?? 0;
   const subtitle = [
     service.svc_names.join(", "),
     `${service.host_ips.length} ${service.host_ips.length === 1 ? "host" : "hosts"}`,

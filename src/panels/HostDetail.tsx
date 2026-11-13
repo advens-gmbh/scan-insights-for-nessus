@@ -1,14 +1,15 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { buildHostEntries, osGuesses } from "../types/nessus";
-import type { ReportItem } from "../types/nessus";
+import { osGuesses } from "../types/nessus";
+import type { FindingRow, HostRow } from "../types/nessus";
+import { useQuery } from "../data/query";
 import { formatDuration, formatScanStart, scanWindow } from "../utils/dashboard";
 import { fileStart } from "../utils/fileFacts";
 
 const FILES_SHOWN = 3;
-import { groupByPort, openPorts, sortFindings } from "../utils/hostFindings";
+import { groupByPort, sortFindings } from "../utils/hostFindings";
 import SeverityBadge from "../components/common/SeverityBadge";
 import CopyButton from "../components/common/CopyButton";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
@@ -41,22 +42,18 @@ function HostContent({ ip, onClose }: { ip: string; onClose: () => void }) {
 
   const [fileScope, setFileScope] = useState(hostPanelFileId ?? "all");
 
-  const acrossFiles = useMemo(() => buildHostEntries(files).find((h) => h.ip === ip), [files, ip]);
   const [allFiles, setAllFiles] = useState(false);
-  const scopedFiles = useMemo(
-    () => (fileScope === "all" ? files : files.filter((f) => f.id === fileScope)),
-    [files, fileScope]
-  );
-  const scoped = useMemo(() => buildHostEntries(scopedFiles).find((h) => h.ip === ip), [scopedFiles, ip]);
+  const detail = useQuery<{ host: HostRow; findings: FindingRow[]; tcp: number[]; udp: number[] } | null>("host_detail", { ip, file: fileScope === "all" ? null : fileScope });
 
-  if (!acrossFiles) {
+  if (!detail) {
     return null;
   }
 
+  const acrossFiles = detail.host;
   const host = acrossFiles;
   const scopeFileId = fileScope === "all" ? undefined : fileScope;
-  const findings = (scoped ?? acrossFiles).items.filter((i) => showInfo || i.severity > 0);
-  const { tcp, udp } = openPorts(host.items);
+  const findings = detail.findings.filter((i) => showInfo || i.severity > 0);
+  const { tcp, udp } = detail;
   const osValues = osGuesses(host.os);
   const macs = host.mac ? host.mac.split(/[\n,]+/).map((m) => m.trim()).filter(Boolean) : [];
   const scan = scanWindow([host]);
@@ -227,7 +224,7 @@ function Detail({ label, value, copy = false }: { label: string; value: string |
   );
 }// Detail
 
-function FindingList({ items, fileId }: { items: ReportItem[]; fileId?: string }) {
+function FindingList({ items, fileId }: { items: FindingRow[]; fileId?: string }) {
   const openVulnPanel = useUiStore((s) => s.openVulnPanel);
 
   return (

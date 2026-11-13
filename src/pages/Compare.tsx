@@ -6,9 +6,13 @@ import type { LucideIcon } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import { SEVERITY_COLORS } from "../types/nessus";
-import type { NessusFile, SeverityCounts } from "../types/nessus";
-import { compareScans, defaultPair, deltaByHost, deltaByVuln, pluginInfo } from "../utils/compare";
-import type { HostChange, HostDelta, MatchedBy, ScanDelta, VulnChange, VulnDelta } from "../utils/compare";
+import type { ScanFile, SeverityCounts } from "../types/nessus";
+import { defaultPair } from "../utils/compare";
+import { useQuery } from "../data/query";
+import type { Comparison, HostChange, HostDelta, MatchedBy, VulnChange, VulnDelta } from "../utils/compare";
+
+const NO_VULNS: VulnDelta[] = [];
+const NO_HOSTS: HostDelta[] = [];
 import { formatScanStart } from "../utils/dashboard";
 import { fileCounts, fileWindow } from "../utils/fileFacts";
 import { compareHosts } from "../utils/ip";
@@ -131,10 +135,9 @@ export default function Compare() {
   const fileA = files.find((f) => f.id === pair?.[0]);
   const fileB = files.find((f) => f.id === pair?.[1]);
 
-  const delta = useMemo(() => (fileA && fileB ? compareScans(fileA, fileB) : null), [fileA, fileB]);
-  const info = useMemo(() => (fileA && fileB ? pluginInfo(fileA, fileB) : new Map<number, { name: string; severity: number }>()), [fileA, fileB]);
-  const vulnRows = useMemo(() => (delta ? vulnRowsOf(delta, info, shownInfo) : []), [delta, info, shownInfo]);
-  const hostRows = useMemo(() => (delta ? hostRowsOf(delta, info, shownInfo) : []), [delta, info, shownInfo]);
+  const comparison = useQuery<Comparison>("compare_files", fileA && fileB ? { a: fileA.id, b: fileB.id, showInfo: shownInfo } : null);
+  const vulnRows = comparison?.vulns ?? NO_VULNS;
+  const hostRows = comparison?.hosts ?? NO_HOSTS;
 
   const vulnTable = useTableColumns("compare-vulns", VULN_COLUMNS);
   const vulnSort = useTableSort("compare-vulns", vulnTable.visible, "severity", "desc", ["name", "change"]);
@@ -220,7 +223,7 @@ export default function Compare() {
         <Change label="Medium"   dot="bg-medium"   a={countsA.medium}   b={countsB.medium}   color={SEVERITY_COLORS[2].text} />
         <Change label="Low"      dot="bg-low"      a={countsA.low}      b={countsB.low}      color={SEVERITY_COLORS[1].text} />
         {showInfo && <Change label="Info" dot="bg-info" a={countsA.info} b={countsB.info} color={SEVERITY_COLORS[0].text} />}
-        <Change label="Hosts" a={fileA.hosts.length} b={fileB.hosts.length} neutral />
+        <Change label="Hosts" a={fileA.host_count} b={fileB.host_count} neutral />
       </div>
 
       {/* View and filter */}
@@ -314,28 +317,6 @@ export default function Compare() {
   );
 }// Compare
 
-// table rows kept per comparison and Show Info setting
-const vulnRowCache = new WeakMap<ScanDelta, Map<boolean, VulnDelta[]>>();
-const hostRowCache = new WeakMap<ScanDelta, Map<boolean, HostDelta[]>>();
-
-function vulnRowsOf(delta: ScanDelta, info: Map<number, { name: string; severity: number }>, showInfo: boolean): VulnDelta[] {
-  const byInfo = vulnRowCache.get(delta) ?? new Map<boolean, VulnDelta[]>();
-  vulnRowCache.set(delta, byInfo);
-  if (!byInfo.has(showInfo)) {
-    byInfo.set(showInfo, deltaByVuln(delta, info).filter((r) => showInfo || r.severity > 0));
-  }
-  return byInfo.get(showInfo)!;
-}// vulnRowsOf
-
-function hostRowsOf(delta: ScanDelta, info: Map<number, { name: string; severity: number }>, showInfo: boolean): HostDelta[] {
-  const byInfo = hostRowCache.get(delta) ?? new Map<boolean, HostDelta[]>();
-  hostRowCache.set(delta, byInfo);
-  if (!byInfo.has(showInfo)) {
-    byInfo.set(showInfo, deltaByHost(delta, (id) => showInfo || (info.get(id)?.severity ?? 0) > 0, showInfo));
-  }
-  return byInfo.get(showInfo)!;
-}// hostRowsOf
-
 function countBy<T extends string>(values: T[]): Partial<Record<T, number>> {
   const counts: Partial<Record<T, number>> = {};
   for (const v of values) {
@@ -347,14 +328,14 @@ function countBy<T extends string>(values: T[]): Partial<Record<T, number>> {
 
 function ScanPicker({ label, file, files, onPick, onOpen }: {
   label: string;
-  file: NessusFile;
-  files: NessusFile[];
+  file: ScanFile;
+  files: ScanFile[];
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
   const id = `scan-${label.slice(0, label.indexOf(" ")).toLowerCase()}`;
   const start = fileWindow(file).start;
-  const details = [file.report_name, start && formatScanStart(start), `${file.hosts.length.toLocaleString()} hosts`].filter(Boolean).join(" · ");
+  const details = [file.report_name, start && formatScanStart(start), `${file.host_count.toLocaleString()} hosts`].filter(Boolean).join(" · ");
 
   return (
     <div className="flex flex-col gap-1 min-w-0">

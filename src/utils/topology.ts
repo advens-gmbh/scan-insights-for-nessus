@@ -1,4 +1,4 @@
-import type { HostEntry } from "../types/nessus";
+import type { TopologyHost } from "../types/nessus";
 import { compareHosts, isIpv4 } from "./ip";
 
 export const PLUGIN = {
@@ -20,15 +20,30 @@ export interface Net {
 }// Net
 
 export function ipToNumber(ip: string): number {
-  return ip.split(".").reduce((acc, octet) => acc * 256 + Number(octet), 0);
+  let n = 0;
+  let octet = 0;
+  for (let i = 0; i < ip.length; i++) {
+    const c = ip.charCodeAt(i);
+    if (c === 46) {
+      n = n * 256 + octet;
+      octet = 0;
+    } else if (c >= 48 && c <= 57) {
+      octet = octet * 10 + (c - 48);
+    } else {
+      return NaN;
+    }
+  }
+  return n * 256 + octet;
 }// ipToNumber
 
 export function numberToIp(n: number): string {
   return [24, 16, 8, 0].map((shift) => Math.floor(n / 2 ** shift) % 256).join(".");
 }// numberToIp
 
+const BLOCK_SIZES = Array.from({ length: 33 }, (_, prefix) => 2 ** (32 - prefix));
+
 function blockSize(prefix: number): number {
-  return 2 ** (32 - prefix);
+  return BLOCK_SIZES[prefix] ?? 2 ** (32 - prefix);
 }// blockSize
 
 export function netOf(ip: string, prefix: number): Net {
@@ -41,9 +56,12 @@ export function netKey(net: Net): string {
 }// netKey
 
 export function netContains(net: Net, ip: string): boolean {
-  const n = ipToNumber(ip);
-  return n >= net.base && n < net.base + blockSize(net.prefix);
+  return netHas(net, ipToNumber(ip));
 }// netContains
+
+function netHas(net: Net, n: number): boolean {
+  return n >= net.base && n < net.base + blockSize(net.prefix);
+}// netHas
 
 // "255.255.254.0" -> 23, null when the mask isn't a valid one
 export function maskToPrefix(mask: string): number | null {
@@ -186,20 +204,20 @@ export interface NetGroup {
   net: Net;
   maskFrom: string | null; // where the real mask came from; null when /24 is assumed
   local: boolean;          // 127.x: the scanner scanning itself
-  hosts: HostEntry[];
+  hosts: TopologyHost[];
 }// NetGroup
 
 export interface BridgeAddress {
   ip: string;
   iface: string | null;
   net: string;
-  host: HostEntry | null; // the scanned host with this address
+  host: TopologyHost | null; // the scanned host with this address
 }// BridgeAddress
 
 export interface Bridge {
   key: string;
   name: string;
-  hosts: HostEntry[];
+  hosts: TopologyHost[];
   addresses: BridgeAddress[];
   nets: { key: string; scanned: boolean }[];
   linkNets: string[];      // scanned networks it has an address on
@@ -233,22 +251,22 @@ export interface ScannerNode extends RouteNode {
 
 export interface Topology {
   groups: NetGroup[];
-  other: HostEntry[];     // hosts without an IPv4 address
+  other: TopologyHost[];     // hosts without an IPv4 address
   roots: ScannerNode[];   // one per scanner
   unscanned: UnscannedNet[];
   bridges: Bridge[];
   summaries: Net[];       // routes from /16 to /23 in routing tables, which can group networks into blocks
 }// Topology
 
-function outputs(host: HostEntry, pluginId: number): string[] {
+function outputs(host: TopologyHost, pluginId: number): string[] {
   return host.items.filter((i) => i.plugin_id === pluginId && i.plugin_output).map((i) => i.plugin_output!);
 }// outputs
 
-function machineName(host: HostEntry): string {
+function machineName(host: TopologyHost): string {
   return host.hostname ?? host.netbios ?? host.ip;
 }// machineName
 
-export function buildTopology(hosts: HostEntry[]): Topology {
+export function buildTopology(hosts: TopologyHost[]): Topology {
   const v4 = hosts.filter((h) => validIp(h.ip));
   const other = hosts.filter((h) => !validIp(h.ip));
   const byIp = new Map(v4.map((h) => [h.ip, h]));
@@ -289,8 +307,10 @@ export function buildTopology(hosts: HostEntry[]): Topology {
     }
   }
   const knownList = [...known.values()].sort((a, b) => b.net.prefix - a.net.prefix);
-  const placeOf = (ip: string): { net: Net; from: string | null } =>
-    knownList.find((k) => netContains(k.net, ip)) ?? { net: netOf(ip, 24), from: null };
+  const placeOf = (ip: string): { net: Net; from: string | null } => {
+    const n = ipToNumber(ip);
+    return knownList.find((k) => netHas(k.net, n)) ?? { net: netOf(ip, 24), from: null };
+  };
 
   // hosts by network
   const groupMap = new Map<string, NetGroup>();
@@ -307,7 +327,7 @@ export function buildTopology(hosts: HostEntry[]): Topology {
   const scannedNet = (key: string) => groupMap.has(key);
   // a summary route around scanned networks, or a slice of one, isn't a network of its own
   const overlapsScanned = (net: Net) => !scannedNet(netKey(net)) &&
-    groups.some((g) => netContains(net, numberToIp(g.net.base)) || netContains(g.net, numberToIp(net.base)));
+    groups.some((g) => netHas(net, g.net.base) || netHas(g.net, net.base));
 
   // machines: scanned hosts joined when they are the same machine on different networks
   const parent = new Map<string, string>(v4.map((h) => [h.ip, h.ip]));
@@ -402,8 +422,8 @@ export function buildTopology(hosts: HostEntry[]): Topology {
   }
 
   // the same MAC address or NetBIOS name on different networks
-  const sameValue = (valuesOf: (h: HostEntry) => string[], strength: Strength, label: string) => {
-    const seen = new Map<string, HostEntry[]>();
+  const sameValue = (valuesOf: (h: TopologyHost) => string[], strength: Strength, label: string) => {
+    const seen = new Map<string, TopologyHost[]>();
     for (const h of v4) {
       for (const v of valuesOf(h)) {
         seen.set(v, [...(seen.get(v) ?? []), h]);
@@ -577,7 +597,7 @@ export function buildBlocks<T extends { key: string; net: Net }>(nets: T[], summ
   const usable = summaries.filter((s) => !own.has(netKey(s))).sort((a, b) => b.prefix - a.prefix);
   const map = new Map<string, Block<T>>();
   for (const n of nets) {
-    const summary = usable.find((s) => s.prefix < n.net.prefix && netContains(s, numberToIp(n.net.base)));
+    const summary = usable.find((s) => s.prefix < n.net.prefix && netHas(s, n.net.base));
     const net = n.net.prefix === 16 ? n.net : summary ?? netOf(numberToIp(n.net.base), 16);
     const key = netKey(net);
     if (!map.has(key)) {
@@ -604,7 +624,7 @@ export interface WayMachine {
   kind: "machine";
   name: string;
   ips: string[];
-  hosts: HostEntry[];       // the scanned hosts that are this machine
+  hosts: TopologyHost[];       // the scanned hosts that are this machine
   router: boolean;          // seen as a hop in a traceroute
   hops: number;             // how many routers a folded run of hops stands for
   hopList: string[];        // those routers in order, "?" for one that didn't answer
@@ -655,7 +675,10 @@ export const netEnd = (key: string) => `net:${key}`;
 export function buildWays(topo: Topology, open: ReadonlySet<string> = new Set()): WayGraph {
   const groups = new Map(topo.groups.map((g) => [g.key, g]));
   const hostByIp = new Map(topo.groups.flatMap((g) => g.hosts.map((h) => [h.ip, h] as const)));
-  const groupOfIp = (ip: string) => topo.groups.find((g) => !g.local && netContains(g.net, ip))?.key ?? null;
+  const groupOfIp = (ip: string) => {
+    const n = ipToNumber(ip);
+    return topo.groups.find((g) => !g.local && netHas(g.net, n))?.key ?? null;
+  };
   const unscanned = new Map(topo.unscanned.map((u) => [u.key, u]));
 
   const nets = new Map<string, WayNet>();
@@ -711,7 +734,7 @@ export function buildWays(topo: Topology, open: ReadonlySet<string> = new Set())
       for (const child of node.children) {
         const id = `machine:${child.id}`;
         const known = child.hops.filter((h) => h !== "?");
-        const scanned = known.map((ip) => hostByIp.get(ip)).filter((h): h is HostEntry => !!h);
+        const scanned = known.map((ip) => hostByIp.get(ip)).filter((h): h is TopologyHost => !!h);
         const named = scanned[scanned.length - 1];
         machines.set(id, {
           id, kind: "machine", name: named?.hostname ?? named?.ip ?? known[known.length - 1] ?? "router that didn't answer",
@@ -840,10 +863,10 @@ export function buildWays(topo: Topology, open: ReadonlySet<string> = new Set())
   return { nodes, edges, starts, nodeOf, nets, machines, crowdOf };
 }// buildWays
 
-const topologies = new WeakMap<HostEntry[], Topology>();
+const topologies = new WeakMap<TopologyHost[], Topology>();
 const graphs = new WeakMap<Topology, Map<string, WayGraph>>();
 
-export function topologyOf(hosts: HostEntry[]): Topology {
+export function topologyOf(hosts: TopologyHost[]): Topology {
   let topo = topologies.get(hosts);
   if (!topo) {
     topo = buildTopology(hosts);

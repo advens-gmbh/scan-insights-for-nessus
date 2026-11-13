@@ -1,8 +1,13 @@
+mod api;
 mod commands;
+mod compare;
 mod export;
+mod intern;
+mod views;
 mod models;
 mod parser;
 mod private_file;
+mod queries;
 mod reveal;
 mod state;
 #[cfg(windows)]
@@ -21,7 +26,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::load_nessus_file,
-            commands::file_hosts,
             commands::file_sizes,
             commands::unload_file,
             commands::unload_all_files,
@@ -35,6 +39,22 @@ pub fn run() {
             commands::save_recent_files,
             commands::load_recent_files,
             commands::open_url,
+            queries::open_files,
+            queries::file_host_list,
+            queries::vuln_rows,
+            queries::vulns_on_ip,
+            queries::host_rows,
+            queries::service_rows,
+            queries::list_counts,
+            queries::vuln_detail,
+            queries::vuln_outputs,
+            queries::host_detail,
+            queries::service_detail,
+            queries::dashboard,
+            queries::topology_hosts,
+            queries::compare_files,
+            queries::same_scans,
+            queries::run_changes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Scan Insights for Nessus");

@@ -4,9 +4,10 @@ import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { buildVulnEntries, ratedScore, SEVERITY_COLORS, vulnScore } from "../types/nessus";
+import { ratedScore, SEVERITY_COLORS, vulnScore } from "../types/nessus";
 import { formatNessusDate } from "../utils/format";
-import type { VulnEntry } from "../types/nessus";
+import type { VulnRow } from "../types/nessus";
+import { useQuery } from "../data/query";
 import SeverityBadge from "../components/common/SeverityBadge";
 import SearchBar from "../components/common/SearchBar";
 import Select, { fileOption } from "../components/common/Select";
@@ -44,6 +45,8 @@ const COLUMNS: ColDef[] = [
   { key: "ease",       label: "Exploit Ease",   width: 170, defaultHidden: true },
 ];// COLUMNS
 
+const NO_ROWS: VulnRow[] = [];
+
 export default function Vulnerabilities() {
   const files = useScanStore((s) => s.files);
   const openVulnPanel = useUiStore((s) => s.openVulnPanel);
@@ -66,15 +69,13 @@ export default function Vulnerabilities() {
   const table = useTableColumns("vulnerabilities", COLUMNS);
   const { sortKey, sortDir, toggleSort } = useTableSort("vulnerabilities", table.visible, "severity", "desc", ASCENDING_FIRST);
 
-  const filteredFiles = useMemo(() => {
-    if (fileFilter === "all") {
-      return files;
-    }
-
-    return files.filter((f) => f.id === fileFilter);
-  }, [files, fileFilter]);
-
-  const vulnsForFilter = useMemo(() => buildVulnEntries(filteredFiles), [filteredFiles]);
+  const scope = fileFilter === "all" ? null : fileFilter;
+  const answer = useQuery<VulnRow[]>("vuln_rows", files.length > 0 ? { file: scope } : null);
+  const vulnsForFilter = answer ?? NO_ROWS;
+  // a search for part of an address also finds the vulnerabilities on those hosts
+  const ipText = /^[0-9a-f.:]+$/i.test(search.trim()) ? search.trim().toLowerCase() : "";
+  const onIp = useQuery<number[]>("vulns_on_ip", ipText ? { file: scope, text: ipText } : null);
+  const onIpSet = useMemo(() => new Set(onIp ?? []), [onIp]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -93,13 +94,13 @@ export default function Vulnerabilities() {
           v.plugin_family.toLowerCase().includes(q) ||
           v.cve.some((c) => c.toLowerCase().includes(q)) ||
           v.cwe.some((c) => c.toLowerCase().includes(q)) ||
-          v.affected_hosts.some((h) => h.ip.includes(q))
+          onIpSet.has(v.plugin_id)
         );
       }
 
       return true;
     });
-  }, [vulnsForFilter, search, matchesSeverity, exploitOnly, familyFilter]);
+  }, [vulnsForFilter, search, matchesSeverity, exploitOnly, familyFilter, onIpSet]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -243,7 +244,7 @@ export default function Vulnerabilities() {
                 );
               })}
               <SpacerRow height={paddingBottom} colSpan={table.visible.length} />
-              {sorted.length === 0 && (
+              {sorted.length === 0 && answer !== undefined && (
                 <tr>
                   <td colSpan={table.visible.length} className="table-cell text-center text-ink-500 py-10">
                     No vulnerabilities match the current filter.
@@ -259,7 +260,7 @@ export default function Vulnerabilities() {
 }// Vulnerabilities
 
 function VulnRow({ vuln, visibleCols, index, selected, measureRow, onClick }: {
-  vuln: VulnEntry;
+  vuln: VulnRow;
   visibleCols: ColDef[];
   index: number;
   selected: boolean;

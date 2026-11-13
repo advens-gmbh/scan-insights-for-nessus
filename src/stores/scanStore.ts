@@ -1,23 +1,16 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { NessusFile, RecentFile, ReportHost } from "../types/nessus";
+import { listen } from "@tauri-apps/api/event";
+import type { RecentFile, ScanFile } from "../types/nessus";
 import { useNotificationStore } from "./notificationStore";
 
-// load_nessus_file returns the file without its hosts
-type LoadedFile = Omit<NessusFile, "hosts"> & { host_count: number; finding_count: number; size: number };
-interface HostPage { hosts: ReportHost[]; next: number }
-
-// the file being opened, step by step
+// the file being read
 export interface Opening {
   path: string;
   filename: string;
-  stage: "reading" | "receiving" | "preparing";
   size: number | null;
-  hosts: number;         // received so far
-  total: number;         // hosts in the file
-  findings: number;
-  readMs: number | null; // how long reading the file took
+  percent: number;       // how much of it the backend has read
 }// Opening
 
 // a file that couldn't be opened, stays on screen until dismissed
@@ -32,13 +25,9 @@ export interface LoadFailure {
 export const fileNameOf = (path: string) => path.split(/[\\/]/).pop() ?? path;
 export const samePath = (a: string, b: string) => a.replace(/\\/g, "/").toLowerCase() === b.replace(/\\/g, "/").toLowerCase();
 
-function sameScanFile(open: NessusFile, filename: string, size: number | undefined, hostCount: number): boolean {
-  return open.filename.toLowerCase() === filename.toLowerCase() && open.hosts.length === hostCount && (open.size === undefined || size === undefined || open.size === size);
+function sameScanFile(open: ScanFile, file: ScanFile): boolean {
+  return open.filename.toLowerCase() === file.filename.toLowerCase() && open.host_count === file.host_count && open.size === file.size;
 }// sameScanFile
-
-// lets the page paint "Preparing the pages" before the heavy first draw
-const nextFrame = () => new Promise<void>((resolve) =>
-  typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => setTimeout(resolve, 0)) : setTimeout(resolve, 0));
 
 function failureOf(e: unknown): { kind: string; message: string } {
   if (e && typeof e === "object" && "kind" in e && "message" in e) {
@@ -52,7 +41,7 @@ let failureId = 0;
 let chain: Promise<unknown> = Promise.resolve();
 
 interface ScanStore {
-  files: NessusFile[];
+  files: ScanFile[];
   recentFiles: RecentFile[];
   loading: boolean;                      // a file is being opened, or waits for it
   opening: Opening | null;
@@ -60,8 +49,8 @@ interface ScanStore {
   batch: { done: number; total: number }; // "file 2 of 3" since the app was last idle
   failures: LoadFailure[];
   openFiles: () => Promise<void>;
-  loadFiles: (paths: string[]) => Promise<NessusFile[]>;
-  loadFile: (path: string) => Promise<NessusFile | null>;
+  loadFiles: (paths: string[]) => Promise<ScanFile[]>;
+  loadFile: (path: string) => Promise<ScanFile | null>;
   retry: (id: string) => Promise<void>;
   dismissFailure: (id: string) => void;
   unloadFile: (id: string) => Promise<void>;
@@ -81,43 +70,40 @@ export const useScanStore = create<ScanStore>((set, get) => {
     }
   };
 
-  // files of one batch wait here and join `files` together when the batch ends
-  let arrived: NessusFile[] = [];
+  // how far the backend has read the file being opened
+  let listening = false;
+  const follow = () => {
+    if (listening) {
+      return;
+    }
+    listening = true;
+    listen<{ path: string; percent: number }>("load-progress", (e) => {
+      set((s) => (s.opening && s.opening.path === e.payload.path && s.opening.percent !== e.payload.percent
+        ? { opening: { ...s.opening, percent: e.payload.percent } }
+        : s));
+    }).catch(() => {
+      listening = false;
+    });
+  };
 
-  const openOne = async (path: string): Promise<NessusFile | null> => {
+  const openOne = async (path: string): Promise<ScanFile | null> => {
     const filename = fileNameOf(path);
-    const update = (o: Partial<Opening>) => set((s) => ({ opening: s.opening && { ...s.opening, ...o } }));
+    follow();
     set((s) => ({
       queue: s.queue.filter((q) => q !== path),
-      opening: { path, filename, stage: "reading", size: null, hosts: 0, total: 0, findings: 0, readMs: null },
+      opening: { path, filename, size: null, percent: 0 },
     }));
-    const started = Date.now();
     invoke<(number | null)[]>("file_sizes", { paths: [path] })
-      .then((sizes) => Array.isArray(sizes) && typeof sizes[0] === "number" && update({ size: sizes[0] }))
+      .then((sizes) => Array.isArray(sizes) && typeof sizes[0] === "number" && set((s) => ({ opening: s.opening?.path === path ? { ...s.opening, size: sizes[0] } : s.opening })))
       .catch(() => {});
     try {
-      const { host_count, finding_count, size, ...head } = await invoke<LoadedFile>("load_nessus_file", { path });
-      const twin = [...get().files, ...arrived].find((f) => sameScanFile(f, head.filename, size, host_count));
+      const file = await invoke<ScanFile>("load_nessus_file", { path });
+      const twin = get().files.find((f) => !samePath(f.path, file.path) && sameScanFile(f, file));
       if (twin) {
-        await invoke("unload_file", { id: head.id }).catch(() => {});
-        useNotificationStore.getState().add(`"${head.filename}" is already open${samePath(twin.path, path) ? "" : ` from ${twin.path}`}`, "info");
+        await invoke("unload_file", { id: file.id }).catch(() => {});
+        useNotificationStore.getState().add(`"${file.filename}" is already open from ${twin.path}`, "info");
         return null;
       }
-      update({ stage: "receiving", size: size ?? null, total: host_count, findings: finding_count ?? 0, readMs: Date.now() - started });
-      const hosts: ReportHost[] = [];
-      while (hosts.length < host_count) {
-        const page = await invoke<HostPage>("file_hosts", { id: head.id, start: hosts.length });
-        if (page.hosts.length === 0) {
-          throw new Error(`Only ${hosts.length} of ${host_count} hosts arrived.`);
-        }
-        for (const h of page.hosts) {
-          hosts.push(h);
-        }
-        update({ hosts: hosts.length });
-      }
-      update({ stage: "preparing" });
-      await nextFrame();
-      const file: NessusFile = { ...head, hosts, size };
       const compliance = file.compliance_skipped ?? 0;
       if (compliance > 0) {
         useNotificationStore.getState().add(
@@ -125,7 +111,8 @@ export const useScanStore = create<ScanStore>((set, get) => {
           "warning",
         );
       }
-      arrived = [...arrived.filter((f) => !samePath(f.path, file.path)), file];
+      // shown at once; the pages ask the backend for their lists again
+      set((s) => ({ files: [...s.files.filter((f) => f.id !== file.id && !samePath(f.path, file.path)), file] }));
       const recent: RecentFile = { path: file.path, filename: file.filename, last_opened: new Date().toISOString(), report_name: file.report_name || null };
       await saveRecent([recent, ...get().recentFiles.filter((r) => r.path !== file.path)].slice(0, 20));
       return file;
@@ -134,16 +121,9 @@ export const useScanStore = create<ScanStore>((set, get) => {
       set((s) => ({ failures: [...s.failures.filter((f) => f.path !== path), failure] }));
       return null;
     } finally {
-      set((s) => {
-        const idle = s.queue.length === 0;
-        if (!idle) {
-          return { opening: null, batch: { ...s.batch, done: s.batch.done + 1 } };
-        }
-        const joined = arrived;
-        arrived = [];
-        const files = joined.length ? [...s.files.filter((f) => !joined.some((j) => j.id === f.id || samePath(j.path, f.path))), ...joined] : s.files;
-        return { opening: null, loading: false, batch: { done: 0, total: 0 }, files };
-      });
+      set((s) => (s.queue.length === 0
+        ? { opening: null, loading: false, batch: { done: 0, total: 0 } }
+        : { opening: null, batch: { ...s.batch, done: s.batch.done + 1 } }));
     }
   };
 
@@ -170,7 +150,7 @@ export const useScanStore = create<ScanStore>((set, get) => {
       const waiting = [...s.queue, ...(s.opening ? [s.opening.path] : [])];
       const fresh: string[] = [];
       for (const p of paths) {
-        if ([...s.files, ...arrived].some((f) => samePath(f.path, p))) {
+        if (s.files.some((f) => samePath(f.path, p))) {
           useNotificationStore.getState().add(`"${fileNameOf(p)}" is already open`, "info");
         } else if (!waiting.some((w) => samePath(w, p)) && !fresh.some((f) => samePath(f, p))) {
           fresh.push(p);
@@ -190,7 +170,7 @@ export const useScanStore = create<ScanStore>((set, get) => {
         chain = run.catch(() => null);
         return run;
       });
-      return Promise.all(runs).then((files) => files.filter((f): f is NessusFile => f !== null));
+      return Promise.all(runs).then((files) => files.filter((f): f is ScanFile => f !== null));
     },
 
     loadFile: async (path: string) => {

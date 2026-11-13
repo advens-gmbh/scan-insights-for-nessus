@@ -1,22 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { HostEntry, ReportItem } from "../types/nessus";
+import type { TopologyHost } from "../types/nessus";
+
+type Item = TopologyHost["items"][number];
 import {
   buildBlocks, buildTopology, buildWays, CROWD_AT, findWay, FOLD_AT, maskToPrefix, netKey, netOf, parseConnections, parseDhcp, parseRoutes, parseSshInterfaces, parseTraceroute,
   parseWmiInterfaces, PLUGIN,
 } from "./topology";
 import type { WayCrowd, WayGraph, WayNode } from "./topology";
 
-function item(plugin_id: number, plugin_output: string | null = null, severity = 0): ReportItem {
-  return {
-    plugin_id, plugin_name: `plugin ${plugin_id}`, plugin_family: "", severity, port: 0, protocol: "tcp", svc_name: "",
-    risk_factor: "", description: "", solution: "", synopsis: null, plugin_output,
-    cvss_base_score: null, cvss3_base_score: null, cvss4_base_score: null, vpr_score: null, epss_score: null,
-    cve: [], cwe: [], see_also: [], exploit_available: false, metasploit_available: false, metasploit_name: null,
-    exploit_ease: null, patch_publication_date: null, vuln_publication_date: null, script_version: null,
-  };
+function item(plugin_id: number, plugin_output: string | null = null): Item {
+  return { plugin_id, plugin_output };
 }// item
 
-function host(ip: string, items: ReportItem[] = [], extra: Partial<HostEntry> = {}): HostEntry {
+function host(ip: string, items: Item[] = [], extra: Partial<TopologyHost> = {}): TopologyHost {
   return {
     ip, hostname: null, domain: null, os: null, mac: null, netbios: null, system_type: null, credentialed_scan: false, os_unsupported: false,
     host_start: null, host_end: null, alt_hostnames: [], file_id: "f", filename: "f.nessus", file_ids: ["f"], filenames: ["f.nessus"],
@@ -199,7 +195,7 @@ describe("buildTopology", () => {
 });
 
 describe("ways in", () => {
-  const traced = (ip: string, hops: string[], extra: ReportItem[] = [], more: Partial<HostEntry> = {}) =>
+  const traced = (ip: string, hops: string[], extra: Item[] = [], more: Partial<TopologyHost> = {}) =>
     host(ip, [item(PLUGIN.traceroute, trace(ip, hops)), ...extra], more);
   const ssh = (pairs: [string, string][]) => item(PLUGIN.ipv4Ssh, pairs.map(([ip, i]) => ` - ${ip} (on interface ${i})\n`).join(""));
 

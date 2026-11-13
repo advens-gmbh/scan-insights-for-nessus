@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, parseNessusTime, rankHosts, scanWindow, topVulnerabilities } from "./dashboard";
+import { formatDuration, parseNessusTime, scanWindow } from "./dashboard";
 
 describe("parseNessusTime", () => {
   it("reads the format Nessus writes in HOST_START and HOST_END", () => {
@@ -44,45 +44,5 @@ describe("formatDuration", () => {
     expect(formatDuration(3 * 3600000)).toBe("3 h");
     expect(formatDuration(54 * 60000)).toBe("54 min");
     expect(formatDuration(20000)).toBe("under 1 min");
-  });
-});
-
-const host = (ip: string, critical: number, high: number, medium: number, low: number, info: number) => ({
-  ip,
-  severity_counts: { critical, high, medium, low, info },
-});
-
-describe("rankHosts", () => {
-  const hosts = [host("a", 0, 9, 9, 9, 0), host("b", 1, 0, 0, 0, 0), host("c", 0, 0, 0, 0, 7), host("d", 1, 2, 0, 0, 0)];
-
-  it("puts the worst severity first, then the next one down", () => {
-    expect(rankHosts(hosts, true, 10).map((h) => h.ip)).toEqual(["d", "b", "a", "c"]);
-  });
-
-  it("ranks one critical above any number of highs", () => {
-    expect(rankHosts([host("highs", 0, 20, 0, 0, 0), host("crit", 1, 0, 0, 0, 0)], true, 10).map((h) => h.ip)).toEqual(["crit", "highs"]);
-  });
-
-  it("leaves out hosts with only Info findings while Info is hidden", () => {
-    expect(rankHosts(hosts, false, 10).map((h) => h.ip)).toEqual(["d", "b", "a"]);
-  });
-
-  it("returns at most the limit and leaves the input alone", () => {
-    const copy = [...hosts];
-    expect(rankHosts(hosts, true, 2)).toHaveLength(2);
-    expect(hosts).toEqual(copy);
-  });
-});
-
-describe("topVulnerabilities", () => {
-  const v = (plugin_id: number, severity: number, host_count: number) => ({ plugin_id, severity, host_count });
-
-  it("keeps critical and high, every critical first, each by how many hosts it is on", () => {
-    const list = [v(1, 3, 5), v(2, 4, 5), v(3, 2, 99), v(4, 4, 2), v(5, 3, 30)];
-    expect(topVulnerabilities(list, 10).map((x) => x.plugin_id)).toEqual([2, 4, 5, 1]);
-  });
-
-  it("returns at most the limit", () => {
-    expect(topVulnerabilities([v(1, 4, 1), v(2, 4, 2), v(3, 4, 3)], 2).map((x) => x.plugin_id)).toEqual([3, 2]);
   });
 });

@@ -1,6 +1,5 @@
 import { compareHosts } from "./ip";
-import { severityCounts } from "../types/nessus";
-import type { ServiceEntry, ServiceFinding } from "../types/nessus";
+import type { ServiceEntry, ServiceFinding, SeverityCounts } from "../types/nessus";
 
 export interface ServiceGroup {
   name: string;
@@ -41,8 +40,17 @@ function summarize(name: string, ports: ServiceEntry[]): ServiceEntry {
     protocol: ports[0].protocol,
     svc_names: [name],
     host_ips: [...new Set(ports.flatMap((p) => p.host_ips))].sort(compareHosts),
-    severity_counts: severityCounts([{ items: list }]),
+    severity_counts: countsOf(list),
     findings: list,
     exploit_available: ports.some((p) => p.exploit_available),
   };
 }// summarize
+
+function countsOf(findings: { severity: number }[]): SeverityCounts {
+  const c: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const keys = ["info", "low", "medium", "high", "critical"] as const;
+  for (const f of findings) {
+    c[keys[f.severity] ?? "info"]++;
+  }
+  return c;
+}// countsOf

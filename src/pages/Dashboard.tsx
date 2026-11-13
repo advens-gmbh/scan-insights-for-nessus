@@ -5,14 +5,17 @@ import type { ReactNode } from "react";
 import { useScanStore } from "../stores/scanStore";
 import { useSeverityStore } from "../stores/severityStore";
 import { usePageStore } from "../stores/pageStore";
-import { severityCounts, buildHostEntries, buildVulnEntries, visibleCounts, ratedScore, SEVERITY_LABELS } from "../types/nessus";
+import { visibleCounts, ratedScore, SEVERITY_LABELS } from "../types/nessus";
+import type { HostRow, VulnRow } from "../types/nessus";
+import { useQuery } from "../data/query";
 import { useUiStore } from "../stores/uiStore";
 import ShowInfoCheckbox from "../components/common/ShowInfoCheckbox";
 import ScanName from "../components/common/ScanName";
 import IpLink from "../components/common/IpLink";
 import SeverityBadge from "../components/common/SeverityBadge";
 import type { SeverityCounts } from "../types/nessus";
-import { formatDuration, formatScanStart, rankHosts, scanWindow, topVulnerabilities } from "../utils/dashboard";
+import { formatDuration, formatScanStart } from "../utils/dashboard";
+import { fileWindow } from "../utils/fileFacts";
 import SeverityBar from "../components/charts/SeverityBar";
 import TableHead from "../components/common/TableHead";
 import { useTableColumns } from "../hooks/useTableColumns";
@@ -49,6 +52,20 @@ const FILE_COLUMNS: TableColumn<FileCol>[] = [
 ];// FILE_COLUMNS
 
 const total = (c: SeverityCounts) => c.critical + c.high + c.medium + c.low + c.info;
+const NO_COUNTS: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+
+// what the backend's dashboard command answers
+interface DashboardData {
+  counts: SeverityCounts;          // each finding on each host
+  affected_hosts: SeverityCounts;  // hosts with at least one of each severity
+  host_count: number;
+  exploits: { findings: number; metasploit: number; hosts: number };
+  serious_count: number;
+  top_vulns: VulnRow[];
+  families: { family: string; counts: SeverityCounts; total: number }[];
+  family_count: number;
+  top_hosts: HostRow[];
+}// DashboardData
 
 const TOTAL_CELL = "min-w-0 px-[18px] py-3.5 flex flex-col gap-1.5 text-left bg-white dark:bg-ink-800 hover:bg-ink-50 dark:hover:bg-ink-700/50 transition-colors";
 
@@ -68,67 +85,20 @@ export default function Dashboard() {
   const { showInfo, openVulnPanel } = useUiStore();
   const openFilePanel = useUiStore((s) => s.openFilePanel);
 
-  const allHosts = useMemo(() => buildHostEntries(files), [files]);
-  const allVulns = useMemo(() => buildVulnEntries(files), [files]);
-  const combined = useMemo(() => severityCounts(allHosts), [allHosts]);
-
-  const affectedHosts = useMemo(() => {
-    const c: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-    for (const h of allHosts) {
-      for (const l of LEVELS) {
-        if (h.severity_counts[l.key] > 0) c[l.key]++;
-      }
-    }
-
-    return c;
-  }, [allHosts]);
-
-  // counted like the severity tiles: each finding on each host
-  const exploits = useMemo(() => {
-    let findings = 0, metasploit = 0;
-    const hosts = new Set<string>();
-    for (const h of allHosts) {
-      for (const item of h.items) {
-        if (item.exploit_available) {
-          findings++;
-          hosts.add(h.ip);
-        }
-        if (item.metasploit_available) metasploit++;
-      }
-    }
-
-    return { findings, metasploit, hosts: hosts.size };
-  }, [allHosts]);
-  const seriousCount = allVulns.filter((v) => v.severity >= 3).length;
-  const topVulns = useMemo(() => topVulnerabilities(allVulns, TOP_VULNS), [allVulns]);
-
-  const families = useMemo(() => {
-    const by = new Map<string, SeverityCounts>();
-    for (const h of allHosts) {
-      for (const item of h.items) {
-        if (item.severity === 0 && !showInfo) {
-          continue;
-        }
-        const family = item.plugin_family || "Other";
-        const c = by.get(family) ?? { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-        c[LEVELS[4 - item.severity].key]++;
-        by.set(family, c);
-      }
-    }
-
-    return [...by].map(([family, counts]) => ({ family, counts, total: total(counts) }))
-      .sort((a, b) => b.total - a.total || a.family.localeCompare(b.family));
-  }, [allHosts, showInfo]);
-  const topFamilies = families.slice(0, TOP_FAMILIES);
+  const data = useQuery<DashboardData>("dashboard", files.length > 0 ? { showInfo, topVulns: TOP_VULNS, topHosts: TOP_HOSTS, topFamilies: TOP_FAMILIES } : null);
+  const combined = data?.counts ?? NO_COUNTS;
+  const affectedHosts = data?.affected_hosts ?? NO_COUNTS;
+  const hostCount = data?.host_count ?? 0;
+  const exploits = data?.exploits ?? { findings: 0, metasploit: 0, hosts: 0 };
+  const seriousCount = data?.serious_count ?? 0;
+  const topVulns = data?.top_vulns ?? [];
+  const topFamilies = data?.families ?? [];
+  const familyCount = data?.family_count ?? 0;
   const familyMax = Math.max(0, ...topFamilies.map((f) => f.total));
-
-  const topHosts = useMemo(() => rankHosts(allHosts, showInfo, TOP_HOSTS), [allHosts, showInfo]);
+  const topHosts = data?.top_hosts ?? [];
   const hostMax = Math.max(0, ...topHosts.map((h) => total(visibleCounts(h.severity_counts, showInfo))));
 
-  const fileRows = useMemo(() => files.map((file) => {
-    const counts = severityCounts(file.hosts);
-    return { file, counts, window: scanWindow(file.hosts) };
-  }), [files]);
+  const fileRows = useMemo(() => files.map((file) => ({ file, counts: file.counts, window: fileWindow(file) })), [files]);
 
   const fileTable = useTableColumns("dashboard-files", FILE_COLUMNS);
   const fileSort = useTableSort("dashboard-files", fileTable.visible, "scanned", "desc", ["file"]);
@@ -137,7 +107,7 @@ export default function Dashboard() {
     switch (fileSort.sortKey) {
       case "file":    cmp = a.file.filename.localeCompare(b.file.filename); break;
       case "scanned": cmp = (a.window.start?.getTime() ?? 0) - (b.window.start?.getTime() ?? 0); break;
-      case "hosts":   cmp = a.file.hosts.length - b.file.hosts.length; break;
+      case "hosts":   cmp = a.file.host_count - b.file.host_count; break;
       case "critical": case "high": case "medium": case "low": case "info":
         cmp = a.counts[fileSort.sortKey] - b.counts[fileSort.sortKey]; break;
     }
@@ -164,6 +134,10 @@ export default function Dashboard() {
   if (files.length === 0) {
     return <Welcome />;
   }
+  // nothing until the first answer
+  if (!data) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -180,8 +154,8 @@ export default function Dashboard() {
               <span className={`w-2.5 h-2.5 rounded-full ${l.bg}`} />{SEVERITY_LABELS[l.sev]}
             </span>
             <span className={`text-figure font-bold leading-none tabular-nums ${l.fg}`}>{combined[l.key].toLocaleString()}</span>
-            <span className="text-caption text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
-            <HostShare part={affectedHosts[l.key]} whole={allHosts.length} fill={l.bg} />
+            <span className="text-caption text-ink-500 dark:text-ink-400">on {affectedHosts[l.key].toLocaleString()} of {hostCount.toLocaleString()} hosts</span>
+            <HostShare part={affectedHosts[l.key]} whole={hostCount} fill={l.bg} />
           </button>
         ))}
         <button
@@ -191,8 +165,8 @@ export default function Dashboard() {
         >
           <span className="text-small font-semibold text-ink-500 dark:text-ink-400">Exploitable</span>
           <span className="text-figure font-bold leading-none tabular-nums text-ink-900 dark:text-ink-50">{exploits.findings.toLocaleString()}</span>
-          <span className="text-caption text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} of {allHosts.length.toLocaleString()} hosts</span>
-          <HostShare part={exploits.hosts} whole={allHosts.length} fill="bg-ink-400 dark:bg-ink-500" />
+          <span className="text-caption text-ink-500 dark:text-ink-400">on {exploits.hosts.toLocaleString()} of {hostCount.toLocaleString()} hosts</span>
+          <HostShare part={exploits.hosts} whole={hostCount} fill="bg-ink-400 dark:bg-ink-500" />
         </button>
       </section>
 
@@ -240,7 +214,7 @@ export default function Dashboard() {
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
             <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Most vulnerable hosts</h2>
             <button onClick={() => navigate("/hosts")} className="text-body font-medium text-accent-700 dark:text-accent-400 hover:underline">
-              All {allHosts.length.toLocaleString()} hosts
+              All {hostCount.toLocaleString()} hosts
             </button>
           </div>
           <div className="card flex-1 divide-y divide-ink-100 dark:divide-ink-700">
@@ -281,8 +255,8 @@ export default function Dashboard() {
                 <span className="text-right text-body font-semibold tabular-nums text-ink-800 dark:text-ink-100">{f.total.toLocaleString()}</span>
               </button>
             ))}
-            {families.length > topFamilies.length && (
-              <p className="mt-1.5 text-caption text-ink-500 dark:text-ink-400">and {(families.length - topFamilies.length).toLocaleString()} more {families.length - topFamilies.length === 1 ? "family" : "families"}</p>
+            {familyCount > topFamilies.length && (
+              <p className="mt-1.5 text-caption text-ink-500 dark:text-ink-400">and {(familyCount - topFamilies.length).toLocaleString()} more {familyCount - topFamilies.length === 1 ? "family" : "families"}</p>
             )}
             {topFamilies.length > 0 && (
               <div className="mt-auto pt-3 flex flex-wrap gap-x-3.5 gap-y-1 text-caption text-ink-500 dark:text-ink-400">
@@ -331,7 +305,7 @@ export default function Dashboard() {
                           </td>
                         );
                       case "hosts":
-                        return <td key={col.key} className="px-4 py-2.5 text-center text-ink-700 dark:text-ink-200">{file.hosts.length.toLocaleString()}</td>;
+                        return <td key={col.key} className="px-4 py-2.5 text-center text-ink-700 dark:text-ink-200">{file.host_count.toLocaleString()}</td>;
                       case "distribution":
                         return (
                           <td key={col.key} className="px-4 py-2.5">

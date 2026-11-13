@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { ReportItem } from "../types/nessus";
-import { groupByHost, groupByPort, openPorts, sortFindings } from "./hostFindings";
+import type { FindingRow } from "../types/nessus";
+import { groupByPort, sortFindings } from "./hostFindings";
 
-function item(plugin_name: string, severity: number, port: number, protocol = "tcp", svc_name = ""): ReportItem {
+function item(plugin_name: string, severity: number, port: number, protocol = "tcp", svc_name = ""): FindingRow {
   return {
     plugin_id: plugin_name.length, plugin_name, plugin_family: "", severity, port, protocol, svc_name,
-    risk_factor: "", description: "", solution: "", synopsis: null, plugin_output: null,
-    cvss_base_score: null, cvss3_base_score: null, cvss4_base_score: null, vpr_score: null, epss_score: null,
-    cve: [], cwe: [], see_also: [], exploit_available: false, metasploit_available: false, metasploit_name: null,
-    exploit_ease: null, patch_publication_date: null, vuln_publication_date: null, script_version: null,
+    cvss_base_score: null, cvss3_base_score: null, cvss4_base_score: null, exploit_available: false,
   };
 }// item
 
@@ -49,34 +46,5 @@ describe("groupByPort", () => {
 
   it("orders ports with equal counts by number", () => {
     expect(groupByPort([item("x", 2, 443), item("y", 2, 80)]).map((g) => g.port)).toEqual([80, 443]);
-  });
-});
-
-describe("openPorts", () => {
-  it("lists unique TCP and UDP ports in order, without port 0", () => {
-    const ports = openPorts([item("a", 0, 443), item("b", 2, 22), item("c", 1, 443), item("d", 0, 0), item("e", 0, 161, "udp")]);
-    expect(ports).toEqual({ tcp: [22, 443], udp: [161] });
-  });
-});
-
-describe("groupByHost", () => {
-  const hosts = [
-    { ip: "10.0.0.9", hostname: null, netbios: "WS9", items: [item("a", 2, 443), item("b", 4, 443), item("c", 4, 80)] },
-    { ip: "10.0.0.10", hostname: "web", netbios: null, items: [item("d", 4, 443), item("e", 0, 443)] },
-    { ip: "10.0.0.2", hostname: "db", netbios: null, items: [item("f", 4, 443)] },
-    { ip: "10.0.0.3", hostname: null, netbios: null, items: [item("g", 2, 22)] },
-  ];
-
-  it("keeps only the port's findings, worst hosts first, then by IP", () => {
-    const groups = groupByHost(hosts, 443, "tcp", (i) => i.severity > 0);
-    expect(groups.map((g) => g.ip)).toEqual(["10.0.0.9", "10.0.0.2", "10.0.0.10"]);
-    expect(groups[0].items.map((i) => i.plugin_name)).toEqual(["b", "a"]);
-    expect(groups[0].hostname).toBe("WS9");
-  });
-
-  it("drops hosts left without findings", () => {
-    const groups = groupByHost(hosts, 443, "tcp", (i) => i.severity > 0);
-    expect(groups.find((g) => g.ip === "10.0.0.10")!.counts).toEqual([0, 0, 0, 0, 1]);
-    expect(groupByHost(hosts, 22, "tcp", (i) => i.severity > 2)).toEqual([]);
   });
 });

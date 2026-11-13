@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -32,20 +34,16 @@ pub struct ReportHost {
     pub items: Vec<ReportItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ReportItem {
+// What a plugin says about a finding. Findings with exactly the same details share one copy
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct PluginDetails {
     pub plugin_id: u32,
     pub plugin_name: String,
     pub plugin_family: String,
-    pub severity: u8,
-    pub port: u16,
-    pub protocol: String,
-    pub svc_name: String,
     pub risk_factor: String,
     pub description: String,
     pub solution: String,
     pub synopsis: Option<String>,
-    pub plugin_output: Option<String>,
     pub cvss_base_score: Option<f32>,
     pub cvss3_base_score: Option<f32>,
     pub cvss4_base_score: Option<f32>,
@@ -71,11 +69,57 @@ pub struct ReportItem {
     pub cisa_known_exploited: Option<String>, // the date CISA set for fixing it
     #[serde(default, skip_serializing_if = "is_false")]
     pub unsupported_by_vendor: bool,
-    #[serde(skip)]
-    pub compliance: bool,
     pub patch_publication_date: Option<String>,
     pub vuln_publication_date: Option<String>,
     pub script_version: Option<String>,
+}// PluginDetails
+
+// for the interner. Scores are compared by their bits, so equal details hash equally
+impl Eq for PluginDetails {}
+
+impl std::hash::Hash for PluginDetails {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        let score = |s: Option<f32>| s.map(f32::to_bits);
+        self.plugin_id.hash(h);
+        self.plugin_name.hash(h);
+        self.plugin_family.hash(h);
+        self.risk_factor.hash(h);
+        self.description.hash(h);
+        self.solution.hash(h);
+        self.synopsis.hash(h);
+        [score(self.cvss_base_score), score(self.cvss3_base_score), score(self.cvss4_base_score), score(self.vpr_score), score(self.epss_score)].hash(h);
+        self.cve.hash(h);
+        self.cwe.hash(h);
+        self.see_also.hash(h);
+        [self.exploit_available, self.metasploit_available, self.exploited_by_malware, self.exploited_by_nessus, self.unsupported_by_vendor].hash(h);
+        self.metasploit_name.hash(h);
+        self.exploit_ease.hash(h);
+        self.exploit_maturity.hash(h);
+        self.exploit_frameworks.hash(h);
+        self.cisa_known_exploited.hash(h);
+        self.patch_publication_date.hash(h);
+        self.vuln_publication_date.hash(h);
+        self.script_version.hash(h);
+    }
+}
+
+// where one finding is, how severe, and what the plugin printed. The plugin's own details are reached through Deref
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ReportItem {
+    #[serde(flatten)]
+    pub details: Arc<PluginDetails>,
+    pub severity: u8,
+    pub port: u16,
+    pub protocol: Arc<str>,
+    pub svc_name: Arc<str>,
+    pub plugin_output: Option<Box<str>>,
+}// ReportItem
+
+impl std::ops::Deref for ReportItem {
+    type Target = PluginDetails;
+    fn deref(&self) -> &PluginDetails {
+        &self.details
+    }
 }
 
 fn is_false(value: &bool) -> bool {

@@ -1,72 +1,6 @@
-// Mirror of Rust models - keep in sync with src-tauri/src/models.rs
+// What the backend answers - keep in sync with src-tauri/src/views.rs, api.rs and models.rs
 
-import { compareHosts } from "../utils/ip";
 import { severity } from "../theme/colors";
-
-export interface ReportItem {
-  plugin_id: number;
-  plugin_name: string;
-  plugin_family: string;
-  severity: number; // 0=Info 1=Low 2=Med 3=High 4=Crit
-  port: number;
-  protocol: string;
-  svc_name: string;
-  risk_factor: string;
-  description: string;
-  solution: string;
-  synopsis: string | null;
-  plugin_output: string | null;
-  cvss_base_score: number | null;
-  cvss3_base_score: number | null;
-  cvss4_base_score: number | null;
-  vpr_score: number | null;
-  epss_score: number | null;
-  cve: string[];
-  cwe: string[];
-  see_also: string[];
-  exploit_available: boolean;
-  metasploit_available: boolean;
-  metasploit_name: string | null;
-  exploit_ease: string | null;
-  exploit_maturity?: string;
-  exploit_frameworks?: string[]; // other than Metasploit
-  exploited_by_malware?: boolean;
-  exploited_by_nessus?: boolean;
-  cisa_known_exploited?: string; // the date CISA set for fixing it
-  unsupported_by_vendor?: boolean;
-  patch_publication_date: string | null;
-  vuln_publication_date: string | null;
-  script_version: string | null;
-}// ReportItem
-
-export interface ReportHost {
-  name: string;
-  ip: string;
-  hostname: string | null;
-  domain: string | null;
-  os: string | null;
-  mac: string | null;
-  netbios: string | null;
-  system_type: string | null;
-  credentialed_scan: boolean;
-  os_unsupported?: boolean;
-  host_start: string | null;
-  host_end: string | null;
-  alt_hostnames: string[];
-  items: ReportItem[];
-}// ReportHost
-
-export interface NessusFile {
-  id: string;
-  filename: string;
-  path: string;
-  loaded_at: string;
-  report_name: string;
-  target: string | null;
-  compliance_skipped?: number;
-  hosts: ReportHost[];
-  size?: number;
-}// NessusFile
 
 export interface SeverityCounts {
   critical: number;
@@ -114,7 +48,7 @@ export type ExportFormat = "xlsx" | "csv" | "nessus";
 
 // ── Derived / denormalized types used in the UI ───────────────────────────────
 
-export interface VulnEntry {
+export interface VulnRow {
   plugin_id: number;
   plugin_name: string;
   plugin_family: string;
@@ -127,14 +61,10 @@ export interface VulnEntry {
   exploit_available: boolean;
   metasploit_available: boolean;
   metasploit_name: string | null;
-  description: string;
-  solution: string;
-  synopsis: string | null;
   patch_publication_date: string | null;
   vuln_publication_date: string | null;
   cve: string[];
   cwe: string[];
-  see_also: string[];
   risk_factor: string;
   exploit_ease: string | null;
   exploit_maturity: string | null;
@@ -143,10 +73,9 @@ export interface VulnEntry {
   exploited_by_nessus: boolean;
   cisa_known_exploited: string | null;
   unsupported_by_vendor: boolean;
-  affected_hosts: AffectedHost[]; // one per host + port + file
   file_ratings: { file_id: string; filename: string; severity: number }[]; // worst per file
-  host_count: number;             // unique hosts in affected_hosts
-}// VulnEntry
+  host_count: number;             // unique hosts
+}// VulnRow
 
 export interface ServiceFinding {
   plugin_id: number;
@@ -167,18 +96,8 @@ export interface ServiceEntry {
   exploit_available: boolean;
 }// ServiceEntry
 
-export interface AffectedHost {
-  id: number; // unique within its VulnEntry; a plugin can repeat on one host and port
-  ip: string;
-  port: number;
-  protocol: string;
-  svc_name: string;
-  plugin_output: string | null;
-  file_id: string;
-  filename: string;
-}// AffectedHost
 
-export interface HostEntry {
+export interface HostRow {
   ip: string;
   hostname: string | null;
   domain: string | null;
@@ -197,9 +116,41 @@ export interface HostEntry {
   filenames: string[];   // corresponding filenames
   severity_counts: SeverityCounts;
   open_ports: string[];
-  items: ReportItem[];
   conflicts: string[];   // field names that differ across files (e.g. "MAC address")
-}// HostEntry
+}// HostRow
+
+export interface ScanFile {
+  id: string;
+  filename: string;
+  path: string;
+  loaded_at: string;
+  report_name: string;
+  target: string | null;
+  compliance_skipped: number;
+  size: number;
+  host_count: number;
+  finding_count: number;
+  counts: SeverityCounts;
+  start: number | null;       // ms since 1970
+  duration_ms: number | null;
+  credentialed: number;       // hosts scanned with credentials
+}// ScanFile
+
+export type TopologyHost = HostRow & { items: { plugin_id: number; plugin_output: string | null }[] };
+
+export interface FindingRow {
+  plugin_id: number;
+  plugin_name: string;
+  plugin_family: string;
+  severity: number;
+  port: number;
+  protocol: string;
+  svc_name: string;
+  cvss_base_score: number | null;
+  cvss3_base_score: number | null;
+  cvss4_base_score: number | null;
+  exploit_available: boolean;
+}// FindingRow
 
 // ── Severity helpers ─────────────────────────────────────────────────────────
 
@@ -221,27 +172,8 @@ export const SEVERITY_COLORS: Record<number, { bg: string; text: string; border:
   0: { bg: "bg-info/10 dark:bg-info/20",            text: "text-info-fg",      border: "border-info/30",      hex: severity.info.fill },
 };// SEVERITY_COLORS
 
-export function severityCounts(hosts: { items: Pick<ReportItem, "severity">[] }[]): SeverityCounts {
-  const c: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-  for (const host of hosts) {
-    for (const item of host.items) {
-      if (item.severity === 4) {
-        c.critical++;
-      } else if (item.severity === 3) {
-        c.high++;
-      } else if (item.severity === 2) {
-        c.medium++;
-      } else if (item.severity === 1) {
-        c.low++;
-      } else c.info++;
-    }
-  }
-
-  return c;
-}// severityCounts
-
 // the scan's name in Nessus, unless it is the same as the filename
-export function displayScanName(file: Pick<NessusFile, "report_name" | "filename">): string | null {
+export function displayScanName(file: Pick<ScanFile, "report_name" | "filename">): string | null {
   const name = file.report_name.trim();
   const filename = file.filename.replace(/\.nessus$/i, "");
 
@@ -251,10 +183,6 @@ export function displayScanName(file: Pick<NessusFile, "report_name" | "filename
 export function visibleCounts(counts: SeverityCounts, showInfo: boolean): SeverityCounts {
   return showInfo ? counts : { ...counts, info: 0 };
 }// visibleCounts
-
-export function totalFindings(hosts: Pick<ReportHost, "items">[]): number {
-  return hosts.reduce((s, h) => s + h.items.length, 0);
-}// totalFindings
 
 export function isWebPort(port: number, svc: string): boolean {
   const webPorts = [80, 443, 8080, 8443, 8000, 8888, 3000, 4443, 9090, 9443, 8008, 4000];
@@ -285,22 +213,6 @@ export function isPlainHttp(port: number, svc: string): boolean {
   return isWebPort(port, svc) && !isHttps(port, svc);
 }// isPlainHttp
 
-// Several components need the same derived lists, and the store replaces `files` on
-// every change, so results are cached per array. Callers must not mutate them.
-function cachedByFiles<T>(build: (files: NessusFile[]) => T): (files: NessusFile[]) => T {
-  const cache = new WeakMap<NessusFile[], T>();
-  return (files) => {
-    if (cache.has(files)) {
-      return cache.get(files)!;
-    }
-
-    const result = build(files);
-    cache.set(files, result);
-
-    return result;
-  };
-}// cachedByFiles
-
 // severity ranges differ by version: CVSS v2 only counts 10.0 as critical, so a v2 score of 9.3 is correctly rated High. VPR uses the same ranges as CVSS v3
 export function cvssSeverity(score: number, version: 2 | 3 | 4): number {
   if (score >= (version === 2 ? 10 : 9)) {
@@ -315,7 +227,7 @@ export interface CvssScore {
   version: 2 | 3 | 4;
 }// CvssScore
 
-export function ratedScore(v: Pick<VulnEntry, "cvss4" | "cvss3" | "cvss2" | "severity">): CvssScore | null {
+export function ratedScore(v: Pick<VulnRow, "cvss4" | "cvss3" | "cvss2" | "severity">): CvssScore | null {
   const scores: { score: number | null; version: CvssScore["version"] }[] = [
     { score: v.cvss4, version: 4 },
     { score: v.cvss3, version: 3 },
@@ -326,12 +238,12 @@ export function ratedScore(v: Pick<VulnEntry, "cvss4" | "cvss3" | "cvss2" | "sev
   return known.find((s) => cvssSeverity(s.score, s.version) === v.severity) ?? known[0] ?? null;
 }// ratedScore
 
-export function vulnScore(v: VulnEntry): number | null {
+export function vulnScore(v: Pick<VulnRow, "cvss4" | "cvss3" | "cvss2" | "severity">): number | null {
   return ratedScore(v)?.score ?? null;
 }// vulnScore
 
 // which files gave which rating, worst first. Empty when they all agree
-export function ratingDifferences(v: VulnEntry): { severity: number; filenames: string[] }[] {
+export function ratingDifferences(v: Pick<VulnRow, "file_ratings">): { severity: number; filenames: string[] }[] {
   const bySeverity = new Map<number, string[]>();
   for (const { severity, filename } of v.file_ratings) {
     bySeverity.set(severity, [...(bySeverity.get(severity) ?? []), filename]);
@@ -345,295 +257,7 @@ export function ratingDifferences(v: VulnEntry): { severity: number; filenames: 
     .sort((a, b) => b.severity - a.severity);
 }// ratingDifferences
 
-// A severity and its scores belong together, so they are always taken from one finding
-function ratingOf(item: ReportItem) {
-  return {
-    severity: item.severity,
-    risk_factor: item.risk_factor,
-    cvss2: item.cvss_base_score,
-    cvss3: item.cvss3_base_score,
-    cvss4: item.cvss4_base_score,
-    vpr: item.vpr_score,
-    epss: item.epss_score,
-  };
-}// ratingOf
-
-export const buildVulnEntries = cachedByFiles((files: NessusFile[]): VulnEntry[] => {
-  const map = new Map<number, VulnEntry>();
-  const hostsByPlugin = new Map<number, Set<string>>();
-
-  for (const file of files) {
-    for (const host of file.hosts) {
-      for (const item of host.items) {
-        let entry = map.get(item.plugin_id);
-        if (!entry) {
-          entry = {
-            plugin_id: item.plugin_id,
-            plugin_name: item.plugin_name,
-            plugin_family: item.plugin_family,
-            ...ratingOf(item),
-            exploit_available: item.exploit_available,
-            metasploit_available: item.metasploit_available,
-            metasploit_name: item.metasploit_name,
-            description: item.description,
-            solution: item.solution,
-            synopsis: item.synopsis,
-            patch_publication_date: item.patch_publication_date,
-            vuln_publication_date: item.vuln_publication_date,
-            cve: item.cve,
-            cwe: item.cwe,
-            see_also: item.see_also,
-            exploit_ease: item.exploit_ease,
-            exploit_maturity: item.exploit_maturity ?? null,
-            exploit_frameworks: [],
-            exploited_by_malware: false,
-            exploited_by_nessus: false,
-            cisa_known_exploited: null,
-            unsupported_by_vendor: false,
-            affected_hosts: [],
-            file_ratings: [],
-            host_count: 0,
-          };
-          map.set(item.plugin_id, entry);
-          hostsByPlugin.set(item.plugin_id, new Set());
-        }
-        // Plugin updates can re-rate a finding between scans, so show the worst rating.
-        if (item.severity > entry.severity) {
-          Object.assign(entry, ratingOf(item));
-        }
-        const lastRating = entry.file_ratings[entry.file_ratings.length - 1];
-        if (lastRating?.file_id === file.id) {
-          lastRating.severity = Math.max(lastRating.severity, item.severity);
-        } else {
-          entry.file_ratings.push({ file_id: file.id, filename: file.filename, severity: item.severity });
-        }
-        entry.exploit_available ||= item.exploit_available;
-        entry.metasploit_available ||= item.metasploit_available;
-        entry.exploited_by_malware ||= item.exploited_by_malware ?? false;
-        entry.exploited_by_nessus ||= item.exploited_by_nessus ?? false;
-        entry.unsupported_by_vendor ||= item.unsupported_by_vendor ?? false;
-        entry.exploit_maturity ??= item.exploit_maturity ?? null;
-        entry.cisa_known_exploited ??= item.cisa_known_exploited ?? null;
-        for (const framework of item.exploit_frameworks ?? []) {
-          if (!entry.exploit_frameworks.includes(framework)) {
-            entry.exploit_frameworks.push(framework);
-          }
-        }
-        // An older plugin version in another file may not have these yet.
-        entry.synopsis ??= item.synopsis;
-        entry.metasploit_name ??= item.metasploit_name;
-        entry.patch_publication_date ??= item.patch_publication_date;
-        entry.vuln_publication_date ??= item.vuln_publication_date;
-        const hosts = hostsByPlugin.get(item.plugin_id)!;
-        hosts.add(host.ip);
-        entry.host_count = hosts.size;
-        entry.affected_hosts.push({
-          id: entry.affected_hosts.length,
-          ip: host.ip,
-          port: item.port,
-          protocol: item.protocol,
-          svc_name: item.svc_name,
-          plugin_output: item.plugin_output,
-          file_id: file.id,
-          filename: file.filename,
-        });
-      }
-    }
-  }
-
-  return Array.from(map.values()).sort((a, b) => b.severity - a.severity || a.plugin_name.localeCompare(b.plugin_name));
-});// buildVulnEntries
-
 // Nessus writes one line per guess when it can't tell the operating system apart
 export function osGuesses(os: string | null): string[] {
   return os ? os.split(/\n+/).map((o) => o.trim()).filter(Boolean) : [];
 }// osGuesses
-
-export const buildHostEntries = cachedByFiles((files: NessusFile[]): HostEntry[] => {
-  const map = new Map<string, HostEntry>();
-  // per IP, where each plugin+port+protocol combo was first added to entry.items
-  const seen = new Map<string, Map<string, number>>();
-
-  for (const file of files) {
-    for (const host of file.hosts) {
-      const ip = host.ip;
-      const existing = map.get(ip);
-
-      if (!existing) {
-        const entry: HostEntry = {
-          ip,
-          hostname: host.hostname,
-          domain: host.domain,
-          os: host.os,
-          mac: host.mac,
-          netbios: host.netbios,
-          system_type: host.system_type,
-          credentialed_scan: host.credentialed_scan,
-          os_unsupported: host.os_unsupported ?? false,
-          host_start: host.host_start,
-          host_end: host.host_end,
-          alt_hostnames: [...host.alt_hostnames],
-          file_id: file.id,
-          filename: file.filename,
-          file_ids: [file.id],
-          filenames: [file.filename],
-          severity_counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
-          open_ports: [],
-          items: [],
-          conflicts: [],
-        };
-        map.set(ip, entry);
-        seen.set(ip, new Map());
-        addItems(entry, seen.get(ip)!, host.items);
-      } else {
-        // Merge: fill in any properties the primary record is missing
-        if (!existing.hostname) {
-          existing.hostname = host.hostname;
-        }
-        if (!existing.domain) {
-          existing.domain = host.domain;
-        }
-        if (!existing.os) {
-          existing.os = host.os;
-        }
-        if (!existing.system_type) {
-          existing.system_type = host.system_type;
-        }
-        // Check MAC conflict before filling in
-        if (host.mac && existing.mac) {
-          const normA = existing.mac.split(/[\n,]+/)[0].trim().toLowerCase();
-          const normB = host.mac.split(/[\n,]+/)[0].trim().toLowerCase();
-          if (normA !== normB && !existing.conflicts.includes("MAC address")) {
-            existing.conflicts.push("MAC address");
-          }
-        }
-        if (!existing.mac) {
-          existing.mac = host.mac;
-        }
-        // Check NetBIOS conflict before filling in
-        if (host.netbios && existing.netbios &&
-            host.netbios.toLowerCase() !== existing.netbios.toLowerCase() &&
-            !existing.conflicts.includes("NetBIOS name")) {
-          existing.conflicts.push("NetBIOS name");
-        }
-        if (!existing.netbios) {
-          existing.netbios  = host.netbios;
-        }
-        existing.os_unsupported ||= host.os_unsupported ?? false;
-        if (host.credentialed_scan) {
-          existing.credentialed_scan = true;
-        }
-        for (const n of host.alt_hostnames) {
-          if (!existing.alt_hostnames.includes(n)) existing.alt_hostnames.push(n);
-        }
-        if (!existing.file_ids.includes(file.id)) {
-          existing.file_ids.push(file.id);
-          existing.filenames.push(file.filename);
-        }
-        addItems(existing, seen.get(ip)!, host.items);
-      }
-    }
-  }
-
-  return Array.from(map.values()).sort((a, b) => compareHosts(a.ip, b.ip));
-});// buildHostEntries
-
-// One entry per port and protocol that has at least one finding. Port 0 is excluded
-export const buildServiceEntries = cachedByFiles((files: NessusFile[]): ServiceEntry[] => {
-  interface Plugin { name: string; severity: number; score: CvssScore | null; ips: Set<string> }
-  interface Service { port: number; protocol: string; names: Set<string>; ips: Set<string>; plugins: Map<number, Plugin>; exploit: boolean }
-  const services = new Map<string, Service>();
-
-  for (const file of files) {
-    for (const host of file.hosts) {
-      for (const item of host.items) {
-        if (item.port === 0) {
-          continue;
-        }
-
-        const key = `${item.port}/${item.protocol}`;
-        let service = services.get(key);
-        if (!service) {
-          service = { port: item.port, protocol: item.protocol, names: new Set(), ips: new Set(), plugins: new Map(), exploit: false };
-          services.set(key, service);
-        }
-
-        if (item.svc_name) {
-          service.names.add(item.svc_name);
-        }
-        service.ips.add(host.ip);
-        service.exploit ||= item.exploit_available;
-
-        // rated by the scans of this port only. another file can rate the same plugin
-        // differently. The score comes from the finding that set the severity
-        let plugin = service.plugins.get(item.plugin_id);
-        if (!plugin) {
-          plugin = { name: item.plugin_name, severity: -1, score: null, ips: new Set() };
-          service.plugins.set(item.plugin_id, plugin);
-        }
-        if (item.severity > plugin.severity) {
-          plugin.severity = item.severity;
-          plugin.score = ratedScore({ cvss4: item.cvss4_base_score, cvss3: item.cvss3_base_score, cvss2: item.cvss_base_score, severity: item.severity });
-        }
-        plugin.ips.add(host.ip);
-      }
-    }
-  }
-
-  return Array.from(services, ([key, s]) => {
-    const findings = Array.from(s.plugins, ([plugin_id, p]) => ({
-      plugin_id,
-      plugin_name: p.name,
-      severity: p.severity,
-      score: p.score,
-      host_count: p.ips.size,
-    })).sort((a, b) => b.severity - a.severity || a.plugin_name.localeCompare(b.plugin_name));
-
-    return {
-      key,
-      port: s.port,
-      protocol: s.protocol,
-      svc_names: [...s.names].sort(),
-      host_ips: [...s.ips].sort(compareHosts),
-      severity_counts: severityCounts([{ items: findings }]),
-      findings,
-      exploit_available: s.exploit,
-    };
-  }).sort((a, b) => a.port - b.port || a.protocol.localeCompare(b.protocol));
-});// buildServiceEntries
-
-function countSeverity(counts: SeverityCounts, severity: number, change: number): void {
-  const name = (["info", "low", "medium", "high", "critical"] as const)[severity] ?? "info";
-  counts[name] += change;
-}// countSeverity
-
-// a finding already added from an earlier file isn't added again, but keeps the worst rating
-function addItems(entry: HostEntry, seen: Map<string, number>, items: ReportItem[]): void {
-  const keyOf = (item: ReportItem) => `${item.plugin_id}:${item.port}:${item.protocol}`;
-  const fresh: ReportItem[] = [];
-  for (const item of items) {
-    const slot = seen.get(keyOf(item));
-    if (slot === undefined) {
-      fresh.push(item);
-    } else if (item.severity > entry.items[slot].severity) {
-      countSeverity(entry.severity_counts, entry.items[slot].severity, -1);
-      countSeverity(entry.severity_counts, item.severity, 1);
-      entry.items[slot] = item;
-    }
-  }
-
-  for (const item of fresh) {
-    if (!seen.has(keyOf(item))) {
-      seen.set(keyOf(item), entry.items.length);
-    }
-    entry.items.push(item);
-    countSeverity(entry.severity_counts, item.severity, 1);
-
-    if (item.port > 0) {
-      const portStr = `${item.port}/${item.protocol}`;
-      if (!entry.open_ports.includes(portStr)) {
-        entry.open_ports.push(portStr);
-      }
-    }
-  }
-}// addItems

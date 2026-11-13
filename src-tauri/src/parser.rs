@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufRead, BufReader, Read};
 
 use quick_xml::events::{BytesRef, Event};
 use quick_xml::Reader;
 use uuid::Uuid;
 
-use crate::models::{NessusFile, ReportHost, ReportItem};
+use crate::intern::Interner;
+use crate::models::{NessusFile, PluginDetails, ReportHost, ReportItem};
 
 #[derive(PartialEq, Clone)]
 enum S {
@@ -26,7 +27,13 @@ enum S {
     ItemField(String),
 }
 
+#[cfg(test)]
 pub fn parse_nessus_file(path: &str) -> Result<NessusFile, String> {
+    parse_nessus_file_with(path, &mut |_| {})
+}
+
+// `progress` gets how much of the file has been read, from 0 to 100
+pub fn parse_nessus_file_with(path: &str, progress: &mut dyn FnMut(u8)) -> Result<NessusFile, String> {
     let filename = std::path::Path::new(path)
         .file_name()
         .and_then(|n| n.to_str())
@@ -34,10 +41,20 @@ pub fn parse_nessus_file(path: &str) -> Result<NessusFile, String> {
         .to_string();
 
     let file = File::open(path).map_err(|e| format!("Cannot open file: {e}"))?;
-    parse_reader(file, path, filename)
+    let total = file.metadata().map(|m| m.len()).unwrap_or(0);
+    match parse_source(Reader::from_reader(BufReader::with_capacity(1 << 16, file)), total, path, filename.clone(), progress) {
+        Err(e) if e == NOT_UTF8 => {
+            let file = File::open(path).map_err(|e| format!("Cannot open file: {e}"))?;
+            parse_reader(file, path, filename, progress)
+        }
+        other => other,
+    }
 }
 
-fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<NessusFile, String> {
+// a byte that isn't valid UTF-8 stops the streamed read; the file is then read whole and repaired
+const NOT_UTF8: &str = "streamed read hit a byte that is not UTF-8";
+
+fn parse_reader<R: Read>(mut source: R, path: &str, filename: String, progress: &mut dyn FnMut(u8)) -> Result<NessusFile, String> {
     let mut bytes = Vec::new();
     source
         .read_to_end(&mut bytes)
@@ -45,8 +62,10 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
     // The XML reader rejects a whole file over one byte that isn't valid UTF-8, and
     // plugin output can contain such bytes. Replacing them keeps the rest of the scan.
     let text = String::from_utf8_lossy(&bytes);
+    parse_source(Reader::from_reader(text.as_bytes()), text.len() as u64, path, filename, progress)
+}
 
-    let mut reader = Reader::from_reader(text.as_bytes());
+fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filename: String, progress: &mut dyn FnMut(u8)) -> Result<NessusFile, String> {
     reader.config_mut().allow_dangling_amp = true; // keep a bare & as text
 
     let mut nessus_file = NessusFile {
@@ -62,7 +81,8 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
 
     let mut state = S::Root;
     let mut current_host: Option<ReportHost> = None;
-    let mut current_item: Option<ReportItem> = None;
+    let mut current_item: Option<ParsedItem> = None;
+    let mut interner = Interner::default();
     let mut current_tag_name: Option<String> = None;
     let mut host_props: HashMap<String, String> = HashMap::new();
     let mut item_field_depth: u32 = 0;
@@ -92,8 +112,20 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
         };
     }
 
+    let total = total.max(1);
+    let mut events: u32 = 0;
+    let mut told: u8 = 0;
     loop {
+        events = events.wrapping_add(1);
+        if events.is_multiple_of(8192) {
+            let done = (reader.buffer_position() * 100 / total).min(100) as u8;
+            if done > told {
+                told = done;
+                progress(done);
+            }
+        }
         match reader.read_event_into(&mut buf) {
+            Err(quick_xml::Error::Encoding(_)) => return Err(NOT_UTF8.to_string()),
             Err(e) => {
                 return Err(format!(
                     "XML parse error at byte {}: {e}",
@@ -242,7 +274,7 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
                                 if item.compliance {
                                     nessus_file.compliance_skipped += 1;
                                 } else {
-                                    host.items.push(item);
+                                    host.items.push(item.finish(&mut interner));
                                 }
                             }
                             state = S::ReportHost;
@@ -280,8 +312,8 @@ fn parse_reader<R: Read>(mut source: R, path: &str, filename: String) -> Result<
                 check_root(&tag, &mut root_seen)?;
                 if state == S::ReportHost && tag == "ReportItem" {
                     let item = parse_item_attrs(&e);
-                    if let (Some(host), true) = (current_host.as_mut(), item.plugin_id != 0) {
-                        host.items.push(item);
+                    if let (Some(host), true) = (current_host.as_mut(), item.d.plugin_id != 0) {
+                        host.items.push(item.finish(&mut interner));
                     }
                 }
             }
@@ -363,7 +395,7 @@ fn dispatch_text(
     nessus_file: &mut NessusFile,
     current_pref_name: &mut Option<String>,
     current_tag_name: &Option<String>,
-    current_item: &mut Option<ReportItem>,
+    current_item: &mut Option<ParsedItem>,
     host_props: &mut HashMap<String, String>,
     text: String,
 ) {
@@ -389,53 +421,53 @@ fn dispatch_text(
     }
 }
 
-fn apply_item_field(item: &mut ReportItem, field: &str, text: String) {
+fn apply_item_field(item: &mut ParsedItem, field: &str, text: String) {
     match field {
-        "risk_factor" => item.risk_factor = text,
-        "description" => item.description = normalize_prose(text),
-        "solution" => item.solution = normalize_prose(text),
-        "synopsis" => item.synopsis = Some(normalize_prose(text)).filter(|s| !s.is_empty()),
+        "risk_factor" => item.d.risk_factor = text,
+        "description" => item.d.description = normalize_prose(text),
+        "solution" => item.d.solution = normalize_prose(text),
+        "synopsis" => item.d.synopsis = Some(normalize_prose(text)).filter(|s| !s.is_empty()),
         "plugin_output" => item.plugin_output = Some(normalize_text(text)),
-        "cvss_base_score" => item.cvss_base_score = text.parse().ok(),
-        "cvss3_base_score" => item.cvss3_base_score = text.parse().ok(),
+        "cvss_base_score" => item.d.cvss_base_score = text.parse().ok(),
+        "cvss3_base_score" => item.d.cvss3_base_score = text.parse().ok(),
         // Only a fallback: the base score must win whichever order the two appear in.
-        "cvss3_temporal_score" if item.cvss3_base_score.is_none() => {
-            item.cvss3_base_score = text.parse().ok();
+        "cvss3_temporal_score" if item.d.cvss3_base_score.is_none() => {
+            item.d.cvss3_base_score = text.parse().ok();
         }
-        "cvss4_base_score" => item.cvss4_base_score = text.parse().ok(),
-        "vpr_score" => item.vpr_score = text.parse().ok(),
-        "epss_score" => item.epss_score = text.parse().ok(),
-        "cve" => item.cve.push(text),
-        "cwe" => item.cwe.push(text),
+        "cvss4_base_score" => item.d.cvss4_base_score = text.parse().ok(),
+        "vpr_score" => item.d.vpr_score = text.parse().ok(),
+        "epss_score" => item.d.epss_score = text.parse().ok(),
+        "cve" => item.d.cve.push(text),
+        "cwe" => item.d.cwe.push(text),
         "see_also" => {
             for url in text.lines() {
                 let u = url.trim();
                 if !u.is_empty() {
-                    item.see_also.push(u.to_string());
+                    item.d.see_also.push(u.to_string());
                 }
             }
         }
-        "exploit_available" => item.exploit_available = text == "true",
-        "exploit_framework_metasploit" if text == "true" => item.metasploit_available = true,
+        "exploit_available" => item.d.exploit_available = text == "true",
+        "exploit_framework_metasploit" if text == "true" => item.d.metasploit_available = true,
         "metasploit_name" if !text.is_empty() => {
-            item.metasploit_name = Some(single_line(&text));
-            item.metasploit_available = true;
+            item.d.metasploit_name = Some(single_line(&text));
+            item.d.metasploit_available = true;
         }
-        "exploitability_ease" => item.exploit_ease = Some(text),
-        "exploit_code_maturity" if !text.is_empty() => item.exploit_maturity = Some(single_line(&text)),
+        "exploitability_ease" => item.d.exploit_ease = Some(text),
+        "exploit_code_maturity" if !text.is_empty() => item.d.exploit_maturity = Some(single_line(&text)),
         "exploit_framework_core" if text == "true" => add_framework(item, "Core Impact"),
         "exploit_framework_canvas" if text == "true" => add_framework(item, "CANVAS"),
         "exploit_framework_d2_elliot" if text == "true" => add_framework(item, "D2 Elliot"),
         "exploit_framework_exploithub" if text == "true" => add_framework(item, "ExploitHub"),
-        "exploited_by_malware" => item.exploited_by_malware = text == "true",
-        "exploited_by_nessus" => item.exploited_by_nessus = text == "true",
-        "unsupported_by_vendor" => item.unsupported_by_vendor = text == "true",
+        "exploited_by_malware" => item.d.exploited_by_malware = text == "true",
+        "exploited_by_nessus" => item.d.exploited_by_nessus = text == "true",
+        "unsupported_by_vendor" => item.d.unsupported_by_vendor = text == "true",
         "compliance" if text == "true" => item.compliance = true,
         f if f.starts_with("cm:compliance") => item.compliance = true,
-        "cisa-known-exploited" if !text.is_empty() => item.cisa_known_exploited = Some(single_line(&text)),
-        "patch_publication_date" => item.patch_publication_date = Some(text),
-        "vuln_publication_date" => item.vuln_publication_date = Some(text),
-        "script_version" => item.script_version = Some(text),
+        "cisa-known-exploited" if !text.is_empty() => item.d.cisa_known_exploited = Some(single_line(&text)),
+        "patch_publication_date" => item.d.patch_publication_date = Some(text),
+        "vuln_publication_date" => item.d.vuln_publication_date = Some(text),
+        "script_version" => item.d.script_version = Some(text),
         _ => {}
     }
 }
@@ -456,9 +488,9 @@ fn scan_info_says_credentialed(items: &[ReportItem]) -> bool {
     })
 }
 
-fn add_framework(item: &mut ReportItem, name: &str) {
-    if !item.exploit_frameworks.iter().any(|f| f == name) {
-        item.exploit_frameworks.push(name.to_string());
+fn add_framework(item: &mut ParsedItem, name: &str) {
+    if !item.d.exploit_frameworks.iter().any(|f| f == name) {
+        item.d.exploit_frameworks.push(name.to_string());
     }
 }
 
@@ -489,63 +521,45 @@ fn apply_host_props(current_host: &mut Option<ReportHost>, props: &HashMap<Strin
         .unwrap_or(false);
 }
 
-fn parse_item_attrs(e: &quick_xml::events::BytesStart<'_>) -> ReportItem {
-    let mut port = 0u16;
-    let mut protocol = String::new();
-    let mut svc_name = String::new();
-    let mut severity = 0u8;
-    let mut plugin_id = 0u32;
-    let mut plugin_name = String::new();
-    let mut plugin_family = String::new();
-
+fn parse_item_attrs(e: &quick_xml::events::BytesStart<'_>) -> ParsedItem {
+    let mut item = ParsedItem::default();
     for attr in e.attributes().flatten() {
         match attr.key.as_ref() {
-            "port" => port = attr.value.as_ref().parse().unwrap_or(0),
-            "protocol" => protocol = unescape_attr(&attr),
-            "svc_name" => svc_name = unescape_attr(&attr),
-            "severity" => severity = parse_severity(attr.value.as_ref()),
-            "pluginID" => plugin_id = attr.value.as_ref().parse().unwrap_or(0),
-            "pluginName" => plugin_name = unescape_attr(&attr),
-            "pluginFamily" => plugin_family = unescape_attr(&attr),
+            "port" => item.port = attr.value.as_ref().parse().unwrap_or(0),
+            "protocol" => item.protocol = unescape_attr(&attr),
+            "svc_name" => item.svc_name = unescape_attr(&attr),
+            "severity" => item.severity = parse_severity(attr.value.as_ref()),
+            "pluginID" => item.d.plugin_id = attr.value.as_ref().parse().unwrap_or(0),
+            "pluginName" => item.d.plugin_name = unescape_attr(&attr),
+            "pluginFamily" => item.d.plugin_family = unescape_attr(&attr),
             _ => {}
         }
     }
+    item
+}
 
-    ReportItem {
-        plugin_id,
-        plugin_name,
-        plugin_family,
-        severity,
-        port,
-        protocol,
-        svc_name,
-        risk_factor: String::new(),
-        description: String::new(),
-        solution: String::new(),
-        synopsis: None,
-        plugin_output: None,
-        cvss_base_score: None,
-        cvss3_base_score: None,
-        cvss4_base_score: None,
-        vpr_score: None,
-        epss_score: None,
-        cve: Vec::new(),
-        cwe: Vec::new(),
-        see_also: Vec::new(),
-        exploit_available: false,
-        metasploit_available: false,
-        metasploit_name: None,
-        exploit_ease: None,
-        exploit_maturity: None,
-        exploit_frameworks: Vec::new(),
-        exploited_by_malware: false,
-        exploited_by_nessus: false,
-        cisa_known_exploited: None,
-        unsupported_by_vendor: false,
-        compliance: false,
-        patch_publication_date: None,
-        vuln_publication_date: None,
-        script_version: None,
+// a finding while it is read. Its plugin details go to the interner when it ends
+#[derive(Default)]
+struct ParsedItem {
+    d: PluginDetails,
+    severity: u8,
+    port: u16,
+    protocol: String,
+    svc_name: String,
+    plugin_output: Option<String>,
+    compliance: bool,
+}
+
+impl ParsedItem {
+    fn finish(self, interner: &mut Interner) -> ReportItem {
+        ReportItem {
+            details: interner.details(self.d),
+            severity: self.severity,
+            port: self.port,
+            protocol: interner.word(&self.protocol),
+            svc_name: interner.word(&self.svc_name),
+            plugin_output: self.plugin_output.map(String::into_boxed_str),
+        }
     }
 }
 
@@ -615,7 +629,7 @@ fn extract_alt_hostnames(items: &[ReportItem]) -> Vec<String> {
 
 #[cfg(test)]
 pub(crate) fn parse_str(xml: &str) -> Result<NessusFile, String> {
-    parse_reader(xml.as_bytes(), "test.nessus", "test.nessus".to_string())
+    parse_reader(xml.as_bytes(), "test.nessus", "test.nessus".to_string(), &mut |_| {})
 }
 
 #[cfg(test)]
@@ -698,7 +712,7 @@ mod tests {
         let at = xml.find("caf_").unwrap() + 3;
         let mut xml = xml.into_bytes();
         xml[at] = 0xE9; // e-acute in Windows-1252, which is invalid UTF-8
-        let f = parse_reader(xml.as_slice(), "t", "t".to_string()).unwrap();
+        let f = parse_reader(xml.as_slice(), "t", "t".to_string(), &mut |_| {}).unwrap();
         assert!(f.hosts[0].items[0].description.ends_with(" menu"));
     }
 
@@ -953,5 +967,29 @@ Patch management checks : None</plugin_output></ReportItem>"#
         ] {
             assert!(parse_str(xml).is_err(), "{xml}");
         }
+    }
+
+    #[test]
+    fn a_file_on_disk_is_streamed_and_repaired_when_it_is_not_utf8() {
+        let temp = TempDir::new();
+        let good = temp.path().join("good.nessus");
+        std::fs::write(&good, scan(&item("<description>caf\u{e9} menu</description>"))).unwrap();
+        let mut seen = Vec::new();
+        let f = parse_nessus_file_with(good.to_str().unwrap(), &mut |p| seen.push(p)).unwrap();
+        assert_eq!(f.hosts[0].items[0].description, "caf\u{e9} menu");
+
+        let bad = temp.path().join("bad.nessus");
+        let xml = scan(&item("<description>caf_ menu</description>"));
+        let at = xml.find("caf_").unwrap() + 3;
+        let mut bytes = xml.into_bytes();
+        bytes[at] = 0xE9; // e-acute in Windows-1252, which is invalid UTF-8
+        std::fs::write(&bad, bytes).unwrap();
+        let f = parse_nessus_file(bad.to_str().unwrap()).unwrap();
+        assert_eq!(f.hosts[0].items[0].description, "caf\u{fffd} menu");
+
+        let cut = temp.path().join("cut.nessus");
+        let full = scan(&item(""));
+        std::fs::write(&cut, &full[..full.find("</ReportHost>").unwrap()]).unwrap();
+        assert!(parse_nessus_file(cut.to_str().unwrap()).unwrap_err().contains("truncated"));
     }
 }

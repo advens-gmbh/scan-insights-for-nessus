@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Sun, Moon, FolderOpen, ChevronDown } from "lucide-react";
 import { useUiStore } from "../../stores/uiStore";
 import { useScanStore } from "../../stores/scanStore";
-import { severityCounts, totalFindings, buildHostEntries } from "../../types/nessus";
+import { useQuery } from "../../data/query";
+import type { ListCounts } from "../../data/types";
 import FilesMenu from "./FilesMenu";
 
 export default function TopBar() {
@@ -16,14 +17,12 @@ export default function TopBar() {
   const closeMenu = useCallback(() => setMenu(false), []);
 
   // merged across files, so a host or finding present in two scans counts only once
-  const hosts = useMemo(() => buildHostEntries(files), [files]);
-  const totalHosts = hosts.length;
-  const totalVulns = useMemo(
-    () => totalFindings(hosts) - (showInfo ? 0 : severityCounts(hosts).info),
-    [hosts, showInfo]
-  );
+  const counts = useQuery<ListCounts>("list_counts", files.length > 0 ? {} : null);
+  const totalHosts = counts?.hosts ?? 0;
+  const f = counts?.findings;
+  const totalVulns = f ? f.critical + f.high + f.medium + f.low + (showInfo ? f.info : 0) : 0;
 
-  const pct = opening?.stage === "receiving" && opening.total > 0 ? Math.floor((opening.hosts / opening.total) * 100) : opening?.stage === "preparing" ? 100 : null;
+  const pct = opening ? opening.percent : null;
   const which = batch.total > 1 ? `Opening ${batch.done + 1} of ${batch.total}` : "Opening";
 
   return (
@@ -64,7 +63,7 @@ export default function TopBar() {
         onClick={openFiles}
         disabled={loading}
         className="btn-primary tabular-nums disabled:opacity-60 disabled:cursor-not-allowed"
-        title={opening ? `${opening.filename}${opening.total ? `: ${opening.hosts.toLocaleString()} of ${opening.total.toLocaleString()} hosts` : ""}` : "Open .nessus scan files"}
+        title={opening ? `${opening.filename}: ${opening.percent}% read` : "Open .nessus scan files"}
       >
         <FolderOpen size={15} />
         {loading ? `${which}${pct !== null ? ` · ${pct}%` : "…"}` : "Open files"}

@@ -3,8 +3,9 @@ import { useLocation } from "react-router-dom";
 import { ChevronDown, Check, Copy, AlertTriangle } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { buildHostEntries, osGuesses } from "../types/nessus";
-import type { HostEntry } from "../types/nessus";
+import { osGuesses } from "../types/nessus";
+import type { HostRow } from "../types/nessus";
+import { useQuery } from "../data/query";
 import { compareHosts } from "../utils/ip";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
 import { spreadsheetCell } from "../utils/spreadsheet";
@@ -53,6 +54,8 @@ const TEXT_SORT_KEYS: ColKey[] = ["ip", "hostname", "os", "system_type", "netbio
 
 const COPY_MENU_W = 208; // w-52
 
+const NO_ROWS: HostRow[] = [];
+
 export default function Hosts() {
   const files = useScanStore((s) => s.files);
   const openHostPanel = useUiStore((s) => s.openHostPanel);
@@ -77,12 +80,8 @@ export default function Hosts() {
 
   // ── Data pipeline ───────────────────────────────────────────────────────────
 
-  const filteredFiles = useMemo(
-    () => (fileFilter === "all" ? files : files.filter((f) => f.id === fileFilter)),
-    [files, fileFilter]
-  );
-
-  const allHosts = useMemo(() => buildHostEntries(filteredFiles), [filteredFiles]);
+  const answer = useQuery<HostRow[]>("host_rows", files.length > 0 ? { file: fileFilter === "all" ? null : fileFilter } : null);
+  const allHosts = answer ?? NO_ROWS;
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -294,7 +293,7 @@ export default function Hosts() {
                 );
               })}
               <SpacerRow height={paddingBottom} colSpan={visibleCols.length} />
-              {sorted.length === 0 && (
+              {sorted.length === 0 && answer !== undefined && (
                 <tr>
                   <td colSpan={visibleCols.length} className="table-cell text-center text-ink-500 py-10">
                     No hosts match the current filter.
@@ -312,7 +311,7 @@ export default function Hosts() {
 // ── Table sub-components ──────────────────────────────────────────────────────
 
 function HostRow({ host, visibleCols, fileId, index, selected, measureRow, onClick }: {
-  host: HostEntry;
+  host: HostRow;
   visibleCols: ColDef[];
   fileId?: string;
   index: number;

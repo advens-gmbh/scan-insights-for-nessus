@@ -1,14 +1,15 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::export;
 use crate::models::{AppSettings, ExportRequest, NessusFile, Project, RecentFile};
-use crate::parser::parse_nessus_file;
+use crate::parser::parse_nessus_file_with;
 use crate::private_file;
 use crate::state::AppState;
+use crate::api;
+use crate::views::FileInfo;
 
 // ── file loading ─────────────────────────────────────────────────────────────
 
@@ -20,20 +21,12 @@ fn require_hosts(file: NessusFile) -> Result<NessusFile, String> {
     Ok(file)
 }// require_hosts
 
-// the window gets first the file without its hosts. The hosts follow in pages
-#[derive(Serialize)]
-pub struct LoadedFile {
-    id: String,
-    filename: String,
-    path: String,
-    loaded_at: String,
-    report_name: String,
-    target: Option<String>,
-    compliance_skipped: usize,
-    host_count: usize,
-    finding_count: usize,
-    size: u64,
-}// LoadedFile
+// how far reading a file has got
+#[derive(Serialize, Clone)]
+struct LoadProgress<'a> {
+    path: &'a str,
+    percent: u8,
+}
 
 // why a file couldn't be opened
 #[derive(Serialize, Debug, PartialEq)]
@@ -70,34 +63,19 @@ fn classify(message: String, size: u64) -> LoadError {
 // `async` keeps this off the main thread, so the window stays responsive while
 // a large scan is parsed
 #[tauri::command(async)]
-pub fn load_nessus_file(state: State<'_, AppState>, path: String,) -> Result<LoadedFile, LoadError> {
+pub fn load_nessus_file(app: AppHandle, state: State<'_, AppState>, path: String,) -> Result<FileInfo, LoadError> {
     let size = match std::fs::metadata(&path) {
         Ok(m) => m.len(),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(load_error("missing", e.to_string())),
         Err(e) => return Err(load_error("unreadable", e.to_string())),
     };
-    let parsed = parse_nessus_file(&path)
+    let mut tell = |percent: u8| {
+        let _ = app.emit("load-progress", LoadProgress { path: &path, percent });
+    };
+    let parsed = parse_nessus_file_with(&path, &mut tell)
         .and_then(require_hosts)
         .map_err(|m| classify(m, size))?;
-    let parsed = Arc::new(parsed);
-    let mut files = state.files.lock().unwrap();
-    // replace if same path already loaded
-    if let Some(pos) = files.iter().position(|f| f.path == parsed.path) {
-        files.remove(pos);
-    }
-    files.push(Arc::clone(&parsed));
-    Ok(LoadedFile {
-        id: parsed.id.clone(),
-        filename: parsed.filename.clone(),
-        path: parsed.path.clone(),
-        loaded_at: parsed.loaded_at.clone(),
-        report_name: parsed.report_name.clone(),
-        target: parsed.target.clone(),
-        compliance_skipped: parsed.compliance_skipped,
-        host_count: parsed.hosts.len(),
-        finding_count: parsed.hosts.iter().map(|h| h.items.len()).sum(),
-        size,
-    })
+    Ok(api::add_file(&state, parsed, size))
 }// load_nessus_file
 
 // the size of each file, or nothing when it isn't there any more (for the recent files list)
@@ -106,41 +84,15 @@ pub fn file_sizes(paths: Vec<String>) -> Vec<Option<u64>> {
     paths.iter().map(|p| std::fs::metadata(p).ok().filter(|m| m.is_file()).map(|m| m.len())).collect()
 }// file_sizes
 
-// Roughly how much one page of hosts may hold
-const PAGE_BYTES: usize = 16 * 1024 * 1024;
-
-fn host_page(file: &NessusFile, start: usize, limit: usize) -> Result<String, String> {
-    let mut json = String::from("{\"hosts\":[");
-    let mut next = start.min(file.hosts.len());
-    while next < file.hosts.len() && (next == start || json.len() < limit) {
-        if next > start {
-            json.push(',');
-        }
-        json.push_str(&serde_json::to_string(&file.hosts[next]).map_err(|e| e.to_string())?);
-        next += 1;
-    }
-    json.push_str(&format!("],\"next\":{next}}}"));
-    Ok(json)
-}// host_page
-
-#[tauri::command(async)]
-pub fn file_hosts(state: State<'_, AppState>, id: String, start: usize) -> Result<tauri::ipc::Response, String> {
-    let file = state.files.lock().unwrap().iter().find(|f| f.id == id).cloned()
-        .ok_or_else(|| "The file was closed while it was loading.".to_string())?;
-    // already JSON, so it goes to the window as it is
-    Ok(tauri::ipc::Response::new(host_page(&file, start, PAGE_BYTES)?))
-}// file_hosts
-
 #[tauri::command]
 pub fn unload_file(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let mut files = state.files.lock().unwrap();
-    files.retain(|f| f.id != id);
+    api::close_files(&state, Some(&id));
     Ok(())
 }// unload_file
 
 #[tauri::command]
 pub fn unload_all_files(state: State<'_, AppState>) -> Result<(), String> {
-    state.files.lock().unwrap().clear();
+    api::close_files(&state, None);
     Ok(())
 }// unload_all_files
 
@@ -267,7 +219,7 @@ pub fn open_url(url: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify, exported_file, file_sizes, host_page, is_web_url, load_error, require_hosts, save_json};
+    use super::{classify, exported_file, file_sizes, is_web_url, load_error, require_hosts, save_json};
     use crate::state::AppState;
     use crate::parser::parse_str;
     use crate::private_file::testing::TempDir;
@@ -312,37 +264,6 @@ mod tests {
         }
         let scan = r#"<NessusClientData_v2><Report name="r"><ReportHost name="10.0.0.1"></ReportHost></Report></NessusClientData_v2>"#;
         assert!(require_hosts(parse_str(scan).unwrap()).is_ok());
-    }
-
-    #[test]
-    fn hosts_go_out_in_pages_that_together_hold_every_host() {
-        let hosts: String = (1..=50)
-            .map(|n| format!(r#"<ReportHost name="10.0.0.{n}"><ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="{n}" pluginName="P{n}" pluginFamily="F"><description>{}</description></ReportItem></ReportHost>"#, "x".repeat(n * 40)))
-            .collect();
-        let file = parse_str(&format!(r#"<NessusClientData_v2><Report name="r">{hosts}</Report></NessusClientData_v2>"#)).unwrap();
-
-        let mut seen = Vec::new();
-        let mut start = 0;
-        let mut pages = 0;
-        while start < file.hosts.len() {
-            let page: serde_json::Value = serde_json::from_str(&host_page(&file, start, 4_000).unwrap()).unwrap();
-            let got = page["hosts"].as_array().unwrap();
-            assert!(!got.is_empty(), "every page moves on");
-            seen.extend(got.iter().map(|h| h["ip"].as_str().unwrap().to_string()));
-            start = page["next"].as_u64().unwrap() as usize;
-            pages += 1;
-        }
-        assert!(pages > 3, "small pages split the file, got {pages}");
-        assert_eq!(seen, file.hosts.iter().map(|h| h.ip.clone()).collect::<Vec<_>>());
-
-        // a host larger than a page still comes through, alone
-        let one: serde_json::Value = serde_json::from_str(&host_page(&file, 49, 10).unwrap()).unwrap();
-        assert_eq!(one["hosts"].as_array().unwrap().len(), 1);
-        assert_eq!(one["next"], 50);
-        // past the end is an empty page, not an error
-        let end: serde_json::Value = serde_json::from_str(&host_page(&file, 99, 10).unwrap()).unwrap();
-        assert_eq!(end["hosts"].as_array().unwrap().len(), 0);
-        assert_eq!(end["next"], 50);
     }
 
     #[test]
@@ -405,5 +326,40 @@ mod tests {
         ] {
             assert!(!is_web_url(url), "{url}");
         }
+    }
+}
+
+#[cfg(test)]
+mod timing {
+    // cargo test --release timing -- --ignored --nocapture, with SCAN set to a big .nessus file
+    #[test]
+    #[ignore]
+    fn time_loading_steps() {
+        let path = std::env::var("SCAN").unwrap();
+        let t = std::time::Instant::now();
+        let mut file = crate::parser::parse_nessus_file(&path).unwrap();
+        println!("parse {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        crate::intern::Interner::default().adopt(&mut file);
+        println!("adopt {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let info = crate::views::file_info(&file, 0);
+        println!("file info {:?} ({} hosts)", t.elapsed(), info.host_count);
+        let view = crate::views::View::new(vec![std::sync::Arc::new(file)]);
+        for (name, f) in [("vulns", 0), ("hosts", 1), ("services", 2)] {
+            let t = std::time::Instant::now();
+            let n = match f { 0 => view.vulns().list.len(), 1 => view.hosts().list.len(), _ => view.services().len() };
+            println!("{name} {:?} ({n})", t.elapsed());
+        }
+        let t = std::time::Instant::now();
+        let rows: Vec<_> = view.hosts().list.iter().map(|h| h.row(&view)).collect();
+        let json = serde_json::to_string(&rows).unwrap();
+        println!("host rows json {:?} {} KB", t.elapsed(), json.len() / 1000);
+        let t = std::time::Instant::now();
+        let rows: Vec<_> = view.vulns().list.iter().map(|v| v.row(&view)).collect();
+        let json = serde_json::to_string(&rows).unwrap();
+        println!("vuln rows json {:?} {} KB", t.elapsed(), json.len() / 1000);
+        let json = serde_json::to_string(view.services()).unwrap();
+        println!("services json {} KB", json.len() / 1000);
     }
 }

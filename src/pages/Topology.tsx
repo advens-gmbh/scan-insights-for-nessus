@@ -2,8 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { buildHostEntries } from "../types/nessus";
-import type { HostEntry } from "../types/nessus";
+import { useQuery } from "../data/query";
+import type { TopologyHost } from "../types/nessus";
 import SeverityPills from "../components/common/SeverityPills";
 import Select from "../components/common/Select";
 import WaysMap from "../components/topology/WaysMap";
@@ -13,7 +13,7 @@ import type { HiddenNet, Level } from "../components/topology/TopologyPanel";
 import { useSeverityFilter } from "../hooks/useSeverityFilter";
 import { useSeverityStore } from "../stores/severityStore";
 import { countBySeverity, severitiesOf } from "../utils/severityFilter";
-import { findWay, netEnd, topologyOf, waysOf } from "../utils/topology";
+import { findWay, netEnd, PLUGIN, topologyOf, waysOf } from "../utils/topology";
 import type { Bridge, WayCrowd } from "../utils/topology";
 import EmptyFilesNotice from "./EmptyFilesNotice";
 import { usePageState } from "../stores/pageStore";
@@ -28,6 +28,9 @@ const LEVELS: Level[] = [
   { sev: 1, key: "low",      label: "Low",      fg: "text-low-fg" },
   { sev: 0, key: "info",     label: "Info",     fg: "text-info-fg" },
 ];
+
+const TOPOLOGY_PLUGINS = Object.values(PLUGIN);
+const NO_HOSTS: TopologyHost[] = [];
 
 const ICON_BUTTON = "h-8 w-8 flex items-center justify-center text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-700";
 
@@ -59,12 +62,12 @@ export default function Topology() {
   const [zoom, setZoom] = useState(1);
   const map = useRef<WaysControls>(null);
 
-  const hosts = useMemo(() => buildHostEntries(files), [files]);
+  const hosts = useQuery<TopologyHost[]>("topology_hosts", files.length > 0 ? { plugins: TOPOLOGY_PLUGINS } : null) ?? NO_HOSTS;
   const topo = useMemo(() => topologyOf(hosts), [hosts]);
   const graph = useMemo(() => waysOf(topo, open), [topo, open]);
   const severityCounts = useMemo(() => countBySeverity(hosts.map((h) => severitiesOf(h.severity_counts))), [hosts]);
   const levels = useMemo(() => LEVELS.filter((l) => severities.includes(l.sev)), [severities]);
-  const worstShown = useCallback((h: HostEntry) => levels.find((l) => h.severity_counts[l.key] > 0)?.sev ?? null, [levels]);
+  const worstShown = useCallback((h: TopologyHost) => levels.find((l) => h.severity_counts[l.key] > 0)?.sev ?? null, [levels]);
 
   const goal = target && graph.nodeOf.has(target) ? target : null;
   const way = useMemo(() => (goal ? findWay(graph, goal) : null), [graph, goal]);

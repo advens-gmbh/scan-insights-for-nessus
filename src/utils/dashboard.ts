@@ -1,5 +1,3 @@
-import type { SeverityCounts } from "../types/nessus";
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // Nessus writes HOST_START / HOST_END as "Mon Jan  1 10:00:00 2024", which not every webview parses
@@ -50,29 +48,3 @@ export function formatDuration(ms: number): string {
 
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }// formatDuration
-
-const ORDER: (keyof SeverityCounts)[] = ["critical", "high", "medium", "low", "info"];
-
-// worst hosts first: compared by critical count, then high, and so on
-export function rankHosts<T extends { severity_counts: SeverityCounts }>(hosts: T[], showInfo: boolean, limit: number): T[] {
-  return hosts
-    .filter((h) => showInfo || ORDER.slice(0, 4).some((k) => h.severity_counts[k] > 0))
-    .sort((a, b) => {
-      for (const k of ORDER) {
-        const diff = b.severity_counts[k] - a.severity_counts[k];
-        if (diff !== 0) {
-          return diff;
-        }
-      }
-
-      return 0;
-    })
-    .slice(0, limit);
-}// rankHosts
-
-export function topVulnerabilities<T extends { severity: number; host_count: number }>(vulns: T[], limit: number): T[] {
-  return vulns
-    .filter((v) => v.severity >= 3)
-    .sort((a, b) => b.severity - a.severity || b.host_count - a.host_count)
-    .slice(0, limit);
-}// topVulnerabilities

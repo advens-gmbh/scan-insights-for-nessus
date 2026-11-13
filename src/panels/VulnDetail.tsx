@@ -6,14 +6,23 @@ import { formatNessusDate } from "../utils/format";
 import { httpUrl, httpsUrl } from "../utils/webUrls";
 import { useUiStore } from "../stores/uiStore";
 import { useScanStore } from "../stores/scanStore";
-import { buildVulnEntries, cvssSeverity, isPlainHttp, isHttps, ratingDifferences, SEVERITY_COLORS, SEVERITY_LABELS } from "../types/nessus";
+import { cvssSeverity, isPlainHttp, isHttps, ratingDifferences, SEVERITY_COLORS, SEVERITY_LABELS } from "../types/nessus";
+import { useQuery } from "../data/query";
 import SeverityBadge from "../components/common/SeverityBadge";
 import IpLink from "../components/common/IpLink";
 import CopyButton from "../components/common/CopyButton";
 import SearchBar from "../components/common/SearchBar";
 import Select, { fileOption } from "../components/common/Select";
 import { ExploitTag, PanelButtons, Section, Tag, useEscape } from "./PanelParts";
-import type { VulnEntry } from "../types/nessus";
+import type { VulnRow } from "../types/nessus";
+
+// what the backend's vuln_detail command answers
+interface Detail {
+  vuln: VulnRow;    // with one file chosen, that file's rating and details
+  texts: { description: string; solution: string; synopsis: string | null; see_also: string[] };
+  across: VulnRow;  // all files: how each rates it
+  affected: { id: number; ip: string; port: number; protocol: string; svc_name: string; has_output: boolean; file_id: string; filename: string }[];
+}// Detail
 
 const HOST_ROWS_PAGE = 200;
 
@@ -42,32 +51,28 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
   const [hiddenOutput, setHiddenOutput] = useState<Set<number>>(new Set());
   const [visibleRows, setVisibleRows] = useState(HOST_ROWS_PAGE);
 
-  const allVulns = useMemo(() => buildVulnEntries(files), [files]);
-  const filteredFiles = useMemo(
-    () => (fileFilter === "all" ? files : files.filter((f) => f.id === fileFilter)),
-    [files, fileFilter]
+  const detail = useQuery<Detail | null>("vuln_detail", { pluginId, file: fileFilter === "all" ? null : fileFilter });
+  const hosts = useMemo(
+    () => (detail?.affected ?? []).filter((h) => (fileFilter === "all" || h.file_id === fileFilter) && (!ipSearch || h.ip.includes(ipSearch))),
+    [detail, fileFilter, ipSearch]
   );
-  const filteredVulns = useMemo(() => buildVulnEntries(filteredFiles), [filteredFiles]);
+  // plugin output only for the rows on screen
+  const shownWithOutput = hosts.slice(0, visibleRows).filter((h) => h.has_output).map((h) => h.id);
+  const outputs = useQuery<Record<string, string | null>>("vuln_outputs", shownWithOutput.length > 0 ? { pluginId, ids: shownWithOutput } : null);
 
-  const acrossFiles = allVulns.find((v) => v.plugin_id === pluginId);
-  if (!acrossFiles) {
+  if (!detail) {
     return null;
   }
 
-  // With one file selected, the rating and details are that file's own, as in the table.
-  const vuln = filteredVulns.find((v) => v.plugin_id === pluginId) ?? acrossFiles;
-  const differences = ratingDifferences(acrossFiles);
-
-  const hosts = acrossFiles.affected_hosts.filter((h) =>
-    (fileFilter === "all" || h.file_id === fileFilter) && (!ipSearch || h.ip.includes(ipSearch))
-  );
+  const vuln = { ...detail.vuln, ...detail.texts };
+  const differences = ratingDifferences(detail.across);
 
   // Lists to copy are de-duplicated (same host and port can be present in multiple files)
   const ips = [...new Set(hosts.map((h) => h.ip))];
   const ipPorts = [...new Set(hosts.map((h) => `${h.ip}:${h.port}`))];
   const httpUrls = [...new Set(hosts.filter((h) => isPlainHttp(h.port, h.svc_name)).map((h) => httpUrl(h.ip, h.port)))];
   const httpsUrls = [...new Set(hosts.filter((h) => isHttps(h.port, h.svc_name)).map((h) => httpsUrl(h.ip, h.port)))];
-  const withOutput = hosts.filter((h) => h.plugin_output);
+  const withOutput = hosts.filter((h) => h.has_output);
   const allHidden = withOutput.length > 0 && withOutput.every((h) => hiddenOutput.has(h.id));
 
   const toggleOutput = (id: number) => {
@@ -255,9 +260,10 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
                 <tbody>
                   {hosts.slice(0, visibleRows).map((h) => {
                     const web = isPlainHttp(h.port, h.svc_name) ? httpUrl(h.ip, h.port) : isHttps(h.port, h.svc_name) ? httpsUrl(h.ip, h.port) : null;
-                    const open = h.plugin_output && !hiddenOutput.has(h.id);
+                    const output = outputs?.[h.id] ?? null;
+                    const open = h.has_output && !hiddenOutput.has(h.id);
                     return (
-                      <HostRows key={h.id} open={!!open} columns={columns} output={h.plugin_output}>
+                      <HostRows key={h.id} open={open} columns={columns} output={output}>
                         <td className="px-3 py-1.5">
                           <IpLink ip={h.ip} className="text-left" />
                           {showFile && (
@@ -270,13 +276,13 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
                           <CopyButton text={h.ip} label="IP" className="!px-1.5" />
                           <CopyButton text={`${h.ip}:${h.port}`} label="IP:port" className="!px-1.5" />
                           {web && <CopyButton text={web} label="URL" className="!px-1.5" />}
-                          {h.plugin_output ? (
+                          {h.has_output ? (
                             <button
                               onClick={() => toggleOutput(h.id)}
                               className="btn-ghost h-7 w-7 p-0 justify-center"
                               title={open ? "Hide plugin output" : "Show plugin output"}
                               aria-label={open ? "Hide plugin output" : "Show plugin output"}
-                              aria-expanded={!!open}
+                              aria-expanded={open}
                             >
                               {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             </button>
@@ -319,7 +325,7 @@ function HostRows({ open, columns, output, children }: { open: boolean; columns:
   );
 }// HostRows
 
-function ExploitSection({ vuln }: { vuln: VulnEntry }) {
+function ExploitSection({ vuln }: { vuln: VulnRow }) {
   // the ease only repeats yes or no, except for "No exploit is required"
   const ease = vuln.exploit_ease && !/^(exploits are available|no known exploits are available)$/i.test(vuln.exploit_ease.trim()) ? vuln.exploit_ease : null;
   const kits = [...(vuln.metasploit_available ? ["Metasploit"] : []), ...vuln.exploit_frameworks];

@@ -6,9 +6,10 @@ import { fileNameOf, useScanStore } from "../stores/scanStore";
 import { usePageState } from "../stores/pageStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useUiStore } from "../stores/uiStore";
-import type { ExportFormat, ExportRequest, NessusFile } from "../types/nessus";
+import type { ExportFormat, ExportRequest, ScanFile } from "../types/nessus";
 import { SEVERITY_LABELS, SEVERITY_ORDER } from "../types/nessus";
-import { formatScanStart, scanWindow } from "../utils/dashboard";
+import { formatScanStart } from "../utils/dashboard";
+import { fileWindow } from "../utils/fileFacts";
 import { byScanDate } from "../utils/trends";
 import { folderOf, timeAgo } from "../utils/format";
 import { explainExportError, exportErrorOf, needsAnotherPlace } from "../utils/exportResult";
@@ -31,15 +32,9 @@ const SEVERITY_COUNT_CLASS: Record<number, string> = {
   0: "text-info-fg",
 };
 
-function countsOf(file: NessusFile): Record<number, number> {
-  const counts: Record<number, number> = { 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
-  for (const host of file.hosts) {
-    for (const item of host.items) {
-      counts[item.severity]++;
-    }
-  }
-
-  return counts;
+function countsOf(file: ScanFile): Record<number, number> {
+  const c = file.counts;
+  return { 4: c.critical, 3: c.high, 2: c.medium, 1: c.low, 0: c.info };
 }// countsOf
 
 export default function Export() {
@@ -114,7 +109,7 @@ export default function Export() {
           <table className="w-full text-body">
             <tbody>
               {sorted.map((f) => {
-                const start = scanWindow(f.hosts).start;
+                const start = fileWindow(f).start;
                 const counts = perFile.get(f.id)!;
                 return (
                   <tr key={f.id} onClick={() => toggleFile(f.id)} className="cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-700/50">
@@ -131,7 +126,7 @@ export default function Export() {
                     <td className="pr-3 py-1.5 w-[32%] max-w-0 truncate font-medium text-ink-800 dark:text-ink-100" title={f.filename}>{f.filename.replace(/\.nessus$/i, "")}</td>
                     <td className="pr-3 py-1.5 w-[22%] max-w-0 truncate text-ink-500 dark:text-ink-400" title={f.report_name}>{f.report_name}</td>
                     <td className="pr-3 py-1.5 whitespace-nowrap tabular-nums text-ink-500 dark:text-ink-400">{start ? formatScanStart(start) : "-"}</td>
-                    <td className="pr-3 py-1.5 whitespace-nowrap tabular-nums text-right text-ink-500 dark:text-ink-400">{f.hosts.length.toLocaleString()} {f.hosts.length === 1 ? "host" : "hosts"}</td>
+                    <td className="pr-3 py-1.5 whitespace-nowrap tabular-nums text-right text-ink-500 dark:text-ink-400">{f.host_count.toLocaleString()} {f.host_count === 1 ? "host" : "hosts"}</td>
                     {SEVERITY_ORDER.map((sev) => (
                       <td
                         key={sev}

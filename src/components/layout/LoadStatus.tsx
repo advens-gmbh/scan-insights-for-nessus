@@ -49,7 +49,6 @@ function useSizes(paths: string[]) {
 }// useSizes
 
 const seconds = (s: number) => `${s < 10 ? s.toFixed(1) : Math.round(s)} s`;
-const percent = (o: Opening) => (o.total > 0 ? Math.floor((o.hosts / o.total) * 100) : 0);
 
 function Bar({ value }: { value: number }) {
   return (
@@ -93,10 +92,7 @@ export function OpeningCard() {
 }// OpeningCard
 
 function OpeningCardBody({ opening: o, queue, batch }: { opening: Opening; queue: string[]; batch: { done: number; total: number } }) {
-  const elapsed = useElapsed(o.stage === "reading");
-  const read: StepState = o.stage === "reading" ? "now" : "done";
-  const receive: StepState = o.stage === "reading" ? "later" : o.stage === "receiving" ? "now" : "done";
-  const prepare: StepState = o.stage === "preparing" ? "now" : "later";
+  const elapsed = useElapsed(true);
   const sizes = useSizes(queue);
   return (
     <div className="min-h-[70vh] flex items-center justify-center">
@@ -110,16 +106,9 @@ function OpeningCardBody({ opening: o, queue, batch }: { opening: Opening; queue
           </div>
         </div>
         <ol className="flex flex-col gap-4">
-          <Step
-            state={read}
-            title="Reading the file"
-            text={read === "done" ? `${o.total.toLocaleString()} ${o.total === 1 ? "host" : "hosts"} and ${o.findings.toLocaleString()} findings found` : "Large scans take a few seconds."}
-            right={read === "done" ? seconds((o.readMs ?? 0) / 1000) : seconds(elapsed)}
-          />
-          <Step state={receive} title="Bringing the hosts into the app" text={receive === "later" ? undefined : `${o.hosts.toLocaleString()} of ${o.total.toLocaleString()} hosts`} right={receive === "later" ? undefined : `${percent(o)}%`}>
-            {receive !== "later" && <div className="mt-2"><Bar value={percent(o)} /></div>}
+          <Step state="now" title="Reading the file" text={`${o.percent}%`} right={seconds(elapsed)}>
+            <div className="mt-2"><Bar value={o.percent} /></div>
           </Step>
-          <Step state={prepare} title="Preparing the pages" />
         </ol>
         {queue.length > 0 && (
           <div>
@@ -152,7 +141,7 @@ export function OpeningToast() {
 }// OpeningToast
 
 function OpeningToastBody({ opening: o, queue, batch, hidden, onHide }: { opening: Opening; queue: string[]; batch: { done: number; total: number }; hidden: boolean; onHide: () => void }) {
-  const elapsed = useElapsed(o.stage === "reading");
+  const elapsed = useElapsed(true);
   const label = batch.total > 1 ? `Opening file ${batch.done + 1} of ${batch.total}` : "Opening";
   return (
     <section role="status" aria-label="Opening a file" className="card pointer-events-auto w-[380px] p-4 flex flex-col gap-2.5 shadow-xl">
@@ -168,10 +157,8 @@ function OpeningToastBody({ opening: o, queue, batch, hidden, onHide }: { openin
       </div>
       {!hidden && (
         <>
-          <div className="text-caption text-ink-600 dark:text-ink-300 tabular-nums">
-            {o.stage === "reading" ? `Reading the file… ${seconds(elapsed)}` : o.stage === "receiving" ? `Bringing the hosts in: ${o.hosts.toLocaleString()} of ${o.total.toLocaleString()}` : "Preparing the pages…"}
-          </div>
-          {o.stage !== "reading" && <Bar value={o.stage === "preparing" ? 100 : percent(o)} />}
+          <div className="text-caption text-ink-600 dark:text-ink-300 tabular-nums">Reading the file: {o.percent}% · {seconds(elapsed)}</div>
+          <Bar value={o.percent} />
           <div className="flex gap-3 text-caption text-ink-500 dark:text-ink-400">
             {queue.length > 0 && <span className="min-w-0 truncate">Next: {fileNameOf(queue[0])}{queue.length > 1 ? ` and ${queue.length - 1} more` : ""}</span>}
             <span className="ml-auto shrink-0">Keep working meanwhile</span>

@@ -3,8 +3,8 @@ import { useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
-import { buildServiceEntries } from "../types/nessus";
 import type { ServiceEntry } from "../types/nessus";
+import { useQuery } from "../data/query";
 import SearchBar from "../components/common/SearchBar";
 import Select, { fileOption } from "../components/common/Select";
 import SpacerRow from "../components/common/SpacerRow";
@@ -48,6 +48,8 @@ const COLUMNS: ColDef[] = [
 ];// COLUMNS
 
 
+const NO_ROWS: ServiceEntry[] = [];
+
 export default function Services() {
   const files = useScanStore((s) => s.files);
   const openKey = useUiStore((s) => s.servicePanelKey);
@@ -75,11 +77,8 @@ export default function Services() {
 
   const activeFile = files.some((f) => f.id === fileFilter) ? fileFilter : "all";
   const fileId = activeFile !== "all" ? activeFile : undefined;
-  const filteredFiles = useMemo(
-    () => (activeFile === "all" ? files : files.filter((f) => f.id === activeFile)),
-    [files, activeFile]
-  );
-  const services = useMemo(() => buildServiceEntries(filteredFiles), [filteredFiles]);
+  const answer = useQuery<ServiceEntry[]>("service_rows", files.length > 0 ? { file: fileId ?? null } : null);
+  const services = answer ?? NO_ROWS;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -274,7 +273,7 @@ export default function Services() {
                 );
               })}
               <SpacerRow height={paddingBottom} colSpan={columnCount} />
-              {rows.length === 0 && (
+              {rows.length === 0 && answer !== undefined && (
                 <tr>
                   <td colSpan={columnCount} className="table-cell text-center text-ink-500 py-10">
                     No services match the current filter.

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, X } from "lucide-react";
-import type { HostEntry, SeverityCounts } from "../../types/nessus";
+import type { TopologyHost, SeverityCounts } from "../../types/nessus";
 import type { Bridge, Link, Strength, WayCrowd, WayEdge, WayGraph, WayMachine, WayNode } from "../../utils/topology";
 import { crowdMembersIn, exposure } from "../../utils/topology";
 import { useUiStore } from "../../stores/uiStore";
@@ -24,7 +24,7 @@ export const strengthRank = (s: Strength) => STRENGTH[s].rank;
 const HEAD = "flex items-center gap-2 px-4 py-3 border-b border-ink-100 dark:border-ink-700/50";
 const SECTION = "text-caption font-semibold text-ink-500 dark:text-ink-400 mb-1.5";
 
-function countsOf(hosts: HostEntry[], levels: Level[]) {
+function countsOf(hosts: TopologyHost[], levels: Level[]) {
   return levels.map((l) => ({ ...l, n: hosts.reduce((sum, h) => sum + h.severity_counts[l.key], 0) }));
 }// countsOf
 
@@ -32,7 +32,7 @@ export function machineScore(b: Bridge, levels: Level[]): number {
   return countsOf(b.hosts, levels).reduce((s, c) => s * 1000 + c.n, 0);
 }// machineScore
 
-function Counts({ hosts, levels, bar = false }: { hosts: HostEntry[]; levels: Level[]; bar?: boolean }) {
+function Counts({ hosts, levels, bar = false }: { hosts: TopologyHost[]; levels: Level[]; bar?: boolean }) {
   const counts = countsOf(hosts, levels).filter((c) => c.n > 0);
   if (counts.length === 0) {
     return null;
@@ -192,7 +192,7 @@ export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick
   crowd: WayCrowd;
   graph: WayGraph;
   levels: Level[];
-  worstShown: (h: HostEntry) => number | null;
+  worstShown: (h: TopologyHost) => number | null;
   onMachine: (id: string) => void;
   onPick: (target: string) => void;
   onClose: () => void;
@@ -291,7 +291,7 @@ function HiddenList({ hidden, onPick }: { hidden: HiddenNet[]; onPick: (target: 
 interface Step {
   title: ReactNode;
   text: string;
-  hosts?: HostEntry[];
+  hosts?: TopologyHost[];
   files?: string[];          // the scan files Nessus ran from
   machines?: WayMachine[];   // a group's machines to choose from, most exposed first
 }// Step
@@ -387,7 +387,7 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
   way: { nodes: string[]; edges: WayEdge[] } | null;
   target: string;
   levels: Level[];
-  worstShown: (h: HostEntry) => number | null;
+  worstShown: (h: TopologyHost) => number | null;
   hidden: HiddenNet[];
   onPick: (target: string) => void;
   onMachine: (id: string) => void;
@@ -463,7 +463,7 @@ export function WayPanel({ graph, way, target, levels, worstShown, hidden, onPic
 
 const MACHINES_COLLAPSED = 5;
 
-function StepMachines({ machines, worstShown, onMachine }: { machines: WayMachine[]; worstShown: (h: HostEntry) => number | null; onMachine: (id: string) => void }) {
+function StepMachines({ machines, worstShown, onMachine }: { machines: WayMachine[]; worstShown: (h: TopologyHost) => number | null; onMachine: (id: string) => void }) {
   const [all, setAll] = useState(false);
   const shown = all ? machines : machines.slice(0, MACHINES_COLLAPSED);
   return (
@@ -505,7 +505,7 @@ function FileLinks({ ids }: { ids: string[] }) {
 
 const HOSTS_COLLAPSED = 20;
 
-function HostList({ hosts, worstShown }: { hosts: HostEntry[]; worstShown: (h: HostEntry) => number | null }) {
+function HostList({ hosts, worstShown }: { hosts: TopologyHost[]; worstShown: (h: TopologyHost) => number | null }) {
   const [showAll, setShowAll] = useState(false);
   const ordered = [...hosts].sort((a, b) => (worstShown(b) ?? -1) - (worstShown(a) ?? -1) || compareHosts(a.ip, b.ip));
   const shown = showAll ? ordered : ordered.slice(0, HOSTS_COLLAPSED);
@@ -542,7 +542,7 @@ const LEVEL_NAME = ["Info", "Low", "Medium", "High", "Critical"];
 export function MachinePanel({ machine, levels, worstShown, onClose, onHide }: {
   machine: WayMachine;
   levels: Level[];
-  worstShown: (h: HostEntry) => number | null;
+  worstShown: (h: TopologyHost) => number | null;
   onClose: () => void;
   onHide: () => void;
 }) {

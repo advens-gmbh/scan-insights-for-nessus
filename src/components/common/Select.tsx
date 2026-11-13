@@ -1,7 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
-import type { NessusFile } from "../../types/nessus";
+import type { ScanFile } from "../../types/nessus";
 import { fileWindow } from "../../utils/fileFacts";
 import { formatScanStart } from "../../utils/dashboard";
 
@@ -31,7 +32,7 @@ const TRIGGER: Record<NonNullable<Props["size"]>, string> = {
 };
 
 // a file as an option: its name, and the scan name and date below it
-export function fileOption(f: NessusFile): SelectOption {
+export function fileOption(f: ScanFile): SelectOption {
   const start = fileWindow(f).start;
   return { value: f.id, label: f.filename.replace(/\.nessus$/i, ""), sub: [f.report_name, start && formatScanStart(start)].filter(Boolean).join(" · ") };
 }// fileOption
@@ -44,11 +45,13 @@ export default function Select({ value, options, onChange, placeholder = "", siz
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
+  const [place, setPlace] = useState<CSSProperties | null>(null);
   const listId = useId();
   const chosen = options.findIndex((o) => o.value === value);
 
   const show = () => {
     setActive(Math.max(chosen, 0));
+    placeList();
     setOpen(true);
   };
   const close = (refocus = true) => {
@@ -61,10 +64,39 @@ export default function Select({ value, options, onChange, placeholder = "", siz
     close();
   };
 
+  const placeList = () => {
+    const r = trigger.current?.getBoundingClientRect();
+    if (!r) return;
+    const below = window.innerHeight - r.bottom - 8;
+    const above = r.top - 8;
+    const up = below < 200 && above > below;
+    setPlace({
+      position: "fixed",
+      left: Math.min(r.left, window.innerWidth - 16 - Math.min(416, window.innerWidth - 32)),
+      minWidth: r.width,
+      ...(up ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 }),
+      maxHeight: Math.min(320, up ? above : below),
+    });
+  };
+  const placeRef = useRef(placeList);
+  useLayoutEffect(() => {
+    placeRef.current = placeList;
+  });
+  useEffect(() => {
+    if (!open) return;
+    const follow = () => placeRef.current();
+    window.addEventListener("scroll", follow, true);
+    window.addEventListener("resize", follow);
+    return () => {
+      window.removeEventListener("scroll", follow, true);
+      window.removeEventListener("resize", follow);
+    };
+  }, [open]);
+
   // the list takes the keys while it's open
   useLayoutEffect(() => {
-    if (open) list.current?.focus();
-  }, [open]);
+    if (open && place) list.current?.focus();
+  }, [open, place]);
 
   useEffect(() => {
     if (open) document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: "nearest" });
@@ -73,7 +105,8 @@ export default function Select({ value, options, onChange, placeholder = "", siz
   useEffect(() => {
     if (!open) return;
     const away = (e: MouseEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!wrap.current?.contains(t) && !list.current?.contains(t)) setOpen(false);
     };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
@@ -145,7 +178,7 @@ export default function Select({ value, options, onChange, placeholder = "", siz
         <span className="min-w-0 truncate">{current ? current.label : placeholder}</span>
         <ChevronDown size={14} className={`ml-auto shrink-0 text-ink-500 dark:text-ink-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
-      {open && (
+      {open && place && createPortal(
         <div
           ref={list}
           id={listId}
@@ -153,7 +186,9 @@ export default function Select({ value, options, onChange, placeholder = "", siz
           tabIndex={-1}
           aria-activedescendant={`${listId}-${active}`}
           onKeyDown={onListKey}
-          className="absolute left-0 top-full mt-1 z-40 min-w-full w-max max-w-[min(26rem,calc(100vw-2rem))] max-h-80 overflow-y-auto p-1.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-xl focus:outline-none"
+          data-keeps-panel
+          style={place}
+          className="z-[60] w-max max-w-[min(26rem,calc(100vw-2rem))] overflow-y-auto p-1.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-xl focus:outline-none"
         >
           {options.map((o, i) => (
             <div key={o.value}>
@@ -178,7 +213,8 @@ export default function Select({ value, options, onChange, placeholder = "", siz
               </div>
             </div>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
