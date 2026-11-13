@@ -28,21 +28,18 @@ const SERIES: Series[] = [
 const DURATION = 500;
 const AFTER_ANIMATION = { animation: `fadeIn 0.2s ease-out ${DURATION}ms both` };
 
-function TrendTooltip({ active, payload, coordinate }: any) {
-  const plotArea = usePlotArea();
+function TrendTooltip({ active, payload }: any) {
   if (!active || !payload?.length) {
     return null;
   }
 
   const d = payload[0].payload as TrendPoint;
-  const flipLeft = coordinate && plotArea && coordinate.x > plotArea.width * 0.55;
   const rows = SERIES.filter((s) => payload.some((p: any) => p.dataKey === s.key));
   const total = rows.reduce((sum, s) => sum + d[s.key], 0);
 
   return (
     <div
       className="bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg shadow-lg px-3 py-2 text-caption tabular-nums"
-      style={{ transform: flipLeft ? "translateX(-110%)" : undefined }}
     >
       <p className="font-semibold text-ink-800 dark:text-ink-100 truncate">{d.filename}</p>
       <p className="text-ink-500 dark:text-ink-400 mb-1.5">{d.date}</p>
@@ -78,13 +75,14 @@ function TrendChart({ data, mode, showInfo, height = 300 }: Props) {
   const top = niceMax(Math.max(5, ...data.map((d) => (mode === "bars" ? total(d) : Math.max(...series.map((s) => d[s.key]))))));
   // a new key restarts the fade of the numbers whenever the data changes
   const version = `${mode}|${showInfo}|${data.map((d) => d.id).join(",")}`;
+  const dateOf = new Map(data.map((d) => [d.id, d.date]));
 
   const axes = (
     <>
       <CartesianGrid vertical={false} stroke={dark ? ink[700] : ink[200]} />
-      <XAxis dataKey="date" tick={{ fontSize: 12, fill: muted }} tickLine={false} axisLine={{ stroke: dark ? ink[600] : ink[300] }} />
+      <XAxis dataKey="id" tickFormatter={(id: string) => dateOf.get(id) ?? ""} tick={{ fontSize: 12, fill: muted }} tickLine={false} axisLine={{ stroke: dark ? ink[600] : ink[300] }} />
       <YAxis tick={{ fontSize: 12, fill: muted }} tickLine={false} axisLine={false} allowDecimals={false} width={Math.max(44, top.toLocaleString().length * 7.5 + 10)} tickFormatter={(v: number) => v.toLocaleString()} domain={[0, top]} ticks={[0, 1, 2, 3, 4, 5].map((i) => (top * i) / 5)} />
-      <Tooltip content={<TrendTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ zIndex: 50 }} cursor={mode === "bars" ? { fill: dark ? ink[700] : ink[100] } : { stroke: muted }} />
+      <Tooltip content={<TrendTooltip />} allowEscapeViewBox={{ x: false, y: false }} wrapperStyle={{ zIndex: 50 }} cursor={mode === "bars" ? { fill: dark ? ink[700] : ink[100] } : { stroke: muted }} />
       <Legend
         iconType="circle"
         iconSize={10}

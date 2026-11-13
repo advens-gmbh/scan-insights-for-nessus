@@ -10,7 +10,7 @@ export default function TopBar() {
   const { theme, toggleTheme, showInfo } = useUiStore();
   const files = useScanStore((s) => s.files);
   const loading = useScanStore((s) => s.loading);
-  const opening = useScanStore((s) => s.opening);
+  const reading = useScanStore((s) => s.reading);
   const batch = useScanStore((s) => s.batch);
   const openFiles = useScanStore((s) => s.openFiles);
   const [menu, setMenu] = useState(false);
@@ -22,8 +22,9 @@ export default function TopBar() {
   const f = counts?.findings;
   const totalVulns = f ? f.critical + f.high + f.medium + f.low + (showInfo ? f.info : 0) : 0;
 
-  const pct = opening ? opening.percent : null;
-  const which = batch.total > 1 ? `Opening ${batch.done + 1} of ${batch.total}` : "Opening";
+  // all files of the batch together
+  const pct = batch.total > 0 ? Math.floor(((batch.done + reading.reduce((sum, o) => sum + o.percent, 0) / 100) / batch.total) * 100) : null;
+  const label = batch.total > 1 ? `Opening · ${batch.done} of ${batch.total} done` : `Opening${pct !== null ? ` · ${pct}%` : "…"}`;
 
   return (
     <header className="relative h-14 px-5 flex items-center gap-4 border-b border-ink-200 dark:border-ink-700/50 bg-white dark:bg-ink-900 shrink-0">
@@ -63,10 +64,10 @@ export default function TopBar() {
         onClick={openFiles}
         disabled={loading}
         className="btn-primary tabular-nums disabled:opacity-60 disabled:cursor-not-allowed"
-        title={opening ? `${opening.filename}: ${opening.percent}% read` : "Open .nessus scan files"}
+        title={reading.length > 0 ? reading.map((o) => `${o.filename}: ${o.percent}% read`).join("\n") : "Open .nessus scan files"}
       >
         <FolderOpen size={15} />
-        {loading ? `${which}${pct !== null ? ` · ${pct}%` : "…"}` : "Open files"}
+        {loading ? label : "Open files"}
       </button>
 
       <button

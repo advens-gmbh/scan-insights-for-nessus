@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
+import { Minus, Plus, RotateCcw, Scan } from "lucide-react";
 import { useScanStore } from "../stores/scanStore";
 import { useUiStore } from "../stores/uiStore";
 import { useQuery } from "../data/query";
 import type { TopologyHost } from "../types/nessus";
 import SeverityPills from "../components/common/SeverityPills";
 import Select from "../components/common/Select";
+import FileChecklist from "../components/common/FileChecklist";
 import WaysMap from "../components/topology/WaysMap";
 import type { WaysControls } from "../components/topology/WaysMap";
 import { CrowdPanel, MachineList, MachinePanel, WayPanel, machineScore, strengthRank } from "../components/topology/TopologyPanel";
@@ -32,6 +33,7 @@ const LEVELS: Level[] = [
 const TOPOLOGY_PLUGINS = Object.values(PLUGIN);
 const NO_HOSTS: TopologyHost[] = [];
 
+const MAP_BUTTON = "h-8 w-8 inline-flex items-center justify-center rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-sm text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-700";
 const ICON_BUTTON = "h-8 w-8 flex items-center justify-center text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-700";
 
 export default function Topology() {
@@ -39,6 +41,7 @@ export default function Topology() {
   const panel = useUiStore((s) => s.topologyPanel);
   const togglePanel = useUiStore((s) => s.toggleTopologyPanel);
   const resetLayout = useUiStore((s) => s.resetTopologyLayout);
+  const anyMoved = useUiStore((s) => Object.keys(s.topologyMoved).length > 0);
   const open = useUiStore((s) => s.topologyOpen);
   const toggleBlock = useUiStore((s) => s.toggleTopologyBlock);
   const target = useUiStore((s) => s.topologyTarget);
@@ -62,7 +65,10 @@ export default function Topology() {
   const [zoom, setZoom] = useState(1);
   const map = useRef<WaysControls>(null);
 
-  const hosts = useQuery<TopologyHost[]>("topology_hosts", files.length > 0 ? { plugins: TOPOLOGY_PLUGINS } : null) ?? NO_HOSTS;
+  const [chosenFiles, setChosenFiles] = usePageState<string[] | null>("topology:files", null);
+  const shownFiles = chosenFiles && chosenFiles.length < files.length && chosenFiles.every((id) => files.some((f) => f.id === id)) ? chosenFiles : null;
+  const noneShown = shownFiles?.length === 0;
+  const hosts = useQuery<TopologyHost[]>("topology_hosts", files.length > 0 && !noneShown ? { plugins: TOPOLOGY_PLUGINS, files: shownFiles } : null) ?? NO_HOSTS;
   const topo = useMemo(() => topologyOf(hosts), [hosts]);
   const graph = useMemo(() => waysOf(topo, open), [topo, open]);
   const severityCounts = useMemo(() => countBySeverity(hosts.map((h) => severitiesOf(h.severity_counts))), [hosts]);
@@ -122,57 +128,77 @@ export default function Topology() {
 
   return (
     <div className="h-full min-h-[480px] flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <SeverityPills counts={severityCounts} selected={severities} onToggle={toggle} />
-        <span className="flex-1" />
-        <span className="inline-flex items-center gap-2 text-small text-ink-500 dark:text-ink-400">
-          Attack path to
-          <Select
-            value={goal ?? ""}
-            onChange={(v) => pick(v || null)}
-            placeholder="a network…"
-            ariaLabel="Attack path to"
-            className="w-48"
-            options={[
-              ...choices.never.map((n) => ({ value: netEnd(n.key), label: n.key, group: "Never scanned" })),
-              ...choices.scanned.map((n) => ({ value: netEnd(n.key), label: n.key, group: "Scanned" })),
-            ]}
-          />
-        </span>
-        {/* the view controls wrap as one group */}
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-flex items-center h-8 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 overflow-hidden">
-            <button onClick={() => map.current?.zoomBy(1 / 1.25)} className={ICON_BUTTON} aria-label="Zoom out"><Minus size={14} /></button>
-            <span className="w-12 text-center text-caption tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => map.current?.zoomBy(1.25)} className={ICON_BUTTON} aria-label="Zoom in"><Plus size={14} /></button>
+      {/* line 1 holds the pills; line 2 what the map shows, and the panel's button on the right above it */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <SeverityPills counts={severityCounts} selected={severities} onToggle={toggle} />
+        </div>
+        <div className="flex items-center gap-2">
+          {files.length > 1 && (
+            <FileChecklist
+              files={files}
+              picked={shownFiles ?? files.map((f) => f.id)}
+              onChange={(ids) => setChosenFiles(ids.length === files.length ? null : ids)}
+              ariaLabel="Show the networks from"
+              className="flex-[0_1_13rem] min-w-[8.5rem]"
+            />
+          )}
+          <span className="min-w-0 inline-flex items-center gap-2 whitespace-nowrap text-small text-ink-500 dark:text-ink-400">
+            Attack path to
+            <Select
+              value={goal ?? ""}
+              onChange={(v) => pick(v || null)}
+              placeholder="a network…"
+              ariaLabel="Attack path to"
+              className="w-48 min-w-[8.5rem] shrink"
+              options={[
+                ...choices.never.map((n) => ({ value: netEnd(n.key), label: n.key, group: "Never scanned" })),
+                ...choices.scanned.map((n) => ({ value: netEnd(n.key), label: n.key, group: "Scanned" })),
+              ]}
+            />
           </span>
-          <button onClick={() => map.current?.fit()} className="btn-ghost h-8 w-8 p-0 justify-center" title="Show everything" aria-label="Fit"><Maximize2 size={15} /></button>
+          <span className="flex-1" />
           <button
-            onClick={() => {
-              resetLayout();
-              requestAnimationFrame(() => map.current?.fit());
-            }}
-            className="btn-ghost h-8 w-8 p-0 justify-center"
-            title="Put every moved box back"
-            aria-label="Reset layout"
+            onClick={togglePanel}
+            aria-pressed={panel}
+            className={`shrink-0 h-8 px-2.5 rounded-lg text-small font-medium inline-flex items-center gap-1.5 transition-colors ${
+              panel ? "bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300" : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-700"
+            }`}
           >
-            <RotateCcw size={15} />
+            Machines on multiple networks <strong>{topo.bridges.length}</strong>
           </button>
-        </span>
-        <button
-          onClick={togglePanel}
-          aria-pressed={panel}
-          className={`h-8 px-2.5 rounded-lg text-small font-medium inline-flex items-center gap-1.5 transition-colors ${
-            panel ? "bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300" : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-700"
-          }`}
-        >
-          Machines on multiple networks <strong>{topo.bridges.length}</strong>
-        </button>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 flex gap-3">
-        <section className="card flex-1 min-w-0 flex flex-col overflow-hidden">
-          <WaysMap ref={map} graph={graph} way={way} target={goal} lit={lit} picked={picked} worstShown={worstShown} onPick={pick} onMachine={showMachine} onZoom={setZoom} />
+        <section className="relative card flex-1 min-w-0 flex flex-col overflow-hidden">
+          {noneShown && (
+            <p className="absolute inset-x-0 top-1/3 z-10 text-center text-body text-ink-500 dark:text-ink-400">No files picked. Tick one above to show its networks.</p>
+          )}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+          <WaysMap ref={map} scope={shownFiles?.join(",") ?? ""} graph={graph} way={way} target={goal} lit={lit} picked={picked} worstShown={worstShown} onPick={pick} onMachine={showMachine} onZoom={setZoom} />
+            <span className="absolute right-3 bottom-3 z-10 inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center h-8 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-sm overflow-hidden">
+                <button onClick={() => map.current?.zoomBy(1 / 1.25)} className={ICON_BUTTON} aria-label="Zoom out" title="Zoom out"><Minus size={14} /></button>
+                <span className="w-12 text-center text-caption tabular-nums text-ink-600 dark:text-ink-300 border-x border-ink-200 dark:border-ink-700 leading-8">{Math.round(zoom * 100)}%</span>
+                <button onClick={() => map.current?.zoomBy(1.25)} className={ICON_BUTTON} aria-label="Zoom in" title="Zoom in"><Plus size={14} /></button>
+              </span>
+              <button onClick={() => map.current?.fit()} className={MAP_BUTTON} title="Fit the map to the view" aria-label="Fit"><Scan size={15} /></button>
+              {anyMoved && (
+                <button
+                  onClick={() => {
+                    resetLayout();
+                    requestAnimationFrame(() => map.current?.fit());
+                  }}
+                  className={MAP_BUTTON}
+                  title="Put every moved box back"
+                  aria-label="Reset layout"
+                >
+                  <RotateCcw size={15} />
+                </button>
+              )}
+            </span>
+          </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 border-t border-ink-100 dark:border-ink-700/50 text-caption text-ink-500 dark:text-ink-400">
             <span className="flex items-center gap-1.5"><span className="w-4 h-3 rounded border border-ink-300 dark:border-ink-600 bg-white dark:bg-ink-800" />Network</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-high" />Machine that connects networks, coloured by its worst finding</span>

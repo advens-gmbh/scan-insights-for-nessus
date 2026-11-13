@@ -10,17 +10,22 @@ use crate::views::{compare_hosts, compare_text, file_info, Counts, FileInfo, Hos
 
 // lists for all open files
 pub fn view(state: &AppState, file: Option<&str>) -> Arc<View> {
-    let files = state.files.lock().unwrap().clone();
-    let file = file.filter(|id| files.iter().any(|f| f.id == *id));
-    let key = file.unwrap_or("").to_string();
-    let mut views = state.views.lock().unwrap();
-    Arc::clone(views.entry(key).or_insert_with(|| {
-        Arc::new(View::new(match file {
-            Some(id) => files.into_iter().filter(|f| f.id == id).collect(),
-            None => files,
-        }))
-    }))
+    view_of(state, file.map(|id| vec![id.to_string()]).as_deref())
 }// view
+
+// the lists for some of the open files. Ids that aren't open are left out; none left means all files
+pub fn view_of(state: &AppState, ids: Option<&[String]>) -> Arc<View> {
+    let files = state.files.lock().unwrap().clone();
+    let picked: Vec<&str> = ids.unwrap_or(&[]).iter().map(String::as_str).filter(|id| files.iter().any(|f| f.id == *id)).collect();
+    let all = picked.is_empty() || picked.len() == files.len();
+    let mut key: Vec<&str> = if all { Vec::new() } else { picked.clone() };
+    key.sort_unstable();
+    key.dedup();
+    let mut views = state.views.lock().unwrap();
+    Arc::clone(views.entry(key.join(",")).or_insert_with(|| {
+        Arc::new(View::new(if all { files } else { files.into_iter().filter(|f| picked.contains(&f.id.as_str())).collect() }))
+    }))
+}// view_of
 
 fn json<T: Serialize>(value: &T) -> Result<String, String> {
     serde_json::to_string(value).map_err(|e| e.to_string())
@@ -29,19 +34,23 @@ fn json<T: Serialize>(value: &T) -> Result<String, String> {
 // ── files ────────────────────────────────────────────────────────────────────
 
 // keeps a parsed file open and shares plugin texts with other open files
-pub fn add_file(state: &AppState, mut parsed: NessusFile, size: u64) -> FileInfo {
+pub fn add_file(state: &AppState, mut parsed: NessusFile, size: u64, order: Option<u64>) -> FileInfo {
     state.interner.lock().unwrap().adopt(&mut parsed);
-    let info = file_info(&parsed, size);
+    let mut info = file_info(&parsed, size);
     let parsed = Arc::new(parsed);
     {
         let mut files = state.files.lock().unwrap();
+        let mut infos = state.infos.lock().unwrap();
         // replace if same path already loaded
         if let Some(pos) = files.iter().position(|f| f.path == parsed.path) {
             let old = files.remove(pos);
-            state.infos.lock().unwrap().remove(&old.id);
+            infos.remove(&old.id);
         }
-        files.push(Arc::clone(&parsed));
-        state.infos.lock().unwrap().insert(info.id.clone(), info.clone());
+        let order_of = |id: &str| infos.get(id).map_or(0, |i| i.order);
+        info.order = order.unwrap_or_else(|| files.iter().map(|f| order_of(&f.id)).max().unwrap_or(0) + 1);
+        let at = files.iter().position(|f| order_of(&f.id) > info.order).unwrap_or(files.len());
+        files.insert(at, Arc::clone(&parsed));
+        infos.insert(info.id.clone(), info.clone());
         state.views.lock().unwrap().clear();
         state.memo.lock().unwrap().clear();
     }
@@ -445,8 +454,8 @@ struct TopologyHost<'a> {
 }
 
 // the hosts with only the findings Topology reads: traceroutes, routes and interfaces
-pub fn topology_hosts(state: &AppState, plugins: Vec<u32>) -> Result<String, String> {
-    let view = view(state, None);
+pub fn topology_hosts(state: &AppState, plugins: Vec<u32>, files: Option<Vec<String>>) -> Result<String, String> {
+    let view = view_of(state, files.as_deref());
     let hosts: Vec<TopologyHost> = view.hosts().list.iter().map(|h| TopologyHost {
         host: h.row(&view),
         items: h.items.iter().map(|&at| view.item(at)).filter(|i| plugins.contains(&i.plugin_id))
@@ -559,7 +568,7 @@ mod tests {
         let mut f = parse_str(&format!(r#"<NessusClientData_v2><Report name="r">{hosts}</Report></NessusClientData_v2>"#)).unwrap();
         f.id = id.to_string();
         f.path = format!("{id}.nessus");
-        add_file(state, f, 0);
+        add_file(state, f, 0, None);
     }
 
     fn top_hosts(state: &AppState, show_info: bool, limit: usize) -> Vec<String> {
@@ -606,6 +615,42 @@ mod tests {
         };
         assert_eq!(top(10), [2, 4, 5, 1]);
         assert_eq!(top(2), [2, 4]);
+    }
+
+    #[test]
+    fn files_keep_the_order_they_were_opened_in() {
+        let state = AppState::default();
+        let mut n = 0;
+        let file = |id: &str, n: &mut u32| {
+            let mut f = parse_str(&format!(r#"<NessusClientData_v2><Report name="r">{}</Report></NessusClientData_v2>"#, host("10.0.0.1", [1, 0, 0, 0, 0], n))).unwrap();
+            f.id = id.to_string();
+            f.path = format!("{id}.nessus");
+            f
+        };
+        // read in the order c, a, b, but opened as a, b, c
+        add_file(&state, file("c", &mut n), 0, Some(3));
+        add_file(&state, file("a", &mut n), 0, Some(1));
+        add_file(&state, file("b", &mut n), 0, Some(2));
+        add_file(&state, file("d", &mut n), 0, None);
+        assert_eq!(open_files(&state).iter().map(|f| f.id.as_str()).collect::<Vec<_>>(), ["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn topology_can_show_some_of_the_files() {
+        let state = AppState::default();
+        let mut n = 0;
+        open(&state, "a", &host("10.0.0.1", [1, 0, 0, 0, 0], &mut n));
+        open(&state, "b", &host("10.0.1.1", [0, 1, 0, 0, 0], &mut n));
+        open(&state, "c", &host("10.0.2.1", [0, 1, 0, 0, 0], &mut n));
+        let ips = |files: Option<Vec<String>>| -> Vec<String> {
+            let v: Value = serde_json::from_str(&topology_hosts(&state, vec![], files).unwrap()).unwrap();
+            v.as_array().unwrap().iter().map(|h| h["ip"].as_str().unwrap().to_string()).collect()
+        };
+        assert_eq!(ips(None), ["10.0.0.1", "10.0.1.1", "10.0.2.1"]);
+        assert_eq!(ips(Some(vec!["c".into(), "a".into()])), ["10.0.0.1", "10.0.2.1"]);
+        // a file that isn't open is left out, and nothing left means all files
+        assert_eq!(ips(Some(vec!["b".into(), "gone".into()])), ["10.0.1.1"]);
+        assert_eq!(ips(Some(vec!["gone".into()])).len(), 3);
     }
 
     #[test]

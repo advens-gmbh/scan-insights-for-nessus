@@ -63,7 +63,7 @@ fn classify(message: String, size: u64) -> LoadError {
 // `async` keeps this off the main thread, so the window stays responsive while
 // a large scan is parsed
 #[tauri::command(async)]
-pub fn load_nessus_file(app: AppHandle, state: State<'_, AppState>, path: String,) -> Result<FileInfo, LoadError> {
+pub fn load_nessus_file(app: AppHandle, state: State<'_, AppState>, path: String, order: Option<u64>) -> Result<FileInfo, LoadError> {
     let size = match std::fs::metadata(&path) {
         Ok(m) => m.len(),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(load_error("missing", e.to_string())),
@@ -75,7 +75,7 @@ pub fn load_nessus_file(app: AppHandle, state: State<'_, AppState>, path: String
     let parsed = parse_nessus_file_with(&path, &mut tell)
         .and_then(require_hosts)
         .map_err(|m| classify(m, size))?;
-    Ok(api::add_file(&state, parsed, size))
+    Ok(api::add_file(&state, parsed, size, order))
 }// load_nessus_file
 
 // the size of each file, or nothing when it isn't there any more (for the recent files list)

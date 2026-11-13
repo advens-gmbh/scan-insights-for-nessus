@@ -37,14 +37,29 @@ function failureOf(e: unknown): { kind: string; message: string } {
 }// failureOf
 
 let failureId = 0;
-// files open one after another; each call adds its files to the end
-let chain: Promise<unknown> = Promise.resolve();
+
+const AT_ONCE = Math.min(4, Math.max(1, (typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 2 : 2) - 1));
+let busy = 0;
+const waiting: (() => void)[] = [];
+const turn = () => (busy < AT_ONCE ? (busy++, Promise.resolve()) : new Promise<void>((go) => waiting.push(go)));
+const done = () => {
+  const next = waiting.shift();
+  if (next) {
+    next();
+  } else {
+    busy--;
+  }
+};
+
+let opened = 0;
+const openedAs = new Map<string, number>();
 
 interface ScanStore {
   files: ScanFile[];
   recentFiles: RecentFile[];
   loading: boolean;                      // a file is being opened, or waits for it
-  opening: Opening | null;
+  reading: Opening[];                    // the files being read now
+  opening: Opening | null;               // the one shown: the first of them
   queue: string[];                       // paths waiting to be opened
   batch: { done: number; total: number }; // "file 2 of 3" since the app was last idle
   failures: LoadFailure[];
@@ -70,7 +85,12 @@ export const useScanStore = create<ScanStore>((set, get) => {
     }
   };
 
-  // how far the backend has read the file being opened
+  const reading = (change: (list: Opening[]) => Opening[]) => set((s) => {
+    const list = change(s.reading);
+    return { reading: list, opening: list[0] ?? null };
+  });
+
+  // how far the backend has read the files being opened
   let listening = false;
   const follow = () => {
     if (listening) {
@@ -78,26 +98,22 @@ export const useScanStore = create<ScanStore>((set, get) => {
     }
     listening = true;
     listen<{ path: string; percent: number }>("load-progress", (e) => {
-      set((s) => (s.opening && s.opening.path === e.payload.path && s.opening.percent !== e.payload.percent
-        ? { opening: { ...s.opening, percent: e.payload.percent } }
-        : s));
+      reading((list) => list.map((o) => (o.path === e.payload.path ? { ...o, percent: e.payload.percent } : o)));
     }).catch(() => {
       listening = false;
     });
   };
 
-  const openOne = async (path: string): Promise<ScanFile | null> => {
+  const openOne = async (path: string, order: number): Promise<ScanFile | null> => {
     const filename = fileNameOf(path);
     follow();
-    set((s) => ({
-      queue: s.queue.filter((q) => q !== path),
-      opening: { path, filename, size: null, percent: 0 },
-    }));
+    set((s) => ({ queue: s.queue.filter((q) => q !== path) }));
+    reading((list) => [...list, { path, filename, size: null, percent: 0 }]);
     invoke<(number | null)[]>("file_sizes", { paths: [path] })
-      .then((sizes) => Array.isArray(sizes) && typeof sizes[0] === "number" && set((s) => ({ opening: s.opening?.path === path ? { ...s.opening, size: sizes[0] } : s.opening })))
+      .then((sizes) => Array.isArray(sizes) && typeof sizes[0] === "number" && reading((list) => list.map((o) => (o.path === path ? { ...o, size: sizes[0] } : o))))
       .catch(() => {});
     try {
-      const file = await invoke<ScanFile>("load_nessus_file", { path });
+      const file = await invoke<ScanFile>("load_nessus_file", { path, order });
       const twin = get().files.find((f) => !samePath(f.path, file.path) && sameScanFile(f, file));
       if (twin) {
         await invoke("unload_file", { id: file.id }).catch(() => {});
@@ -111,8 +127,13 @@ export const useScanStore = create<ScanStore>((set, get) => {
           "warning",
         );
       }
-      // shown at once; the pages ask the backend for their lists again
-      set((s) => ({ files: [...s.files.filter((f) => f.id !== file.id && !samePath(f.path, file.path)), file] }));
+      // shown at once, in the order the files were opened; the pages ask the backend for their lists again
+      openedAs.set(file.id, order);
+      set((s) => {
+        const others = s.files.filter((f) => f.id !== file.id && !samePath(f.path, file.path));
+        const at = others.findIndex((f) => (openedAs.get(f.id) ?? 0) > order);
+        return { files: at < 0 ? [...others, file] : [...others.slice(0, at), file, ...others.slice(at)] };
+      });
       const recent: RecentFile = { path: file.path, filename: file.filename, last_opened: new Date().toISOString(), report_name: file.report_name || null };
       await saveRecent([recent, ...get().recentFiles.filter((r) => r.path !== file.path)].slice(0, 20));
       return file;
@@ -121,9 +142,10 @@ export const useScanStore = create<ScanStore>((set, get) => {
       set((s) => ({ failures: [...s.failures.filter((f) => f.path !== path), failure] }));
       return null;
     } finally {
-      set((s) => (s.queue.length === 0
-        ? { opening: null, loading: false, batch: { done: 0, total: 0 } }
-        : { opening: null, batch: { ...s.batch, done: s.batch.done + 1 } }));
+      reading((list) => list.filter((o) => o.path !== path));
+      set((s) => (s.queue.length === 0 && s.reading.length === 0
+        ? { loading: false, batch: { done: 0, total: 0 } }
+        : { batch: { ...s.batch, done: s.batch.done + 1 } }));
     }
   };
 
@@ -131,6 +153,7 @@ export const useScanStore = create<ScanStore>((set, get) => {
     files: [],
     recentFiles: [],
     loading: false,
+    reading: [],
     opening: null,
     queue: [],
     batch: { done: 0, total: 0 },
@@ -147,7 +170,7 @@ export const useScanStore = create<ScanStore>((set, get) => {
 
     loadFiles: (paths: string[]) => {
       const s = get();
-      const waiting = [...s.queue, ...(s.opening ? [s.opening.path] : [])];
+      const waiting = [...s.queue, ...s.reading.map((o) => o.path)];
       const fresh: string[] = [];
       for (const p of paths) {
         if (s.files.some((f) => samePath(f.path, p))) {
@@ -166,9 +189,8 @@ export const useScanStore = create<ScanStore>((set, get) => {
         failures: s.failures.filter((f) => !fresh.includes(f.path)),
       });
       const runs = fresh.map((p) => {
-        const run = chain.then(() => openOne(p));
-        chain = run.catch(() => null);
-        return run;
+        const order = ++opened;
+        return turn().then(() => openOne(p, order)).finally(done);
       });
       return Promise.all(runs).then((files) => files.filter((f): f is ScanFile => f !== null));
     },

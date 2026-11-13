@@ -142,6 +142,8 @@ pub struct FileInfo {
     pub start: Option<i64>,       // ms since 1970
     pub duration_ms: Option<i64>,
     pub credentialed: usize,      // hosts scanned with credentials
+    #[serde(skip)]
+    pub order: u64,               // when it was opened; files read at the same time keep this order
 }// FileInfo
 
 pub fn file_info(file: &NessusFile, size: u64) -> FileInfo {
@@ -161,6 +163,7 @@ pub fn file_info(file: &NessusFile, size: u64) -> FileInfo {
         start,
         duration_ms,
         credentialed: file.hosts.iter().filter(|h| h.credentialed_scan).count(),
+        order: 0,
     }
 }// file_info
 

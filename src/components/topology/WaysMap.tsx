@@ -44,6 +44,7 @@ export interface WaysControls {
 }// WaysControls
 
 interface Props {
+  scope: string;                                // which files are shown; another set fits the map anew
   graph: WayGraph;
   way: { nodes: string[]; edges: WayEdge[] } | null;
   target: string | null;
@@ -181,7 +182,7 @@ function linkStyle(link: Link) {
   return link === "likely" || link === "possible" ? "6 5" : link === "unknown" ? "3 5" : undefined;
 }// linkStyle
 
-const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, target, lit, picked, worstShown, onPick, onMachine, onZoom }, ref) {
+const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ scope, graph, way, target, lit, picked, worstShown, onPick, onMachine, onZoom }, ref) {
   const openFilePanel = useUiStore((s) => s.openFilePanel);
   const toggleBlock = useUiStore((s) => s.toggleTopologyBlock);
   const moved = useUiStore((s) => s.topologyMoved);
@@ -199,7 +200,7 @@ const WaysMap = forwardRef<WaysControls, Props>(function WaysMap({ graph, way, t
   // pan and zoom
   const frame = useRef<HTMLDivElement>(null);
   // where the map was left, kept while the same files are loaded
-  const loaded = graph.starts.join("|") + graph.nets.size;
+  const loaded = `${scope}|${graph.starts.join("|")}${graph.nets.size}`;
   const [saved, save] = usePageState<{ loaded: string; x: number; y: number; k: number } | null>("topology:view", null);
   const fittedFor = useRef(saved?.loaded === loaded ? loaded : null);
   const [view, setView] = useState(() => (saved?.loaded === loaded ? { x: saved.x, y: saved.y, k: saved.k } : { x: 20, y: 10, k: 1 }));

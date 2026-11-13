@@ -38,9 +38,11 @@ export default function EmptyFilesNotice({ page, columns, search }: Props) {
   return (
     <div className="flex flex-col gap-3.5">
       {search && (
-        <div className="flex items-center gap-2 select-none" aria-hidden="true">
-          {SEVERITIES.map((s) => <span key={s} className="px-3 py-1 rounded-full bg-ink-100 dark:bg-ink-800 text-body font-medium text-ink-400 dark:text-ink-500">{s}</span>)}
-          <span className="flex-1 min-w-48 h-9 px-3 flex items-center rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-body text-ink-400 dark:text-ink-500">{search}</span>
+        <div className="flex flex-col gap-3 select-none" aria-hidden="true">
+          <div className="flex items-center gap-2">
+            {SEVERITIES.map((s) => <span key={s} className="px-3 py-1 rounded-full bg-ink-100 dark:bg-ink-800 text-body font-medium text-ink-400 dark:text-ink-500">{s}</span>)}
+          </div>
+          <span className="h-9 px-3 flex items-center rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-body text-ink-400 dark:text-ink-500">{search}</span>
         </div>
       )}
       <div className="card overflow-hidden">

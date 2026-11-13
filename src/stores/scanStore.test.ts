@@ -34,7 +34,7 @@ function backend({ broken }: { broken?: Record<string, { kind: string; message: 
 describe("scanStore opening files", () => {
   beforeEach(() => {
     invoke.mockReset();
-    useScanStore.setState({ files: [], recentFiles: [], loading: false, opening: null, queue: [], batch: { done: 0, total: 0 }, failures: [] });
+    useScanStore.setState({ files: [], recentFiles: [], loading: false, reading: [], opening: null, queue: [], batch: { done: 0, total: 0 }, failures: [] });
     useNotificationStore.setState({ notifications: [] });
   });
 
@@ -57,21 +57,38 @@ describe("scanStore opening files", () => {
     expect(s.recentFiles[0]).toMatchObject({ path: "C:/scans/big.nessus", report_name: "Big" });
   });
 
-  it("opens files one after another, counting them as one batch", async () => {
-    backend();
-    const batches: string[] = [];
-    const stop = useScanStore.subscribe((s) => {
-      const b = s.opening ? `${s.opening.filename} ${s.batch.done + 1}/${s.batch.total}` : null;
-      if (b && batches[batches.length - 1] !== b) batches.push(b);
+  it("reads files side by side, as one batch, and keeps the order they were opened in", async () => {
+    // the first file takes longest, so the others finish first
+    const slow: Record<string, number> = { "C:/a.nessus": 60, "C:/b.nessus": 30, "C:/c.nessus": 5 };
+    let most = 0;
+    let now = 0;
+    invoke.mockImplementation(async (cmd: string, args?: { path?: string }) => {
+      if (cmd !== "load_nessus_file") return null;
+      most = Math.max(most, ++now);
+      await new Promise((r) => setTimeout(r, slow[args!.path!]));
+      now--;
+      return info(args!.path!);
+    });
+    const finished: string[] = [];
+    const stop = useScanStore.subscribe((s, before) => {
+      const added = s.files.find((f) => !before.files.includes(f));
+      if (added) finished.push(added.filename!);
     });
     const first = useScanStore.getState().loadFiles(["C:/a.nessus", "C:/b.nessus"]);
     const second = useScanStore.getState().loadFiles(["C:/c.nessus", "C:/a.nessus"]); // a is already waiting
+    expect(useScanStore.getState().batch.total).toBe(3);
     await Promise.all([first, second]);
     stop();
+    expect(most).toBeGreaterThan(1);
+    expect(finished).toEqual(["c.nessus", "b.nessus", "a.nessus"]);
     expect(useScanStore.getState().files.map((f) => f.filename)).toEqual(["a.nessus", "b.nessus", "c.nessus"]);
-    expect(batches).toEqual(["a.nessus 1/3", "b.nessus 2/3", "c.nessus 3/3"]);
-    expect(useScanStore.getState().batch).toEqual({ done: 0, total: 0 });
-    expect(useScanStore.getState().queue).toEqual([]);
+    expect(invoke.mock.calls.filter(([cmd]) => cmd === "load_nessus_file").map(([, a]) => a)).toEqual([
+      { path: "C:/a.nessus", order: expect.any(Number) }, { path: "C:/b.nessus", order: expect.any(Number) }, { path: "C:/c.nessus", order: expect.any(Number) },
+    ]);
+    const orders = invoke.mock.calls.filter(([cmd]) => cmd === "load_nessus_file").map(([, a]) => (a as { order: number }).order);
+    expect([...orders].sort((x, y) => x - y)).toEqual(orders);
+    const s = useScanStore.getState();
+    expect([s.batch, s.queue, s.reading, s.opening, s.loading]).toEqual([{ done: 0, total: 0 }, [], [], null, false]);
   });
 
   it("a file that is already open isn't opened again", async () => {

@@ -173,10 +173,13 @@ export default function Dashboard() {
       {/* Top vulnerabilities */}
       <section>
         <div className="flex items-baseline justify-between gap-3 mb-2.5">
-          <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Top vulnerabilities</h2>
+          <div className="flex items-baseline gap-3 min-w-0">
+            <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Top vulnerabilities</h2>
+            <span className="text-caption text-ink-500 dark:text-ink-400 truncate">Critical first, then by number of hosts</span>
+          </div>
           {seriousCount > 0 && (
             <button onClick={() => showSeverities([4, 3])} className="text-body font-medium text-accent-700 dark:text-accent-400 hover:underline">
-              Show all {seriousCount.toLocaleString()} in Vulnerabilities
+              Show all {seriousCount.toLocaleString()} Critical and High {seriousCount === 1 ? "vulnerability" : "vulnerabilities"}
             </button>
           )}
         </div>
@@ -200,7 +203,7 @@ export default function Dashboard() {
                   {cvss ? <>CVSS <b className="text-ink-800 dark:text-ink-100">{cvss.score.toFixed(1)}</b> <span className="text-tiny">v{cvss.version}</span></> : "-"}
                 </span>
                 <span className="text-right text-small text-ink-500 dark:text-ink-400 tabular-nums">
-                  <b className="text-body text-ink-800 dark:text-ink-100">{v.host_count}</b> {v.host_count === 1 ? "host" : "hosts"}
+                  <b className="text-body text-ink-800 dark:text-ink-100">{v.host_count.toLocaleString()}</b> {v.host_count === 1 ? "host" : "hosts"}
                 </span>
               </button>
             );
@@ -214,7 +217,7 @@ export default function Dashboard() {
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
             <h2 className="text-heading font-semibold text-ink-800 dark:text-ink-100">Most vulnerable hosts</h2>
             <button onClick={() => navigate("/hosts")} className="text-body font-medium text-accent-700 dark:text-accent-400 hover:underline">
-              All {hostCount.toLocaleString()} hosts
+              Show all {hostCount.toLocaleString()} {hostCount === 1 ? "host" : "hosts"}
             </button>
           </div>
           <div className="card flex-1 divide-y divide-ink-100 dark:divide-ink-700">

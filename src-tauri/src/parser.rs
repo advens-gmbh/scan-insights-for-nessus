@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::intern::Interner;
 use crate::models::{NessusFile, PluginDetails, ReportHost, ReportItem};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 enum S {
     Root,
     // Policy / target parsing
@@ -17,14 +17,14 @@ enum S {
     PolicyPrefs,
     ServerPrefs,
     PrefEntry,
-    PrefField(String),
+    PrefField, // its name is in `field`
     // Report parsing (existing)
     Report,
     ReportHost,
     HostProperties,
     HostPropTag,
     ReportItem,
-    ItemField(String),
+    ItemField, // its name is in `field`
 }
 
 #[cfg(test)]
@@ -92,6 +92,10 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
     let mut depth: u32 = 0;
     let mut text_buf = String::new();
     let mut unnamed_hosts = 0;
+    // the name of the field being read
+    let mut field = String::new();
+    // most findings repeat a plugin's description word for word, so each text is tidied once
+    let mut tidied: HashMap<String, String> = HashMap::new();
 
     // Must run before the state changes, since the text belongs to the current state.
     macro_rules! flush_text {
@@ -99,13 +103,15 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
             let text = text_buf.trim();
             if !text.is_empty() {
                 dispatch_text(
-                    &state,
+                    state,
+                    &field,
+                    &mut tidied,
                     &mut nessus_file,
                     &mut current_pref_name,
                     &current_tag_name,
                     &mut current_item,
                     &mut host_props,
-                    text.to_string(),
+                    text,
                 );
             }
             text_buf.clear();
@@ -136,10 +142,11 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
 
             Ok(Event::Start(e)) => {
                 flush_text!();
-                let tag = e.name().as_ref().to_string();
-                check_root(&tag, &mut root_seen)?;
+                let name = e.name();
+                let tag: &str = name.as_ref();
+                check_root(tag, &mut root_seen)?;
                 depth += 1;
-                match &state.clone() {
+                match state {
                     S::Root => {
                         if tag == "Policy" {
                             state = S::Policy;
@@ -166,10 +173,12 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
                     }
                     S::PrefEntry => {
                         if tag == "name" || tag == "value" {
-                            state = S::PrefField(tag);
+                            field.clear();
+                            field.push_str(tag);
+                            state = S::PrefField;
                         }
                     }
-                    S::PrefField(_) => {}
+                    S::PrefField => {}
                     S::Report => {
                         if tag == "ReportHost" {
                             let name = single_line(&attr_val(&e, "name"));
@@ -210,9 +219,11 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
                     }
                     S::ReportItem => {
                         item_field_depth = 0;
-                        state = S::ItemField(tag);
+                        field.clear();
+                        field.push_str(tag);
+                        state = S::ItemField;
                     }
-                    S::ItemField(_) => {
+                    S::ItemField => {
                         item_field_depth += 1;
                     }
                     S::HostPropTag => {}
@@ -222,9 +233,10 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
             Ok(Event::End(e)) => {
                 flush_text!();
                 depth = depth.saturating_sub(1);
-                let tag = e.name().as_ref().to_string();
-                match &state.clone() {
-                    S::PrefField(_) => {
+                let name = e.name();
+                let tag: &str = name.as_ref();
+                match state {
+                    S::PrefField => {
                         state = S::PrefEntry;
                     }
                     S::PrefEntry => {
@@ -256,7 +268,7 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
                             state = S::ReportHost;
                         }
                     }
-                    S::ItemField(_) => {
+                    S::ItemField => {
                         if item_field_depth > 0 {
                             item_field_depth -= 1;
                         } else {
@@ -390,43 +402,46 @@ fn parse_severity(value: &str) -> u8 {
     value.trim().parse::<i64>().map_or(0, |s| s.clamp(0, 4) as u8)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn dispatch_text(
-    state: &S,
+    state: S,
+    field: &str,
+    tidied: &mut HashMap<String, String>,
     nessus_file: &mut NessusFile,
     current_pref_name: &mut Option<String>,
     current_tag_name: &Option<String>,
     current_item: &mut Option<ParsedItem>,
     host_props: &mut HashMap<String, String>,
-    text: String,
+    text: &str,
 ) {
     match state {
-        S::PrefField(field) => {
+        S::PrefField => {
             if field == "name" {
-                *current_pref_name = Some(text);
+                *current_pref_name = Some(text.to_string());
             } else if field == "value" && current_pref_name.as_deref() == Some("TARGET") {
-                nessus_file.target = Some(text);
+                nessus_file.target = Some(text.to_string());
             }
         }
         S::HostPropTag => {
             if let Some(name) = current_tag_name {
-                host_props.insert(name.clone(), text);
+                host_props.insert(name.clone(), text.to_string());
             }
         }
-        S::ItemField(field) => {
+        S::ItemField => {
             if let Some(item) = current_item.as_mut() {
-                apply_item_field(item, field, text);
+                apply_item_field(item, field, text, tidied);
             }
         }
         _ => {}
     }
 }
 
-fn apply_item_field(item: &mut ParsedItem, field: &str, text: String) {
+fn apply_item_field(item: &mut ParsedItem, field: &str, text: &str, tidied: &mut HashMap<String, String>) {
     match field {
-        "risk_factor" => item.d.risk_factor = text,
-        "description" => item.d.description = normalize_prose(text),
-        "solution" => item.d.solution = normalize_prose(text),
-        "synopsis" => item.d.synopsis = Some(normalize_prose(text)).filter(|s| !s.is_empty()),
+        "risk_factor" => item.d.risk_factor = text.to_string(),
+        "description" => item.d.description = tidy_prose(tidied, text),
+        "solution" => item.d.solution = tidy_prose(tidied, text),
+        "synopsis" => item.d.synopsis = Some(tidy_prose(tidied, text)).filter(|s| !s.is_empty()),
         "plugin_output" => item.plugin_output = Some(normalize_text(text)),
         "cvss_base_score" => item.d.cvss_base_score = text.parse().ok(),
         "cvss3_base_score" => item.d.cvss3_base_score = text.parse().ok(),
@@ -437,8 +452,8 @@ fn apply_item_field(item: &mut ParsedItem, field: &str, text: String) {
         "cvss4_base_score" => item.d.cvss4_base_score = text.parse().ok(),
         "vpr_score" => item.d.vpr_score = text.parse().ok(),
         "epss_score" => item.d.epss_score = text.parse().ok(),
-        "cve" => item.d.cve.push(text),
-        "cwe" => item.d.cwe.push(text),
+        "cve" => item.d.cve.push(text.to_string()),
+        "cwe" => item.d.cwe.push(text.to_string()),
         "see_also" => {
             for url in text.lines() {
                 let u = url.trim();
@@ -450,11 +465,11 @@ fn apply_item_field(item: &mut ParsedItem, field: &str, text: String) {
         "exploit_available" => item.d.exploit_available = text == "true",
         "exploit_framework_metasploit" if text == "true" => item.d.metasploit_available = true,
         "metasploit_name" if !text.is_empty() => {
-            item.d.metasploit_name = Some(single_line(&text));
+            item.d.metasploit_name = Some(single_line(text));
             item.d.metasploit_available = true;
         }
-        "exploitability_ease" => item.d.exploit_ease = Some(text),
-        "exploit_code_maturity" if !text.is_empty() => item.d.exploit_maturity = Some(single_line(&text)),
+        "exploitability_ease" => item.d.exploit_ease = Some(text.to_string()),
+        "exploit_code_maturity" if !text.is_empty() => item.d.exploit_maturity = Some(single_line(text)),
         "exploit_framework_core" if text == "true" => add_framework(item, "Core Impact"),
         "exploit_framework_canvas" if text == "true" => add_framework(item, "CANVAS"),
         "exploit_framework_d2_elliot" if text == "true" => add_framework(item, "D2 Elliot"),
@@ -464,10 +479,10 @@ fn apply_item_field(item: &mut ParsedItem, field: &str, text: String) {
         "unsupported_by_vendor" => item.d.unsupported_by_vendor = text == "true",
         "compliance" if text == "true" => item.compliance = true,
         f if f.starts_with("cm:compliance") => item.compliance = true,
-        "cisa-known-exploited" if !text.is_empty() => item.d.cisa_known_exploited = Some(single_line(&text)),
-        "patch_publication_date" => item.d.patch_publication_date = Some(text),
-        "vuln_publication_date" => item.d.vuln_publication_date = Some(text),
-        "script_version" => item.d.script_version = Some(text),
+        "cisa-known-exploited" if !text.is_empty() => item.d.cisa_known_exploited = Some(single_line(text)),
+        "patch_publication_date" => item.d.patch_publication_date = Some(text.to_string()),
+        "vuln_publication_date" => item.d.vuln_publication_date = Some(text.to_string()),
+        "script_version" => item.d.script_version = Some(text.to_string()),
         _ => {}
     }
 }
@@ -577,11 +592,29 @@ fn unescape_attr(attr: &quick_xml::events::attributes::Attribute<'_>) -> String 
         .unwrap_or_else(|_| attr.value.to_string())
 }
 
-fn normalize_text(s: String) -> String {
-    s.lines()
-        .map(|l| l.trim())
-        .collect::<Vec<_>>()
-        .join("\n")
+fn normalize_text(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for (i, line) in s.lines().enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        out.push_str(line.trim());
+    }
+    out
+}
+
+// normalize_prose, done once per distinct text of the file
+fn tidy_prose(tidied: &mut HashMap<String, String>, text: &str) -> String {
+    if let Some(done) = tidied.get(text) {
+        return done.clone();
+    }
+    // a file whose texts all differ shouldn't keep a copy of each
+    if tidied.len() >= 20_000 {
+        tidied.clear();
+    }
+    let done = normalize_prose(text.to_string());
+    tidied.insert(text.to_string(), done.clone());
+    done
 }
 
 // For prose fields (description, solution, synopsis): collapse hard-wrapped single newlines into
@@ -992,4 +1025,103 @@ Patch management checks : None</plugin_output></ReportItem>"#
         std::fs::write(&cut, &full[..full.find("</ReportHost>").unwrap()]).unwrap();
         assert!(parse_nessus_file(cut.to_str().unwrap()).unwrap_err().contains("truncated"));
     }
+}
+
+#[cfg(test)]
+mod timing {
+    use super::*;
+
+    // cargo test --release --lib parser::timing -- --ignored --nocapture, with SCAN set to a big .nessus file
+    #[test]
+    #[ignore]
+    fn where_parsing_time_goes() {
+        let path = std::env::var("SCAN").unwrap();
+        let t = std::time::Instant::now();
+        let mut reader = Reader::from_reader(BufReader::with_capacity(1 << 16, File::open(&path).unwrap()));
+        reader.config_mut().allow_dangling_amp = true;
+        let mut buf = Vec::new();
+        let mut events = 0u64;
+        let mut tags = 0u64;
+        // the text of each field inside a ReportItem, by field name
+        let mut fields: Vec<(String, String)> = Vec::new();
+        let mut field: Option<String> = None;
+        let mut in_item = false;
+        let mut text = String::new();
+        loop {
+            match reader.read_event_into(&mut buf).unwrap() {
+                Event::Eof => break,
+                Event::Start(e) => {
+                    tags += 1;
+                    let name = e.name();
+                    let name = name.as_ref();
+                    if name == "ReportItem" {
+                        in_item = true;
+                    } else if in_item {
+                        field = Some(name.to_string());
+                        text.clear();
+                    }
+                }
+                Event::End(e) => {
+                    tags += 1;
+                    let name = e.name();
+                    if name.as_ref() == "ReportItem" {
+                        in_item = false;
+                    } else if let Some(f) = field.take() {
+                        fields.push((f, std::mem::take(&mut text)));
+                    }
+                }
+                Event::Text(e) => text.push_str(&e),
+                Event::GeneralRef(e) => push_reference(&mut text, &e),
+                _ => {}
+            }
+            events += 1;
+            buf.clear();
+        }
+        println!("reading XML events and keeping item fields: {:?} ({events} events, {tags} tags, {} fields)", t.elapsed(), fields.len());
+
+        let t = std::time::Instant::now();
+        let mut n = 0usize;
+        for _ in 0..tags {
+            let s = String::from("plugin_output");
+            n += s.len();
+        }
+        println!("a new string per tag: {:?} ({n})", t.elapsed());
+
+        let t = std::time::Instant::now();
+        let mut n = 0usize;
+        for (f, v) in &fields {
+            n += v.trim().to_string().len() + f.len();
+        }
+        println!("copying every field's text: {:?} ({} MB)", t.elapsed(), n / 1_000_000);
+
+        let prose: Vec<&String> = fields.iter().filter(|(f, _)| matches!(f.as_str(), "description" | "solution" | "synopsis")).map(|(_, v)| v).collect();
+        let t = std::time::Instant::now();
+        let mut n = 0usize;
+        for v in &prose {
+            n += normalize_prose(v.trim().to_string()).len();
+        }
+        println!("reformatting descriptions, solutions, synopses: {:?} ({} fields, {} MB)", t.elapsed(), prose.len(), n / 1_000_000);
+        let distinct: std::collections::HashSet<&String> = prose.iter().copied().collect();
+        println!("  of which distinct: {}", distinct.len());
+
+        let outputs: Vec<&String> = fields.iter().filter(|(f, _)| f == "plugin_output").map(|(_, v)| v).collect();
+        let t = std::time::Instant::now();
+        let mut n = 0usize;
+        for v in &outputs {
+            n += normalize_text(v.trim()).len();
+        }
+        println!("reformatting plugin output: {:?} ({} fields, {} MB)", t.elapsed(), outputs.len(), n / 1_000_000);
+
+        let ignored: usize = fields.iter().filter(|(f, _)| !KNOWN.contains(&f.as_str()) && !f.starts_with("cm:compliance")).map(|(_, v)| v.len()).sum();
+        println!("text in fields the app ignores: {} MB", ignored / 1_000_000);
+
+        let t = std::time::Instant::now();
+        let f = parse_nessus_file(&path).unwrap();
+        println!("full parse: {:?} ({} hosts)", t.elapsed(), f.hosts.len());
+    }
+
+    const KNOWN: [&str; 33] = ["risk_factor", "description", "solution", "synopsis", "plugin_output", "cvss_base_score", "cvss3_base_score", "cvss3_temporal_score", "cvss4_base_score",
+        "vpr_score", "epss_score", "cve", "cwe", "see_also", "exploit_available", "exploit_framework_metasploit", "metasploit_name", "exploitability_ease", "exploit_code_maturity",
+        "exploit_framework_core", "exploit_framework_canvas", "exploit_framework_d2_elliot", "exploit_framework_exploithub", "exploited_by_malware", "exploited_by_nessus",
+        "unsupported_by_vendor", "compliance", "cisa-known-exploited", "patch_publication_date", "vuln_publication_date", "script_version", "", ""];
 }

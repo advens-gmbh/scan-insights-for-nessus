@@ -199,7 +199,9 @@ export default function Services() {
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 shrink-0">
+      {/* line 1 holds the filter pills; line 2 search and file, with the table's tools on the right. */}
+      <div className="flex flex-col gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3">
         <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
 
         <div className="flex items-center gap-1.5">
@@ -219,24 +221,25 @@ export default function Services() {
           ))}
         </div>
 
-        {files.length > 1 && (
-          <Select value={activeFile} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the services from" className="w-60 shrink-0" />
-        )}
+        </div>
 
-        <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-1 min-w-60" />
-
-        <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none shrink-0">
-          <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
-          Group by service
-        </label>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <ColumnPicker table={table} />
-          <span className="text-caption text-ink-500">
-            {grouped
-              ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
-              : `${filtered.length.toLocaleString()} services`}
-          </span>
+        <div className="flex items-center gap-3">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search port, service, IP…" className="flex-[1_1_15rem] min-w-40" />
+          {files.length > 1 && (
+            <Select value={activeFile} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the services from" className="flex-[0_1_15rem] min-w-[9.5rem]" />
+          )}
+          <div className="ml-auto flex items-center gap-3 shrink-0">
+            <ColumnPicker table={table} />
+            <label className="flex items-center gap-1.5 text-caption text-ink-500 dark:text-ink-400 cursor-pointer select-none">
+              <input type="checkbox" checked={grouped} onChange={toggleGrouped} className="rounded accent-accent-600" />
+              Group by service
+            </label>
+            <span className="text-caption text-ink-500">
+              {grouped
+                ? `${groupCount.toLocaleString()} services, ${filtered.length.toLocaleString()} ports`
+                : `${filtered.length.toLocaleString()} services`}
+            </span>
+          </div>
         </div>
       </div>
 

@@ -227,45 +227,48 @@ export default function Hosts() {
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Filters bar */}
-      <div className="flex flex-wrap items-center gap-3 shrink-0">
-        <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
+      {/* line 1 holds the filter pills; line 2 search and file, with the table's tools on the right. */}
+      <div className="flex flex-col gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3">
+          <SeverityPills counts={severityCounts} selected={selectedSeverities} onToggle={toggleSeverity} onClear={clearSeverities} />
+        </div>
 
-        {files.length > 1 && (
-          <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the hosts from" className="w-60 shrink-0" />
-        )}
-
-        <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-1 min-w-60" />
-
-        <div className="flex items-center gap-3 shrink-0">
-          <ColumnPicker table={table} />
-          <span className="text-caption text-ink-500">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
-          {sorted.length > 0 && (
-            <div className="relative" ref={copyMenuRef}>
-              <button
-                onClick={(e) => {
-                  // open towards whichever side has room for the menu
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setMenuLeftward(r.left + COPY_MENU_W > window.innerWidth - 8);
-                  setShowCopyMenu((v) => !v);
-                }}
-                className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
-                  copied ? "text-good-600 dark:text-good-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
-                }`}
-              >
-                {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
-                {copied ? "Copied!" : "Copy"}
-                {!copied && <ChevronDown size={11} className="opacity-60" />}
-              </button>
-              {showCopyMenu && (
-                <div className={`absolute ${menuLeftward ? "right-0" : "left-0"} top-full mt-1 z-50 card p-1 w-52 shadow-xl`}>
-                  <CopyMenuItem label="IP addresses" sub="one per line" onClick={() => copy("ips")} />
-                  <CopyMenuItem label="Hostnames" sub="one per line" onClick={() => copy("hostnames")} />
-                  <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
-                  <CopyMenuItem label="Visible columns" sub="TSV - pastes into Excel / Sheets" onClick={() => copy("visible")} />
-                </div>
-              )}
-            </div>
+        <div className="flex items-center gap-3">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search IP, hostname, OS, port…" className="flex-[1_1_15rem] min-w-40" />
+          {files.length > 1 && (
+            <Select value={fileFilter} onChange={setFileFilter} options={[{ value: "all", label: "All files" }, ...files.map(fileOption)]} ariaLabel="Show the hosts from" className="flex-[0_1_15rem] min-w-[9.5rem]" />
           )}
+          <div className="ml-auto flex items-center gap-3 shrink-0">
+            <ColumnPicker table={table} />
+            {sorted.length > 0 && (
+              <div className="relative" ref={copyMenuRef}>
+                <button
+                  onClick={(e) => {
+                    // open towards whichever side has room for the menu
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setMenuLeftward(r.left + COPY_MENU_W > window.innerWidth - 8);
+                    setShowCopyMenu((v) => !v);
+                  }}
+                  className={`btn-ghost h-8 px-2.5 flex items-center gap-1.5 text-caption font-medium transition-colors ${
+                    copied ? "text-good-600 dark:text-good-400" : showCopyMenu ? "bg-ink-100 dark:bg-ink-700" : ""
+                  }`}
+                >
+                  {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
+                  {copied ? "Copied!" : "Copy"}
+                  {!copied && <ChevronDown size={11} className="opacity-60" />}
+                </button>
+                {showCopyMenu && (
+                  <div className={`absolute ${menuLeftward ? "right-0" : "left-0"} top-full mt-1 z-50 card p-1 w-52 shadow-xl`}>
+                    <CopyMenuItem label="IP addresses" sub="one per line" onClick={() => copy("ips")} />
+                    <CopyMenuItem label="Hostnames" sub="one per line" onClick={() => copy("hostnames")} />
+                    <div className="my-1 border-t border-ink-100 dark:border-ink-700" />
+                    <CopyMenuItem label="Visible columns" sub="TSV - pastes into Excel / Sheets" onClick={() => copy("visible")} />
+                  </div>
+                )}
+              </div>
+            )}
+            <span className="text-caption text-ink-500">{sorted.length.toLocaleString()} {sorted.length === 1 ? "host" : "hosts"}</span>
+          </div>
         </div>
       </div>
 

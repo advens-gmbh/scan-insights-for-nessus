@@ -70,8 +70,8 @@ pub fn dashboard(state: State<'_, AppState>, show_info: bool, top_vulns: usize, 
 }
 
 #[tauri::command(async)]
-pub fn topology_hosts(state: State<'_, AppState>, plugins: Vec<u32>) -> Result<tauri::ipc::Response, String> {
-    respond(api::topology_hosts(&state, plugins))
+pub fn topology_hosts(state: State<'_, AppState>, plugins: Vec<u32>, files: Option<Vec<String>>) -> Result<tauri::ipc::Response, String> {
+    respond(api::topology_hosts(&state, plugins, files))
 }
 
 #[tauri::command(async)]

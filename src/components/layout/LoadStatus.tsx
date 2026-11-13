@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { AlertCircle, Check, ChevronDown, ChevronUp, FileText, X } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, ChevronDown, ChevronUp, FileText, X } from "lucide-react";
 import { useScanStore, fileNameOf } from "../../stores/scanStore";
 import type { LoadFailure, Opening } from "../../stores/scanStore";
-import { folderOf, formatBytes } from "../../utils/format";
+import { formatBytes } from "../../utils/format";
 import CopyButton from "../common/CopyButton";
 
 export function Spinner({ size = 18 }: { size?: number }) {
@@ -16,158 +15,93 @@ export function Spinner({ size = 18 }: { size?: number }) {
   );
 }// Spinner
 
-// seconds since the file started, ticking while it is read
-function useElapsed(running: boolean) {
-  const [started] = useState(() => Date.now());
-  const [now, setNow] = useState(started);
-  useEffect(() => {
-    if (!running) {
-      return;
-    }
-    const t = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(t);
-  }, [running]);
-  return (now - started) / 1000;
-}// useElapsed
+type Batch = { done: number; total: number };
 
-// the size of each waiting file
-function useSizes(paths: string[]) {
-  const [sizes, setSizes] = useState<Record<string, number | null>>({});
-  useEffect(() => {
-    if (paths.length === 0) {
-      return;
-    }
-    let live = true;
-    invoke<(number | null)[]>("file_sizes", { paths })
-      .then((found) => live && Array.isArray(found) && setSizes((s) => ({ ...s, ...Object.fromEntries(paths.map((p, i) => [p, found[i] ?? null])) })))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [paths]);
-  return sizes;
-}// useSizes
-
-const seconds = (s: number) => `${s < 10 ? s.toFixed(1) : Math.round(s)} s`;
-
-function Bar({ value }: { value: number }) {
+// one file being read (name, size and how far it has got)
+function ReadingRow({ o, big }: { o: Opening; big: boolean }) {
   return (
-    <div className="h-2 rounded-full bg-ink-100 dark:bg-ink-700 overflow-hidden">
-      <div className="h-full rounded-full bg-accent-600 transition-[width] duration-300 ease-out" style={{ width: `${value}%` }} />
-    </div>
-  );
-}// Bar
-
-type StepState = "done" | "now" | "later";
-
-function Step({ state, title, text, right, children }: { state: StepState; title: string; text?: string; right?: string; children?: React.ReactNode }) {
-  return (
-    <li className="grid grid-cols-[24px_1fr_auto] gap-3 items-start">
-      {state === "done" ? (
-        <span className="w-6 h-6 rounded-full bg-accent-600 text-white flex items-center justify-center"><Check size={14} strokeWidth={3} /></span>
-      ) : state === "now" ? (
-        <span className="w-6 h-6 flex items-center justify-center"><Spinner size={22} /></span>
-      ) : (
-        <span className="w-6 h-6 rounded-full border-2 border-ink-300 dark:border-ink-600" />
-      )}
-      <div className="min-w-0">
-        <div className={`text-body font-semibold ${state === "later" ? "text-ink-500 dark:text-ink-400" : "text-ink-800 dark:text-ink-100"}`}>{title}</div>
-        {text && <div className="mt-0.5 text-caption text-ink-600 dark:text-ink-300">{text}</div>}
-        {children}
+    <li className={`flex flex-col gap-1.5 border-t border-ink-100 dark:border-ink-700/50 ${big ? "py-2.5" : "py-2"}`} title={o.path}>
+      <div className="flex items-baseline gap-3 min-w-0">
+        <span className={`min-w-0 truncate font-semibold text-ink-800 dark:text-ink-100 ${big ? "text-body" : "text-small"}`}>{o.filename.replace(/\.nessus$/i, "")}</span>
+        <span className="ml-auto shrink-0 text-caption tabular-nums text-ink-500 dark:text-ink-400">{o.size !== null ? `${formatBytes(o.size)} · ` : ""}{o.percent}%</span>
       </div>
-      <span className="text-caption tabular-nums text-ink-500 dark:text-ink-400 whitespace-nowrap">{right}</span>
+      <div className="h-1.5 rounded-full bg-ink-100 dark:bg-ink-700 overflow-hidden">
+        <div className="h-full rounded-full bg-accent-600 transition-[width] duration-300 ease-out" style={{ width: `${o.percent}%` }} />
+      </div>
     </li>
   );
-}// Step
+}// ReadingRow
 
-// the first file is displayed in the middle of the page, while nothing else is open
+function Title({ batch, big }: { batch: Batch; big: boolean }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <div className={`font-bold text-ink-900 dark:text-ink-50 ${big ? "text-heading" : "text-body"}`}>{batch.total > 1 ? `Opening ${batch.total} files` : "Opening"}</div>
+      {batch.total > 1 && <div className="text-caption tabular-nums text-ink-500 dark:text-ink-400">{batch.done} done</div>}
+    </div>
+  );
+}// Title
+
+function Next({ queue }: { queue: string[] }) {
+  return queue.length > 0 ? (
+    <div className="text-caption text-ink-500 dark:text-ink-400 truncate" title={queue.map(fileNameOf).join("\n")}>
+      Next: {fileNameOf(queue[0]).replace(/\.nessus$/i, "")}{queue.length > 1 ? ` and ${queue.length - 1} more` : ""}
+    </div>
+  ) : null;
+}// Next
+
+// shown in the middle of the page while nothing is open yet
 export function OpeningCard() {
-  const opening = useScanStore((s) => s.opening);
+  const reading = useScanStore((s) => s.reading);
   const queue = useScanStore((s) => s.queue);
   const batch = useScanStore((s) => s.batch);
-  if (!opening) {
+  if (reading.length === 0) {
     return null;
   }
-  return <OpeningCardBody key={opening.path} opening={opening} queue={queue} batch={batch} />;
-}// OpeningCard
-
-function OpeningCardBody({ opening: o, queue, batch }: { opening: Opening; queue: string[]; batch: { done: number; total: number } }) {
-  const elapsed = useElapsed(true);
-  const sizes = useSizes(queue);
   return (
     <div className="min-h-[70vh] flex items-center justify-center">
-      <section role="status" aria-label="Opening a file" className="card w-[560px] max-w-full p-6 flex flex-col gap-5 shadow-sm">
+      <section role="status" aria-label="Opening a file" className="card w-[560px] max-w-full p-6 flex flex-col gap-4 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="w-10 h-10 rounded-xl bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300 flex items-center justify-center shrink-0"><FileText size={20} /></span>
-          <div className="min-w-0">
-            <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">{batch.total > 1 ? `Opening file ${batch.done + 1} of ${batch.total}` : "Opening"}</div>
-            <div className="text-heading font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>
-            <div className="text-caption text-ink-500 dark:text-ink-400 truncate">{[o.size !== null ? formatBytes(o.size) : null, folderOf(o.path)].filter(Boolean).join(" · ")}</div>
-          </div>
+          <Title batch={batch} big />
         </div>
-        <ol className="flex flex-col gap-4">
-          <Step state="now" title="Reading the file" text={`${o.percent}%`} right={seconds(elapsed)}>
-            <div className="mt-2"><Bar value={o.percent} /></div>
-          </Step>
-        </ol>
-        {queue.length > 0 && (
-          <div>
-            <div className="text-caption font-semibold text-ink-500 dark:text-ink-400 mb-0.5">Next</div>
-            <ul className="text-small text-ink-700 dark:text-ink-200">
-              {queue.map((p) => (
-                <li key={p} className="flex gap-3 py-1.5 border-t border-ink-100 dark:border-ink-700/50" title={p}>
-                  <span className="min-w-0 truncate">{fileNameOf(p)}</span>
-                  <span className="ml-auto shrink-0 text-caption tabular-nums text-ink-500 dark:text-ink-400">{typeof sizes[p] === "number" ? formatBytes(sizes[p]!) : ""}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <ul>
+          {reading.map((o) => <ReadingRow key={o.path} o={o} big />)}
+        </ul>
+        <Next queue={queue} />
       </section>
     </div>
   );
-}// OpeningCardBody
+}// OpeningCard
 
-// small card in the corner
+// the same in the corner while other files are open, and it can be folded away
 export function OpeningToast() {
-  const opening = useScanStore((s) => s.opening);
+  const reading = useScanStore((s) => s.reading);
   const queue = useScanStore((s) => s.queue);
   const batch = useScanStore((s) => s.batch);
   const [hidden, setHidden] = useState(false);
-  if (!opening) {
+  if (reading.length === 0) {
     return null;
   }
-  return <OpeningToastBody key={opening.path} opening={opening} queue={queue} batch={batch} hidden={hidden} onHide={() => setHidden((h) => !h)} />;
-}// OpeningToast
-
-function OpeningToastBody({ opening: o, queue, batch, hidden, onHide }: { opening: Opening; queue: string[]; batch: { done: number; total: number }; hidden: boolean; onHide: () => void }) {
-  const elapsed = useElapsed(true);
-  const label = batch.total > 1 ? `Opening file ${batch.done + 1} of ${batch.total}` : "Opening";
   return (
     <section role="status" aria-label="Opening a file" className="card pointer-events-auto w-[380px] p-4 flex flex-col gap-2.5 shadow-xl">
       <div className="flex items-center gap-2.5">
         <Spinner />
-        <div className="min-w-0 flex-1">
-          <div className="text-caption font-semibold text-ink-500 dark:text-ink-400">{label}</div>
-          <div className="text-body font-bold text-ink-900 dark:text-ink-50 truncate" title={o.path}>{o.filename}</div>
-        </div>
-        <button onClick={onHide} className="btn-ghost h-7 w-7 p-0 justify-center" aria-label={hidden ? "Show details" : "Hide details"} title={hidden ? "Show details" : "Hide details"}>
+        <Title batch={batch} big={false} />
+        <button onClick={() => setHidden((h) => !h)} className="btn-ghost h-7 w-7 p-0 justify-center" aria-label={hidden ? "Show details" : "Hide details"} title={hidden ? "Show details" : "Hide details"}>
           {hidden ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
         </button>
       </div>
       {!hidden && (
         <>
-          <div className="text-caption text-ink-600 dark:text-ink-300 tabular-nums">Reading the file: {o.percent}% · {seconds(elapsed)}</div>
-          <Bar value={o.percent} />
-          <div className="flex gap-3 text-caption text-ink-500 dark:text-ink-400">
-            {queue.length > 0 && <span className="min-w-0 truncate">Next: {fileNameOf(queue[0])}{queue.length > 1 ? ` and ${queue.length - 1} more` : ""}</span>}
-            <span className="ml-auto shrink-0">Keep working meanwhile</span>
-          </div>
+          <ul>
+            {reading.map((o) => <ReadingRow key={o.path} o={o} big={false} />)}
+          </ul>
+          <Next queue={queue} />
         </>
       )}
     </section>
   );
-}// OpeningToastBody
+}// OpeningToast
 
 // what went wrong, in plain words, and what to do about it
 export function explainFailure(f: Pick<LoadFailure, "kind" | "message">): string {
