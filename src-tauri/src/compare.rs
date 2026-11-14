@@ -276,17 +276,19 @@ pub fn delta_by_vuln(delta: &ScanDelta, info: &HashMap<u32, (&str, u8)>) -> Vec<
     }
     order.into_iter().map(|id| {
         let r = &rows[&id];
-        let gone = r.fixed + r.unverified;
+        // only a rescan that confirms it counts as fixed; a finding that is merely gone is "not verified"
         let change = if r.a.is_empty() {
             VulnChange::New
         } else if r.b.is_empty() {
             if r.unverified > 0 { VulnChange::Unverified } else { VulnChange::Fixed }
-        } else if gone > 0 && r.added > 0 {
+        } else if r.fixed > 0 && r.added > 0 {
             VulnChange::Changed
-        } else if gone > 0 {
+        } else if r.fixed > 0 {
             VulnChange::Partly
         } else if r.added > 0 {
             VulnChange::Increased
+        } else if r.unverified > 0 {
+            VulnChange::Unverified
         } else {
             VulnChange::Unchanged
         };
@@ -514,18 +516,25 @@ mod tests {
 
     #[test]
     fn labels_each_vulnerability_by_what_happened() {
-        let a = file(&[h("10.0.0.1", &[(1, 80, 2), (2, 80, 2), (3, 80, 2), (4, 80, 2), (6, 80, 2)]), h("10.0.0.2", &[(4, 80, 2), (5, 80, 2)])]);
-        let b = file(&[h("10.0.0.1", &[(2, 80, 2), (3, 80, 2), (3, 443, 2), (4, 80, 2), (7, 80, 2)]), h("10.0.0.3", &[(6, 80, 2)])]);
+        let a = file(&[h("10.0.0.1", &[(1, 80, 2), (2, 80, 2), (3, 80, 2), (4, 80, 2), (6, 80, 2), (8, 80, 2), (9, 80, 2)]), h("10.0.0.2", &[(4, 80, 2), (5, 80, 2), (9, 80, 2)]),
+                       h("10.0.0.4", &[(8, 80, 2)])]);
+        let b = file(&[h("10.0.0.1", &[(2, 80, 2), (3, 80, 2), (3, 443, 2), (4, 80, 2), (7, 80, 2), (8, 80, 2), (9, 80, 2)]), h("10.0.0.3", &[(6, 80, 2), (9, 80, 2)]),
+                       h("10.0.0.4", &[])]);
         let d = scan_delta(&a, &b);
         let rows = delta_by_vuln(&d, &plugin_info(&[&a, &b]));
         let change = |id: u32| rows.iter().find(|r| r.plugin_id == id).unwrap().change;
         assert_eq!(change(1), VulnChange::Fixed);
         assert_eq!(change(2), VulnChange::Unchanged);
         assert_eq!(change(3), VulnChange::Increased);
-        assert_eq!(change(4), VulnChange::Partly); // 10.0.0.2 wasn't rescanned, so its finding is unverified
+        // gone only from 10.0.0.2, which wasn't rescanned: nothing confirmed fixed
+        assert_eq!(change(4), VulnChange::Unverified);
         assert_eq!(change(5), VulnChange::Unverified);
         assert_eq!(change(6), VulnChange::Changed);
         assert_eq!(change(7), VulnChange::New);
+        // 10.0.0.4 was rescanned without it, 10.0.0.1 still has it
+        assert_eq!(change(8), VulnChange::Partly);
+        // new on 10.0.0.3, only unconfirmed elsewhere: more hosts, none fixed
+        assert_eq!(change(9), VulnChange::Increased);
         let r4 = rows.iter().find(|r| r.plugin_id == 4).unwrap();
         assert_eq!((r4.hosts_a, r4.hosts_b, r4.unverified), (2, 1, 1));
     }

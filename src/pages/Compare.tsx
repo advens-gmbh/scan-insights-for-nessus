@@ -29,7 +29,7 @@ const NO_VULNS: VulnDelta[] = [];
 const NO_HOSTS: HostDelta[] = [];
 
 type View = "vulns" | "hosts";
-type VulnFilter = "changes" | "new" | "fixed" | "partly" | "increased" | "unverified" | "unchanged";
+type VulnFilter = "changes" | "new" | "fixed" | "partly" | "changed" | "increased" | "unverified" | "unchanged";
 type HostFilter = "all" | HostChange;
 
 const VULN_CHANGE: Record<VulnChange, { label: string; tone: string; title: string }> = {
@@ -38,7 +38,7 @@ const VULN_CHANGE: Record<VulnChange, { label: string; tone: string; title: stri
   changed:    { label: "Changed",      tone: "warn", title: "Fixed on some hosts, new on others" },
   partly:     { label: "Partly fixed", tone: "good", title: "Gone from some rescanned hosts, still on others" },
   fixed:      { label: "Fixed",        tone: "good", title: "Gone from every host, all of them rescanned" },
-  unverified: { label: "Not verified", tone: "warn", title: "Gone from B, but B can't confirm it: the host was not rescanned or lost its credentials" },
+  unverified: { label: "Not verified", tone: "warn", title: "Gone from hosts B can't confirm: not rescanned, or the login failed" },
   unchanged:  { label: "Unchanged",    tone: "same", title: "On the same hosts in both scans" },
 };
 
@@ -87,7 +87,7 @@ const VULN_COLUMNS: TableColumn<VulnKey>[] = [
 type HostKey = "host" | "change" | "by" | "critical" | "high" | "medium" | "low" | "info" | "added" | "fixed";
 const HOST_COLUMNS: TableColumn<HostKey>[] = [
   { key: "host",     label: "Host",     width: 170, required: true },
-  { key: "change",   label: "Change",   width: 124 },
+  { key: "change",   label: "Change",   width: 172 },
   { key: "by",       label: "Matched by", width: 112 },
   { key: "critical", label: "Critical", width: 96,  align: "center", dot: "bg-critical" },
   { key: "high",     label: "High",     width: 84,  align: "center", dot: "bg-high" },
@@ -146,7 +146,7 @@ export default function Compare() {
   const vulnCounts = countBy(vulnRows.map((r) => r.change));
   const shownVulns = useMemo(() => {
     const matches = (c: VulnChange) =>
-      vulnFilter === "changes" ? c !== "unchanged" : vulnFilter === "partly" ? c === "partly" || c === "changed" : c === vulnFilter;
+      vulnFilter === "changes" ? c !== "unchanged" : c === vulnFilter;
     const cmp = (a: VulnDelta, b: VulnDelta) => {
       switch (vulnSort.sortKey) {
         case "severity": return a.severity - b.severity || b.name.localeCompare(a.name);
@@ -236,10 +236,11 @@ export default function Compare() {
             value={vulnFilter}
             onChange={setVulnFilter}
             options={[
-              { value: "changes",    label: "All changes",  count: vulnRows.length - (vulnCounts.unchanged ?? 0) },
+              { value: "changes",    label: "All",          count: vulnRows.length - (vulnCounts.unchanged ?? 0) },
               { value: "new",        label: "New",          count: vulnCounts.new ?? 0 },
               { value: "fixed",      label: "Fixed",        count: vulnCounts.fixed ?? 0 },
-              { value: "partly",     label: "Partly fixed", count: (vulnCounts.partly ?? 0) + (vulnCounts.changed ?? 0) },
+              { value: "partly",     label: "Partly fixed", count: vulnCounts.partly ?? 0 },
+              { value: "changed",    label: "Changed",      count: vulnCounts.changed ?? 0 },
               { value: "increased",  label: "Increased",    count: vulnCounts.increased ?? 0 },
               { value: "unverified", label: "Not verified", count: vulnCounts.unverified ?? 0 },
               { value: "unchanged",  label: "Unchanged",    count: vulnCounts.unchanged ?? 0 },
@@ -251,7 +252,7 @@ export default function Compare() {
             value={hostFilter}
             onChange={setHostFilter}
             options={[
-              { value: "all",     label: "All hosts",     count: hostRows.length },
+              { value: "all",     label: "All",          count: hostRows.length },
               { value: "worsened", label: "Worsened",          count: hostCounts.worsened ?? 0 },
               { value: "improved", label: "Improved",          count: hostCounts.improved ?? 0 },
               { value: "new",      label: "New hosts",         count: hostCounts.new ?? 0 },
@@ -402,7 +403,7 @@ function Pill({ change, map }: { change: string; map: Record<string, { label: st
   const c = map[change];
   const Icon = CHANGE_ICON[change];
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-tiny font-semibold ${TONE[c.tone]}`} title={c.title}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full whitespace-nowrap text-tiny font-semibold ${TONE[c.tone]}`} title={c.title}>
       {Icon && <Icon size={11} strokeWidth={2.6} aria-hidden="true" />}{c.label}
     </span>
   );
