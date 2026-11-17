@@ -88,6 +88,8 @@ export default function About({ collapsed }: { collapsed: boolean }) {
             <dd>The app has no online features and never sends any data anywhere.</dd>
           </dl>
           <p className="pt-3 border-t border-ink-200 dark:border-ink-700 text-caption text-ink-500 dark:text-ink-400">
+            © 2026 Advens GmbH. Apache License 2.0.
+            <br />
             Not affiliated with Tenable. Nessus is a trademark of Tenable, Inc.
           </p>
         </div>

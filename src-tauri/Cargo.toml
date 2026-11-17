@@ -2,7 +2,8 @@
 name = "scan-insights-for-nessus"
 version = "1.0.0"
 description = "Scan Insights for Nessus - desktop .nessus file viewer"
-authors = []
+authors = ["Advens GmbH"]
+license = "Apache-2.0"
 edition = "2021"
 
 [lib]

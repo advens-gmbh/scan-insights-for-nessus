@@ -22,6 +22,9 @@ Download the file for your system from the [Releases](../../releases) page.
 
 **Windows:** the app needs the WebView2 Runtime, which is pre-installed on Windows 10 21H2+ and Windows 11.
 
+> [!Note]
+> SmartScreen may warn when you first start the app, because the files aren't code-signed (click More info, then Run anyway).
+
 **Linux:** the packages need Ubuntu 24.04, Debian 13, Fedora 40 or newer. If the window stays blank, which is a known WebKitGTK problem on some graphics setups, start the app with `WEBKIT_DISABLE_DMABUF_RENDERER=1 scan-insights-for-nessus`.
 
 ## Main Features
@@ -51,7 +54,7 @@ The app has the below main features:
 - [Export](#export)
 
 > [!NOTE]
-> **Info findings:** Info findings are mostly noise, so they start hidden on every page. You can use the `Show Info findings` option to display them. Hosts and services with nothing but Info findings stay listed, because they are still machines and open ports in the scan. `Export` is the exception: it has its own severity selection, which includes Info findings unless you turn it off.
+> **Info findings:** Info findings start hidden on every page because they are mostly noise. You can use the `Show Info findings` option to display them. Hosts and services with nothing but Info findings stay listed, because they are still machines and open ports in the scan. `Export` is the exception: it has its own severity selection, which includes Info findings unless you turn it off.
 
 ## Dashboard
 
@@ -97,7 +100,7 @@ Clicking a host shows information about that system (OS, Domain, MAC Address, op
 
 ## Services
 
-The `Services` menu lists every port and protocol that has at least one finding, with how many hosts have it and how severe its findings are. A port counts as a service only because Nessus reported something on it, so a port with no findings doesn't appear. This view also offers filtering by severity, and additionally by TCP/UDP ports. Additional columns can be displayed using the column picker.  
+The `Services` menu lists every port and protocol that has at least one finding, with how many hosts have it and how severe its findings are. A port counts as a service only because Nessus reported something on it. A port with no findings doesn't appear. This view also offers filtering by severity, and additionally by TCP/UDP ports. Additional columns can be displayed using the column picker.  
 
 ![Services](./screenshots/Services.png)
 
@@ -113,11 +116,13 @@ Clicking one service shows those hosts and findings.
 
 The `Topology` menu draws networks, plus the machines that connect them. Each network is a `/24` unless the scan reveals its real size, and machines are coloured by their worst finding. When more than 8 networks sit behind the same router, they are folded into a larger block (a `/16`, or a range from a routing table), which opens on click. Only machines that connect networks are drawn, and clicking one shows its details. Clicking a network shows its attack path.
 
-The graph is inferred from the scan data, so it is not a map of the real network. Solid links mean confirmed path, dashed mean likely or possible path, and the teal line shows the possible attack path. Hosts are matched by IP address alone, so only load files from the same network environment.
+The graph is not a map of the real network. It is inferred from the scan data. Networks, routers and machines on more than one network come from Nessus plugin outputs: traceroute (`10287`), DHCP (`10663`), network interfaces over SSH and WMI (`25203`, `24272`), SNMP routing tables (`34022`), IP forwarding (`50686`) and netstat (`58651`, `64582`). Solid links mean confirmed path, dashed mean likely or possible path, and the teal line shows the possible attack path.
+
+When several files are open, hosts with the same IP address count as the same host. Use the file filter to show files from different networks separately.
 
 The view also lists machines that are present on multiple networks (e.g. multiple network cards which get IP addresses from different network segments). Networks that were never scanned are marked separately, and so is a machine's address on such a network.
 
-The view also shows a possible attack path. Pick a network in the `Attack path to` list to see the steps from the scanner to it, which machines lead there, and their findings.
+The view also shows a possible attack path. Pick a network in the `Attack path to` list to see the steps from the scanner to it, which machines lead there, and their findings. When there is more than one way, the app picks the one that relies least on taking over machines, and prefers machines whose connection to the next network is confirmed over likely or possible ones.
 
 ![Topology](./screenshots/Topology.png)
 
@@ -125,7 +130,7 @@ The view also shows a possible attack path. Pick a network in the `Attack path t
 
 In the `Compare` menu two scan files can be selected for comparison. This is ideal if you do scans in intervals (e.g. every month or every 3 months etc.). Selecting two files will compare them and inspect which vulnerabilities are resolved, or which vulnerabilities are new, or which persisted. Findings are matched by plugin, host, port and protocol.
 
-A finding only counts as resolved if its host was scanned again without losing credentials. Otherwise it is listed as `Not verified`, because the second scan cannot confirm a fix. A different scan policy can still hide a finding, so compare scans that used the same policy.
+A finding only counts as resolved if its host was scanned again without losing credentials. Otherwise it is listed as `Not verified`, because the second scan cannot confirm a fix. Compare scans that used the same policy, because a different scan policy can still hide a finding.
 
 Comparing scan files can be done either by vulnerabilities or by hosts. If files are compared by vulnerabilities then a vulnerability is inspected on how many hosts it was present in the old and in the new file.
 
@@ -212,7 +217,7 @@ The npm `@tauri-apps/*` packages and the Rust `tauri*` crates must stay on the s
 
 ### Building
 
-A build only produces files for the system it runs on, so Linux packages can't be built on Windows or the other way around.
+A build only produces files for the system it runs on (Linux packages can't be built on Windows or the other way around).
 
 #### App only (simplest)
 
@@ -231,3 +236,10 @@ npm run tauri build
 This produces the installers in `src-tauri/target/release/bundle/`: MSI and NSIS on Windows, and `.deb`, `.rpm` and AppImage on Linux. On Ubuntu or Debian, the AppImage also needs the `file`, `xdg-utils` and `libfuse2t64` packages.
 
 PRs are welcome :)
+
+## License
+
+Licensed under the [Apache License 2.0](./LICENSE). Copyright 2026 Advens GmbH.
+The licenses of the libraries the app includes are in [THIRD-PARTY-NOTICES.txt](./THIRD-PARTY-NOTICES.txt).
+
+Not affiliated with Tenable. Nessus is a trademark of Tenable, Inc.

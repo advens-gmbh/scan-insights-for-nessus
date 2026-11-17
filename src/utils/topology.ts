@@ -468,7 +468,7 @@ export function buildTopology(hosts: TopologyHost[]): Topology {
     const texts = evidence.map((e) => e.text);
     const strength = evidence.reduce<Strength>((best, e) => (STRENGTH_RANK[e.strength] > STRENGTH_RANK[best] ? e.strength : best), "possible");
     if (forwarding) {
-      texts.push(evidence.length > 0 ? "IP forwarding is on, so it can pass traffic between them (plugin 50686)" : "IP forwarding is on, so it routes traffic, but its other networks aren't in the scan (plugin 50686)");
+      texts.push(evidence.length > 0 ? "IP forwarding is enabled, therefore it can pass traffic between them (plugin 50686)" : "IP forwarding is on, but its other networks aren't in the scan (plugin 50686)");
     }
 
     const scannedHosts = ips.map((ip) => byIp.get(ip)!).sort((a, b) => compareHosts(a.ip, b.ip));

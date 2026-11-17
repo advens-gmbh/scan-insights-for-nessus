@@ -346,7 +346,7 @@ fn parse_source<R: BufRead>(mut reader: Reader<R>, total: u64, path: &str, filen
     }
     if depth > 0 {
         return Err(
-            "The file is incomplete: it ends before the scan data is closed, so it may be truncated"
+            "The file is incomplete: it ends before the scan data is closed."
                 .into(),
         );
     }
@@ -705,7 +705,7 @@ mod tests {
     fn rejects_a_file_cut_off_at_a_tag_boundary() {
         let full = scan(&item(""));
         let cut = &full[..full.find("</ReportHost>").unwrap()];
-        assert!(parse_str(cut).unwrap_err().contains("truncated"));
+        assert!(parse_str(cut).unwrap_err().contains("incomplete"));
     }
 
     #[test]
@@ -1023,7 +1023,7 @@ Patch management checks : None</plugin_output></ReportItem>"#
         let cut = temp.path().join("cut.nessus");
         let full = scan(&item(""));
         std::fs::write(&cut, &full[..full.find("</ReportHost>").unwrap()]).unwrap();
-        assert!(parse_nessus_file(cut.to_str().unwrap()).unwrap_err().contains("truncated"));
+        assert!(parse_nessus_file(cut.to_str().unwrap()).unwrap_err().contains("incomplete"));
     }
 }
 

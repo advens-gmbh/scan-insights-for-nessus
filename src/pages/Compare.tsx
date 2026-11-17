@@ -29,7 +29,7 @@ const NO_VULNS: VulnDelta[] = [];
 const NO_HOSTS: HostDelta[] = [];
 
 type View = "vulns" | "hosts";
-type VulnFilter = "changes" | "new" | "fixed" | "partly" | "changed" | "increased" | "unverified" | "unchanged";
+type VulnFilter = "all" | "new" | "fixed" | "partly" | "changed" | "increased" | "unverified" | "unchanged";
 type HostFilter = "all" | HostChange;
 
 const VULN_CHANGE: Record<VulnChange, { label: string; tone: string; title: string }> = {
@@ -46,8 +46,8 @@ const HOST_CHANGE: Record<HostChange, { label: string; tone: string; title: stri
   worsened: { label: "Worsened",          tone: "bad",  title: "More findings at the worst severity that changed" },
   improved: { label: "Improved",          tone: "good", title: "Fewer findings at the worst severity that changed" },
   new:      { label: "New host",          tone: "bad",  title: "Only in B" },
-  missing:  { label: "Not rescanned",     tone: "warn", title: "Only in A, so nothing on it can be confirmed fixed" },
-  replaced: { label: "Different machine", tone: "warn", title: "Another machine has this IP in B, so nothing on this one can be confirmed fixed" },
+  missing:  { label: "Not rescanned",     tone: "warn", title: "Only in A. Without a rescan, no fix can be confirmed." },
+  replaced: { label: "Different machine", tone: "warn", title: "Another machine has this IP in B. This one wasn't rescanned." },
   same:     { label: "No change",         tone: "same", title: "The same counts in both scans" },
 };
 
@@ -114,7 +114,7 @@ export default function Compare() {
   const [picked, setPicked] = usePageState<[string, string] | null>("compare:pair", null);
   const [view, setView] = usePageState<View>("compare:view", "vulns");
   const shownView = useAfterPaint(view);
-  const [vulnFilter, setVulnFilter] = usePageState<VulnFilter>("compare:vulns", "changes");
+  const [vulnFilter, setVulnFilter] = usePageState<VulnFilter>("compare:vulns", "all");
   const [hostFilter, setHostFilter] = usePageState<HostFilter>("compare:hosts", "all");
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export default function Compare() {
   const vulnCounts = countBy(vulnRows.map((r) => r.change));
   const shownVulns = useMemo(() => {
     const matches = (c: VulnChange) =>
-      vulnFilter === "changes" ? c !== "unchanged" : c === vulnFilter;
+      vulnFilter === "all" || c === vulnFilter;
     const cmp = (a: VulnDelta, b: VulnDelta) => {
       switch (vulnSort.sortKey) {
         case "severity": return a.severity - b.severity || b.name.localeCompare(a.name);
@@ -236,7 +236,7 @@ export default function Compare() {
             value={vulnFilter}
             onChange={setVulnFilter}
             options={[
-              { value: "changes",    label: "All",          count: vulnRows.length - (vulnCounts.unchanged ?? 0) },
+              { value: "all",        label: "All",          count: vulnRows.length },
               { value: "new",        label: "New",          count: vulnCounts.new ?? 0 },
               { value: "fixed",      label: "Fixed",        count: vulnCounts.fixed ?? 0 },
               { value: "partly",     label: "Partly fixed", count: vulnCounts.partly ?? 0 },
@@ -311,7 +311,7 @@ export default function Compare() {
 
       <p className="text-caption text-ink-500 dark:text-ink-400 shrink-0">
         Hosts are matched by MAC address, then hostname, then NetBIOS name, and by IP only when neither scan has one of these.
-        Findings are then compared within each matched pair of hosts, by plugin, port and protocol, so they follow a host that changed IP. A different scan policy between the two scans can still hide a finding, so check that both used the same one.
+        Findings are then compared within each matched pair of hosts, by plugin, port and protocol. That way a host keeps its findings when its IP changes. Use the same scan policy for both scans, because a different one can hide findings.
       </p>
     </div>
   );

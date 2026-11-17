@@ -117,9 +117,9 @@ export function explainFailure(f: Pick<LoadFailure, "kind" | "message">): string
     case "old_format":
       return "This is the old .nessus v1 format. Export the scan again from a current Nessus, which writes the newer format.";
     case "truncated":
-      return "The file is cut off: it ends in the middle of the scan data, so it was probably not copied or downloaded completely. Copy it again, then try once more.";
+      return "This file is cut off. The copy or download probably didn't finish. Copy it again, then try once more.";
     case "damaged":
-      return "Part of the file isn't valid, so it may be damaged. Export or copy it again, then try once more.";
+      return "Part of this file can't be read, probably damaged. Export or copy it again, then try once more.";
     case "no_hosts":
       return "It holds a scan policy, but no scanned hosts. Export the finished scan instead: in Nessus, open the scan's results and use Export › Nessus.";
     default:

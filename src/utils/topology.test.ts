@@ -84,7 +84,7 @@ describe("buildTopology", () => {
     expect(b.strength).toBe("confirmed");
     expect(b.nets).toEqual([{ key: "10.20.1.0/24", scanned: true }, { key: "10.60.0.0/24", scanned: false }]);
     expect(b.addresses.map((a) => [a.ip, a.iface])).toEqual([["10.20.1.5", "eth0"], ["10.60.0.5", "eth1"]]);
-    expect(b.evidence).toEqual(["Network cards listed over SSH (plugin 25203)", "IP forwarding is on, so it can pass traffic between them (plugin 50686)"]);
+    expect(b.evidence).toEqual(["Network cards listed over SSH (plugin 25203)", "IP forwarding is enabled, therefore it can pass traffic between them (plugin 50686)"]);
     expect(t.unscanned).toEqual([{ key: "10.60.0.0/24", net: netOf("10.60.0.5", 24), reasons: [{ ip: "10.20.1.5", text: "fw-01.corp.example has an address here: 10.60.0.5 on eth1" }] }]);
     expect(b.linkNets).toEqual(["10.20.1.0/24"]);
   });
@@ -110,7 +110,7 @@ describe("buildTopology", () => {
 
   it("IP forwarding alone is only possible", () => {
     const t = buildTopology([host("192.168.1.1", [item(PLUGIN.forwarding)])]);
-    expect(t.bridges.map((b) => [b.strength, b.evidence])).toEqual([["possible", ["IP forwarding is on, so it routes traffic, but its other networks aren't in the scan (plugin 50686)"]]]);
+    expect(t.bridges.map((b) => [b.strength, b.evidence])).toEqual([["possible", ["IP forwarding is on, but its other networks aren't in the scan (plugin 50686)"]]]);
   });
 
   it("an address list on one network isn't a bridge", () => {

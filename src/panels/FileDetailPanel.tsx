@@ -125,7 +125,7 @@ function FileContent({ file, onClose }: { file: ScanFile; onClose: () => void })
         {withoutCredentials.length > 0 && (
           <IpSection
             title={`Without working credentials (${withoutCredentials.length})`}
-            note="Local checks didn't run on these hosts, so their findings may be incomplete."
+            note="Nessus couldn't log in to these hosts. Anything that needs a login, like missing patches, wasn't checked."
             hosts={withoutCredentials}
             fileId={file.id}
           />

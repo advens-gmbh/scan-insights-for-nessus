@@ -174,7 +174,7 @@ export default function Trends() {
         {mixed && (
           <p className="flex items-center gap-2 text-small text-warn-800 dark:text-warn-300">
             <AlertTriangle size={14} className="shrink-0" />
-            Some of these files scanned different targets or hosts, so the chart mixes different scans.
+            The chart mixes different scans, because some of these files scanned other targets or hosts.
           </p>
         )}
       </section>

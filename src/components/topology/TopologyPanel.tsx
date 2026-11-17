@@ -72,7 +72,7 @@ function Machine({ b, levels, lit, onHover, bare = false }: { b: Bridge; levels:
           <span key={a.ip} className="truncate" title={a.iface ? `${a.ip} on ${a.iface}` : a.ip}>
             {a.host ? (
               <button onClick={() => openHostPanel(a.ip)} className="tabular-nums text-accent-700 dark:text-accent-400 hover:underline">{a.ip}</button>
-            ) : <span className="tabular-nums text-ink-700 dark:text-ink-200" title="Nessus didn't scan this address, so there are no findings for it">{a.ip}</span>}
+            ) : <span className="tabular-nums text-ink-700 dark:text-ink-200" title="Nessus didn't scan this address.">{a.ip}</span>}
             {a.iface && <span> on {a.iface}</span>}
             {!a.host && <span className="ml-1.5 px-1 rounded bg-ink-100 dark:bg-ink-700 text-tiny font-semibold text-ink-500 dark:text-ink-400">not scanned</span>}
           </span>
@@ -217,7 +217,7 @@ export function CrowdPanel({ crowd, graph, levels, worstShown, onMachine, onPick
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 flex flex-col gap-4">
         <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">
-          Each of these machines sits in its own network and also reaches the networks below. Taking over any one of them is enough, so the map draws them as one.
+          Each of these machines sits in their own network, and all of them reach the networks below. Taking over any one is enough.
         </p>
         <div>
           <h3 className={SECTION}>They all reach</h3>
@@ -317,7 +317,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
       steps.push(n.kind === "net"
         ? { title: <>Start in <b>{n.net.key}</b></>, text: `Nessus is here (${n.net.scanners.map((s) => s.scanner).join(", ")}).`, files: n.net.scanners.flatMap((s) => s.fileIds) }
         : n.kind === "scanner"
-          ? { title: "Start at Nessus", text: "Its address isn't in the scan, so where it sits is unknown.", files: n.root.fileIds }
+          ? { title: "Start at Nessus", text: "The scanner's own address isn't in the scan file.", files: n.root.fileIds }
           : { title: "Start at Nessus", text: "" });
       return;
     }
@@ -330,7 +330,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
       const cards = pool.some((m) => m.bridge?.evidence[0]?.startsWith("Network cards"));
       steps.push({
         title: <>Take over one of <b>{pool.length} machines</b>{prev.kind === "net" || prev.kind === "block" ? <> in <b>{label(prev)}</b></> : null}</>,
-        text: `Each ${cards ? "has a network card in" : "reaches"} ${goes}, so any one will do.`,
+        text: `Any of them works (each ${cards ? "has a network card in" : "reaches"} ${goes}).`,
         machines: pool,
       });
       why.push(...(pool[0].bridge?.evidence ?? []), ...pool[0].talks.map((t) => t.text));
@@ -342,7 +342,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
       if (!out || smooth(out.link)) {
         steps.push({
           title: <>Go through <b>{n.name}</b>{next && next.kind !== "machine" ? <> to <b>{i + 1 === nodes.length - 1 && end ? end.key : label(next)}</b></> : null}</>,
-          text: n.router ? "It routes traffic there, so no takeover is needed." : "No takeover needed.",
+          text: n.router ? "It's a router, no takeover needed." : "No takeover needed.",
         });
         skip = !!next && next.kind !== "machine";
         return;
@@ -350,7 +350,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
       const prev = nodes[i - 1];
       steps.push({
         title: <>Take over <b>{n.name}</b></>,
-        text: `${n.ips.join(", ")}${prev.kind !== "machine" ? `, in ${label(prev)}` : ""}.${n.hosts.length ? "" : " It wasn't scanned, so its weak spots are unknown."}`,
+        text: `${n.ips.join(", ")}${prev.kind !== "machine" ? `, in ${label(prev)}` : ""}.${n.hosts.length ? "" : " Not scanned, its weak spots are unknown."}`,
         hosts: n.hosts,
       });
       why.push(...(n.bridge?.evidence ?? []), ...n.talks.map((t) => t.text));
@@ -364,7 +364,7 @@ function stepsOf(graph: WayGraph, way: { nodes: string[]; edges: WayEdge[] }, ta
     const never = !!net && !net.group;
     const prev = nodes[i - 1];
     if (into.link === "unknown") {
-      steps.push({ title: <>Reach <b>{name}</b></>, text: "Nessus scanned it, but without a traceroute, so the route there is unknown." });
+      steps.push({ title: <>Reach <b>{name}</b></>, text: "Nessus scanned it, but has no traceroute showing how to get there." });
     } else if (prev.kind === "crowd") {
       steps.push({ title: <>You are in <b>{name}</b></>, text: never ? "It wasn't scanned." : "" });
     } else if (prev.kind !== "machine") {
@@ -561,11 +561,11 @@ export function MachinePanel({ machine, levels, worstShown, onClose, onHide }: {
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 flex flex-col gap-4">
         {machine.router && machine.hops > 1 && (
           <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">
-            Nessus's traceroute passed these {machine.hops} routers one after the other, with nothing else branching off between them, so the map draws them as one.
+            The map shows these {machine.hops} routers as one box, because Nessus's traceroute passed them in a row, with nothing branching off in between.
           </p>
         )}
         {machine.router && machine.hops === 1 && machine.hosts.length === 0 && (
-          <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">Nessus's traffic passed this router, but the router itself wasn't scanned, so nothing more is known about it.</p>
+          <p className="text-small leading-[19px] text-ink-600 dark:text-ink-300">Nessus's traffic went through this router, but the router itself wasn't scanned.</p>
         )}
         <div>
           <h3 className={SECTION}>{machine.router ? "In the order Nessus passed them" : "Its addresses"}</h3>

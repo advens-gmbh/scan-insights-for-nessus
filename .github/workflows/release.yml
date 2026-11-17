@@ -35,6 +35,10 @@ jobs:
       - run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
         env:
           GH_TOKEN: ${{ github.token }}
+      # The license and the third-party notices go next to the downloads. The portable exe has no installer to bring them.
+      - run: gh release upload "$GITHUB_REF_NAME" --clobber LICENSE NOTICE THIRD-PARTY-NOTICES.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   build:
     needs: create-release

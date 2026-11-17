@@ -100,7 +100,7 @@ function VulnContent({ pluginId, onClose }: { pluginId: number; onClose: () => v
           <SeverityBadge severity={vuln.severity} />
           {vuln.exploit_available && <ExploitTag />}
           {vuln.metasploit_available && <Tag>Metasploit</Tag>}
-          {vuln.unsupported_by_vendor && <Tag title="The vendor no longer supports this software, so no fix will come: upgrade or replace it">Unsupported</Tag>}
+          {vuln.unsupported_by_vendor && <Tag title="End of life: the vendor won't fix it anymore. Upgrade or replace it.">Unsupported</Tag>}
           <PanelButtons onClose={onClose} />
         </div>
         <h2 className="text-title font-semibold leading-snug text-ink-900 dark:text-ink-50">{vuln.plugin_name}</h2>
